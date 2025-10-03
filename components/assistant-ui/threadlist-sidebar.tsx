@@ -11,11 +11,25 @@ import {
   SidebarMenuItem,
   SidebarRail,
 } from "@/components/ui/sidebar";
-import { ThreadList } from "@/components/assistant-ui/thread-list";
+import { HierarchicalThreadList } from "@/components/assistant-ui/hierarchical-thread-list";
+import { ThreadNode } from "@/lib/thread-manager";
+
+interface ThreadListSidebarProps extends React.ComponentProps<typeof Sidebar> {
+  threadHierarchy?: ThreadNode[];
+  activeThreadId?: string;
+  onSelectThread?: (threadId: string) => void;
+  onDeleteThread?: (threadId: string) => void;
+  onNewThread?: () => void;
+}
 
 export function ThreadListSidebar({
+  threadHierarchy = [],
+  activeThreadId = "",
+  onSelectThread = () => {},
+  onDeleteThread = () => {},
+  onNewThread = () => {},
   ...props
-}: React.ComponentProps<typeof Sidebar>) {
+}: ThreadListSidebarProps) {
   return (
     <Sidebar {...props}>
       <SidebarHeader className="aui-sidebar-header mb-2 border-b">
@@ -43,7 +57,13 @@ export function ThreadListSidebar({
         </div>
       </SidebarHeader>
       <SidebarContent className="aui-sidebar-content px-2">
-        <ThreadList />
+        <HierarchicalThreadList
+          threadHierarchy={threadHierarchy}
+          activeThreadId={activeThreadId}
+          onSelectThread={onSelectThread}
+          onDeleteThread={onDeleteThread}
+          onNewThread={onNewThread}
+        />
       </SidebarContent>
       <SidebarRail />
       <SidebarFooter className="aui-sidebar-footer border-t">

@@ -5,6 +5,7 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
   CopyIcon,
+  GitBranchIcon,
   PencilIcon,
   RefreshCwIcon,
   Square,
@@ -20,6 +21,7 @@ import {
 } from "@assistant-ui/react";
 
 import type { FC } from "react";
+import { useRef } from "react";
 import { LazyMotion, MotionConfig, domAnimation } from "motion/react";
 import * as m from "motion/react-m";
 
@@ -35,7 +37,12 @@ import {
 
 import { cn } from "@/lib/utils";
 
-export const Thread: FC = () => {
+interface ThreadProps {
+  onTextSelection?: (text: string, position: { x: number; y: number }) => void;
+  onBranchFromMessage?: () => void;
+}
+
+export const Thread: FC<ThreadProps> = ({ onTextSelection, onBranchFromMessage }) => {
   return (
     <LazyMotion features={domAnimation}>
       <MotionConfig reducedMotion="user">
@@ -54,7 +61,7 @@ export const Thread: FC = () => {
               components={{
                 UserMessage,
                 EditComposer,
-                AssistantMessage,
+                AssistantMessage: () => <AssistantMessage onTextSelection={onTextSelection} onBranchFromMessage={onBranchFromMessage} />,
               }}
             />
 
@@ -237,14 +244,40 @@ const MessageError: FC = () => {
   );
 };
 
-const AssistantMessage: FC = () => {
+const AssistantMessage: FC<{ 
+  onTextSelection?: (text: string, position: { x: number; y: number }) => void;
+  onBranchFromMessage?: () => void;
+}> = ({ onTextSelection, onBranchFromMessage }) => {
+  const contentRef = useRef<HTMLDivElement>(null);
+
+  const handleMouseUp = () => {
+    const selection = window.getSelection();
+    const selectedText = selection?.toString().trim();
+
+    if (selectedText && selectedText.length > 0 && onTextSelection) {
+      const range = selection?.getRangeAt(0);
+      const rect = range?.getBoundingClientRect();
+
+      if (rect) {
+        onTextSelection(selectedText, {
+          x: rect.left + rect.width / 2,
+          y: rect.top,
+        });
+      }
+    }
+  };
+
   return (
     <MessagePrimitive.Root asChild>
       <div
         className="aui-assistant-message-root relative mx-auto w-full max-w-[var(--thread-max-width)] animate-in py-4 duration-150 ease-out fade-in slide-in-from-bottom-1 last:mb-24"
         data-role="assistant"
       >
-        <div className="aui-assistant-message-content mx-2 leading-7 break-words text-foreground">
+        <div 
+          ref={contentRef}
+          onMouseUp={handleMouseUp}
+          className="aui-assistant-message-content mx-2 leading-7 break-words text-foreground select-text cursor-text"
+        >
           <MessagePrimitive.Parts
             components={{
               Text: MarkdownText,
@@ -256,14 +289,14 @@ const AssistantMessage: FC = () => {
 
         <div className="aui-assistant-message-footer mt-2 ml-2 flex">
           <BranchPicker />
-          <AssistantActionBar />
+          <AssistantActionBar onBranchFromMessage={onBranchFromMessage} />
         </div>
       </div>
     </MessagePrimitive.Root>
   );
 };
 
-const AssistantActionBar: FC = () => {
+const AssistantActionBar: FC<{ onBranchFromMessage?: () => void }> = ({ onBranchFromMessage }) => {
   return (
     <ActionBarPrimitive.Root
       hideWhenRunning
@@ -286,6 +319,11 @@ const AssistantActionBar: FC = () => {
           <RefreshCwIcon />
         </TooltipIconButton>
       </ActionBarPrimitive.Reload>
+      {onBranchFromMessage && (
+        <TooltipIconButton tooltip="Branch conversation" onClick={onBranchFromMessage}>
+          <GitBranchIcon />
+        </TooltipIconButton>
+      )}
     </ActionBarPrimitive.Root>
   );
 };
