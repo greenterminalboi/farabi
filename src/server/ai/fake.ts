@@ -1,43 +1,117 @@
-import { AIUnavailableError, type AIProvider, type ReplyInput, type SummaryInput } from "./provider";
+import {
+  abortError,
+  AIPartialReplyError,
+  AIUnavailableError,
+  type AIProvider,
+  type DefineInput,
+  type DefinitionText,
+  type ReplyInput,
+  type ReplyOptions,
+  type SummaryInput,
+} from "./provider";
 
-export type FakeMode = { mode: "ok" | "fail" | "slow"; delayMs?: number };
+export type FakeMode = {
+  mode: "ok" | "fail" | "slow" | "stall";
+  delayMs?: number;
+  /** Pause between streamed chunks (default 40 ms); larger values make replies stoppable in tests. */
+  chunkDelayMs?: number;
+};
 
 // Kept on globalThis so route handlers and tests share one instance across module reloads.
-const state = globalThis as unknown as {
-  __farabiFake?: { mode: FakeMode; lastReply?: ReplyInput; lastSummary?: SummaryInput };
+type FakeState = {
+  mode: FakeMode;
+  lastReply?: ReplyInput;
+  lastSummary?: SummaryInput;
+  lastDefine?: DefineInput;
+  replyInputs: ReplyInput[];
 };
-state.__farabiFake ??= { mode: { mode: "ok" } };
+const state = globalThis as unknown as { __farabiFake?: FakeState };
+state.__farabiFake ??= { mode: { mode: "ok" }, replyInputs: [] };
+state.__farabiFake.replyInputs ??= [];
 const fake = state.__farabiFake;
+
+const CHUNKS = 5;
+const CHUNK_DELAY_MS = 40;
 
 export function setFakeMode(mode: FakeMode): void {
   fake.mode = mode;
 }
 
-export function getFakeCalls(): { lastReply?: ReplyInput; lastSummary?: SummaryInput } {
-  return { lastReply: fake.lastReply, lastSummary: fake.lastSummary };
+export function getFakeCalls(): {
+  lastReply?: ReplyInput;
+  lastSummary?: SummaryInput;
+  lastDefine?: DefineInput;
+  replyInputs: ReplyInput[];
+} {
+  return {
+    lastReply: fake.lastReply,
+    lastSummary: fake.lastSummary,
+    lastDefine: fake.lastDefine,
+    replyInputs: fake.replyInputs,
+  };
 }
 
-async function behave(): Promise<void> {
+export function resetFakeCalls(): void {
+  fake.replyInputs = [];
+  fake.lastReply = undefined;
+  fake.lastSummary = undefined;
+  fake.lastDefine = undefined;
+}
+
+const sleep = (ms: number, signal?: AbortSignal) =>
+  new Promise<void>((resolve, reject) => {
+    if (signal?.aborted) return reject(abortError());
+    const t = setTimeout(resolve, ms);
+    signal?.addEventListener("abort", () => {
+      clearTimeout(t);
+      reject(abortError());
+    });
+  });
+
+async function behave(signal?: AbortSignal): Promise<void> {
   if (fake.mode.mode === "fail") throw new AIUnavailableError("Fake provider set to fail");
-  if (fake.mode.mode === "slow") {
-    await new Promise((resolve) => setTimeout(resolve, fake.mode.delayMs ?? 5000));
-  }
+  if (fake.mode.mode === "slow") await sleep(fake.mode.delayMs ?? 5000, signal);
+}
+
+/** Splits text into n roughly equal pieces. */
+function chunk(text: string, n: number): string[] {
+  const size = Math.ceil(text.length / n);
+  return Array.from({ length: n }, (_, i) => text.slice(i * size, (i + 1) * size)).filter(Boolean);
 }
 
 export class FakeAIProvider implements AIProvider {
-  async reply(input: ReplyInput): Promise<string> {
+  async reply(input: ReplyInput, options?: ReplyOptions): Promise<string> {
     fake.lastReply = input;
-    await behave();
+    fake.replyInputs.push(input);
+    await behave(input.signal);
     const lastUser = [...input.messages].reverse().find((m) => m.role === "user");
     const echoed = (lastUser?.content ?? "").trim().replace(/[.!?]+$/, "");
-    return `Echo: ${echoed}. Containers are mentioned here.`;
+    const text = `Echo: ${echoed}. Containers are mentioned here.`;
+    const pieces = chunk(text, CHUNKS);
+    let sent = "";
+    for (const [i, piece] of pieces.entries()) {
+      if (fake.mode.mode === "stall" && i === 2) throw new AIPartialReplyError(sent);
+      await sleep(fake.mode.chunkDelayMs ?? CHUNK_DELAY_MS, input.signal);
+      options?.onText?.(piece);
+      sent += piece;
+    }
+    return text;
   }
 
   async summarize(input: SummaryInput): Promise<string> {
     fake.lastSummary = input;
-    await behave();
+    await behave(input.signal);
     const last = input.messages.at(-1)?.content ?? input.anchorText ?? "";
     const words = last.trim().split(/\s+/).filter(Boolean).slice(-6).join(" ");
     return `About: ${words.replace(/[.!?]+$/, "")}.`;
+  }
+
+  async define(input: DefineInput): Promise<DefinitionText> {
+    fake.lastDefine = input;
+    await behave(input.signal);
+    return {
+      general: `General meaning of ${input.term}.`,
+      usage: `Here, ${input.term} refers to what the conversation discussed.`,
+    };
   }
 }

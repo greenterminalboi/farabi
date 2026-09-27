@@ -1,5 +1,5 @@
 import type Anthropic from "@anthropic-ai/sdk";
-import type { ChatTurn, ReplyInput, SummaryInput } from "./provider";
+import { AIUnavailableError, type ChatTurn, type DefineInput, type DefinitionText, type ReplyInput, type SummaryInput } from "./provider";
 
 type TextBlock = Anthropic.Beta.BetaTextBlockParam;
 type MessageParam = Anthropic.Beta.BetaMessageParam;
@@ -92,4 +92,37 @@ export function buildHeadlessReply(input: ReplyInput): { system: string; prompt:
 export function buildHeadlessSummary(input: SummaryInput): { system: string; prompt: string } {
   const { system, messages } = buildSummaryRequest(input);
   return { system, prompt: messages[0].content as string };
+}
+
+export const DEFINE_SYSTEM = `You write short glossary cards for a person's learning notes. Each card has exactly two parts:
+
+GENERAL: what the term means in general, in at most two sentences.
+IN THIS CONVERSATION: how the term is used in the conversation you are given, in one sentence, based only on that conversation.
+
+Reply with exactly those two labelled lines and nothing else.`;
+
+export function buildDefineRequest(input: DefineInput): { system: string; prompt: string } {
+  return {
+    system: DEFINE_SYSTEM,
+    prompt: `<term>${escape(input.term)}</term>
+
+<captured_from>
+${escape(input.sourceMessage.content)}
+</captured_from>
+
+<conversation>
+${transcript(input.messages)}
+</conversation>
+
+Write the card for the term.`,
+  };
+}
+
+/** Parses the two labelled parts of a definition card. */
+export function parseDefinition(text: string): DefinitionText {
+  const general = /GENERAL:\s*([\s\S]*?)(?=\n\s*IN THIS CONVERSATION:|$)/i.exec(text)?.[1];
+  const usage = /IN THIS CONVERSATION:\s*([\s\S]*)$/i.exec(text)?.[1];
+  const clean = (s?: string) => (s ?? "").replace(/\s+/g, " ").trim();
+  if (!clean(general) || !clean(usage)) throw new AIUnavailableError("The definition came back in an unexpected format");
+  return { general: clean(general), usage: clean(usage) };
 }

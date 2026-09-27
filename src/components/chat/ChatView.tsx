@@ -4,8 +4,11 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { api, ApiError } from "@/lib/api";
 import { getCachedNode, setCachedNode } from "@/lib/nodeCache";
+import { useReplyStream } from "@/lib/replyStream";
 import type { Marker, NodeView } from "@/shared/schemas";
+import { useDefinitionsStore } from "@/state/definitionsStore";
 import { nodeViewState, useViewStore } from "@/state/viewStore";
+import { TermCard } from "@/components/definitions/TermCard";
 import { BranchAction } from "./BranchAction";
 import { Composer } from "./Composer";
 import { InheritedContext } from "./InheritedContext";
@@ -26,6 +29,14 @@ export function ChatView({ nodeId }: { nodeId: string }) {
   const restoredFor = useRef<string | null>(null);
   const setScroll = useViewStore((s) => s.setScroll);
   const setLastNode = useViewStore((s) => s.setLastNode);
+  const matcher = useDefinitionsStore((s) => s.matcher);
+  const refreshIndex = useDefinitionsStore((s) => s.refreshIndex);
+  const sectionRef = useRef<HTMLElement>(null);
+
+  // Load the collected terms once per conversation, so they're underlined (FR-036a).
+  useEffect(() => {
+    void refreshIndex();
+  }, [nodeId, refreshIndex]);
 
   const load = useCallback(
     () =>
@@ -79,36 +90,43 @@ export function ChatView({ nodeId }: { nodeId: string }) {
       if (list) list.scrollTop = list.scrollHeight;
     });
 
+  // The reply currently streaming in this conversation, if any (Feature 2, FR-001).
+  const pending = view?.messages.find((m) => m.role === "ai" && m.status === "pending") ?? null;
+  const streamText = useReplyStream(pending?.id ?? null, () => void load());
+  // A reply that failed before any text means the AI service couldn't be reached (FR-032).
+  const lastFailed = view?.messages.at(-1)?.status === "failed";
+  // A quick branch needs a completed message of the user's that hasn't anchored one yet (FR-012).
+  const lastUser = view ? [...view.messages].reverse().find((m) => m.role === "user" && m.status === "complete") : undefined;
+  const canQuickBranch =
+    !!lastUser && !view?.markers.some((m) => m.kind === "whole_message" && m.messageId === lastUser.id);
+  const shownError =
+    error ?? (lastFailed ? "AI service unavailable. Your message was saved. Use Retry on the reply." : null);
+
+  // Keep the newest text in view while it streams, if the user is already near the bottom.
+  useEffect(() => {
+    const list = listRef.current;
+    if (!list || !streamText) return;
+    if (list.scrollHeight - list.scrollTop - list.clientHeight < 120) list.scrollTop = list.scrollHeight;
+  }, [streamText]);
+
   async function send(content: string): Promise<"stored" | "not_stored"> {
     setError(null);
     setBusy(true);
-    // Optimistic: show the user's message and a pending reply right away.
-    setView((v) =>
-      v && {
-        ...v,
-        canRegenerate: null,
-        messages: [
-          ...v.messages,
-          { id: "optimistic-user", seq: -1, role: "user", content, status: "complete", provenance: "user_authored", createdAt: "" },
-          { id: "optimistic-ai", seq: -1, role: "ai", content: "", status: "pending", provenance: "ai_suggested", createdAt: "" },
-        ],
-      },
-    );
-    scrollToBottom();
     try {
-      await api.sendMessage(nodeId, content);
-      return "stored";
-    } catch (err) {
-      if (err instanceof ApiError && err.status === 503) {
-        setError("AI service unavailable. Your message was saved. Use Retry on the reply.");
+      const res = await api.sendMessage(nodeId, content);
+      if (res.kind === "quick_branch") {
+        // "????" branched from the user's last message (FR-010).
+        router.push(`/n/${res.node.id}`);
         return "stored";
       }
+      await load();
+      scrollToBottom();
+      return "stored";
+    } catch (err) {
       setError(err instanceof ApiError ? err.message : "Couldn't send. Your text is kept below.");
       return "not_stored";
     } finally {
       setBusy(false);
-      await load();
-      scrollToBottom();
     }
   }
 
@@ -145,12 +163,16 @@ export function ChatView({ nodeId }: { nodeId: string }) {
   if (loadError && !view) return <div className="empty-state">{loadError}</div>;
   if (!view) return <div className="empty-state">Loading…</div>;
 
-  const hasPending = view.messages.some((m) => m.status === "pending");
   return (
-    <section className="chat" data-node-id={nodeId}>
+    <section className="chat" data-node-id={nodeId} ref={sectionRef}>
       <NodeHeader summary={view.node.summary} />
       {view.anchor && view.node.parentId && (
-        <InheritedContext anchor={view.anchor} parentId={view.node.parentId} inherited={view.inheritedContext} />
+        <InheritedContext
+          anchor={view.anchor}
+          parentId={view.node.parentId}
+          inherited={view.inheritedContext}
+          matcher={matcher}
+        />
       )}
       <div
         className="message-list"
@@ -169,7 +191,9 @@ export function ChatView({ nodeId }: { nodeId: string }) {
             key={m.id}
             message={m}
             markers={markersByMessage.get(m.id) ?? NO_MARKERS}
+            matcher={matcher}
             canRegenerate={view.canRegenerate?.messageId === m.id}
+            streamText={m.id === pending?.id ? streamText : undefined}
             busy={busy}
             onRetry={(id) => act(() => api.retry(id))}
             onRegenerate={(id) => act(() => api.regenerate(id))}
@@ -177,6 +201,7 @@ export function ChatView({ nodeId }: { nodeId: string }) {
         ))}
       </div>
       <BranchAction nodeId={nodeId} containerRef={listRef} contentOf={contentOf} onError={setError} />
+      <TermCard containerRef={sectionRef} />
       {menu && (
         <div className="marker-menu" style={{ left: menu.x, top: menu.y }} onMouseLeave={() => setMenu(null)}>
           {menu.markers.map((m) => (
@@ -186,7 +211,15 @@ export function ChatView({ nodeId }: { nodeId: string }) {
           ))}
         </div>
       )}
-      <Composer nodeId={nodeId} disabled={busy || hasPending} error={error} onSend={send} />
+      <Composer
+        canQuickBranch={canQuickBranch}
+        nodeId={nodeId}
+        disabled={busy}
+        streaming={pending !== null}
+        onStop={() => pending && act(() => api.stop(pending.id))}
+        error={shownError}
+        onSend={send}
+      />
     </section>
   );
 }

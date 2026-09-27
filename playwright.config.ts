@@ -18,6 +18,7 @@ export default defineConfig({
   webServer: {
     // Production build, so performance checks (SC-004, SC-006) measure the real app.
     command: "npx next build && npx next start -H 127.0.0.1 -p 3100",
+    // A separate build folder, so running tests never breaks a dev server using `.next`.
     url: "http://127.0.0.1:3100",
     reuseExistingServer: false,
     timeout: 300_000,
@@ -27,6 +28,7 @@ export default defineConfig({
       SUMMARY_TRIGGER: "reply",
       FARABI_TEST_HOOKS: "1",
       NEXT_PUBLIC_FARABI_TEST_HOOKS: "1",
+      NEXT_DIST_DIR: ".next-test",
     },
   },
 });

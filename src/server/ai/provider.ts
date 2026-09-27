@@ -23,11 +23,56 @@ export interface SummaryInput {
   signal?: AbortSignal;
 }
 
+export interface DefineInput {
+  term: string;
+  /** The message the term was captured from. */
+  sourceMessage: ChatTurn;
+  /** The source node's own messages; never inherited context (Feature 2, FR-029). */
+  messages: ChatTurn[];
+  signal?: AbortSignal;
+}
+
+/** A short two-part definition: general meaning, then how the source conversation uses it. */
+export interface DefinitionText {
+  general: string;
+  usage: string;
+}
+
+export interface ReplyOptions {
+  /** Called with each new piece of text as it is generated (Feature 2 streaming). */
+  onText?: (delta: string) => void;
+}
+
 export interface AIProvider {
-  /** Resolves to the full reply text. Throws AIUnavailableError when the service can't be reached. */
-  reply(input: ReplyInput): Promise<string>;
+  /**
+   * Resolves to the full reply text. Throws AIUnavailableError when nothing was generated,
+   * AIPartialReplyError when it failed after some text, or an AbortError when input.signal aborts.
+   */
+  reply(input: ReplyInput, options?: ReplyOptions): Promise<string>;
   /** Resolves to exactly one sentence. Throws AIUnavailableError on failure. */
   summarize(input: SummaryInput): Promise<string>;
+  /** Drafts a short two-part definition (Feature 2, FR-029). Throws AIUnavailableError on failure. */
+  define(input: DefineInput): Promise<DefinitionText>;
 }
 
 export class AIUnavailableError extends Error {}
+
+/** Generation failed after some text was delivered through onText; carries that text. */
+export class AIPartialReplyError extends AIUnavailableError {
+  constructor(
+    readonly partial: string,
+    message = "The reply was cut off",
+  ) {
+    super(message);
+  }
+}
+
+export function isAbortError(err: unknown): boolean {
+  return err instanceof Error && err.name === "AbortError";
+}
+
+export function abortError(): Error {
+  const err = new Error("Aborted");
+  err.name = "AbortError";
+  return err;
+}

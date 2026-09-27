@@ -35,6 +35,10 @@ export const MapNode = z.object({
   anchorText: z.string().nullable(),
   summary: Summary,
   createdAt: z.string(),
+  /** Hand-placed position relative to the tree origin (Feature 2). */
+  manual: z.object({ x: z.number(), y: z.number() }).nullable(),
+  /** Label on the edge from this node to its parent (Feature 2). */
+  edgeLabel: z.string().nullable(),
 });
 export type MapNode = z.infer<typeof MapNode>;
 
@@ -42,6 +46,7 @@ export const MapTree = z.object({
   id: z.string(),
   rootNodeId: z.string(),
   origin: z.object({ x: z.number(), y: z.number() }),
+  userPlaced: z.boolean(),
 });
 export type MapTree = z.infer<typeof MapTree>;
 
@@ -50,9 +55,11 @@ export const Message = z.object({
   seq: z.number().int(),
   role: z.enum(["user", "ai"]),
   content: z.string(),
-  status: z.enum(["pending", "complete", "failed"]),
+  status: z.enum(["pending", "complete", "failed", "incomplete", "stopped"]),
   provenance: Provenance,
   createdAt: z.string(),
+  /** Text so far while a reply is streaming (Feature 2). */
+  partialContent: z.string().nullable(),
 });
 export type Message = z.infer<typeof Message>;
 
@@ -63,6 +70,7 @@ export const Marker = z.object({
   end: z.number().int(),
   anchorText: z.string(),
   childNodeId: z.string(),
+  kind: z.enum(["selection", "whole_message"]),
 });
 export type Marker = z.infer<typeof Marker>;
 
@@ -74,7 +82,14 @@ export type ForestResponse = z.infer<typeof ForestResponse>;
 export const CreateTreeResponse = z.object({ tree: MapTree, node: MapNode });
 export type CreateTreeResponse = z.infer<typeof CreateTreeResponse>;
 
-export const OriginRequest = z.object({ x: z.number().finite(), y: z.number().finite() });
+export const OriginRequest = z.object({
+  x: z.number().finite(),
+  y: z.number().finite(),
+  byUser: z.boolean().optional(),
+});
+export const PositionRequest = z.object({ x: z.number().finite(), y: z.number().finite() });
+export const NodeResponse = z.object({ node: MapNode });
+export const EdgeLabelRequest = z.object({ text: z.string().nullable() });
 export const OriginResponse = z.object({ tree: MapTree });
 
 export const InheritedContextEntry = z.object({ nodeId: z.string(), messages: z.array(Message) });
@@ -94,8 +109,18 @@ export const BranchResponse = z.object({ node: MapNode, marker: Marker });
 export type BranchResponse = z.infer<typeof BranchResponse>;
 
 export const SendMessageRequest = z.object({ content: z.string() });
-export const SendMessageResponse = z.object({ userMessage: Message, aiMessage: Message });
+export const SendMessageResponse = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("message"), userMessage: Message, aiMessage: Message }),
+  z.object({
+    kind: z.literal("quick_branch"),
+    node: MapNode,
+    marker: Marker,
+    userMessage: Message,
+    aiMessage: Message,
+  }),
+]);
 export type SendMessageResponse = z.infer<typeof SendMessageResponse>;
+export const StopResponse = z.object({ message: Message });
 
 export const RetryResponse = z.object({ aiMessage: Message });
 export const RegenerateResponse = z.object({
@@ -109,3 +134,43 @@ export const RefreshStaleResponse = z.object({ queued: z.number().int() });
 export const ErrorBody = z.object({
   error: z.object({ code: z.string(), message: z.string() }),
 });
+
+// Feature 2: definitions
+
+export const DefinitionVersion = z.object({
+  generalText: z.string(),
+  usageText: z.string(),
+  provenance: z.enum(["ai_suggested", "user_confirmed"]),
+  createdAt: z.string(),
+});
+export type DefinitionVersion = z.infer<typeof DefinitionVersion>;
+
+export const Definition = z.object({
+  id: z.string(),
+  term: z.string(),
+  termKey: z.string(),
+  source: z.object({ nodeId: z.string(), messageId: z.string() }),
+  status: z.enum(["drafting", "failed", "draft", "confirmed"]),
+  current: DefinitionVersion.nullable(),
+  createdAt: z.string(),
+});
+export type Definition = z.infer<typeof Definition>;
+
+export const CaptureRequest = z.object({
+  nodeId: z.string().uuid(),
+  messageId: z.string().uuid(),
+  start: z.number().int().min(0),
+  end: z.number().int().min(1),
+  text: z.string(),
+});
+export const CaptureResponse = z.object({ definition: Definition, created: z.boolean() });
+export const DefinitionsResponse = z.object({ definitions: z.array(Definition) });
+export const TermIndexEntry = z.object({ id: z.string(), term: z.string(), termKey: z.string() });
+export type TermIndexEntry = z.infer<typeof TermIndexEntry>;
+export const TermIndexResponse = z.object({ terms: z.array(TermIndexEntry) });
+export const DefinitionDetailResponse = z.object({
+  definition: Definition,
+  versions: z.array(DefinitionVersion),
+});
+export const DefinitionResponse = z.object({ definition: Definition });
+export const EditDefinitionRequest = z.object({ generalText: z.string(), usageText: z.string() });

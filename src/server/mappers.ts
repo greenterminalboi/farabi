@@ -20,6 +20,7 @@ export function toMessage(m: Selectable<MessagesTable>): Message {
     status: m.status,
     provenance: m.provenance,
     createdAt: iso(m.created_at),
+    partialContent: m.partial_content,
   };
 }
 
@@ -31,11 +32,17 @@ export function toMarker(m: Selectable<BranchMarkersTable>): Marker {
     end: m.end_offset,
     anchorText: m.anchor_text,
     childNodeId: m.child_node_id,
+    kind: m.kind,
   };
 }
 
 export function toTree(t: Selectable<TreesTable>): MapTree {
-  return { id: t.id, rootNodeId: t.root_node_id, origin: { x: t.layout_origin_x, y: t.layout_origin_y } };
+  return {
+    id: t.id,
+    rootNodeId: t.root_node_id,
+    origin: { x: t.layout_origin_x, y: t.layout_origin_y },
+    userPlaced: t.user_placed,
+  };
 }
 
 export function toSummary(
@@ -56,6 +63,7 @@ export function toMapNode(
   n: Selectable<NodesTable>,
   anchorText: string | null,
   summary: Summary,
+  edgeLabel: string | null = null,
 ): MapNode {
   return {
     id: n.id,
@@ -65,5 +73,7 @@ export function toMapNode(
     anchorText,
     summary,
     createdAt: iso(n.created_at),
+    manual: n.manual_x !== null && n.manual_y !== null ? { x: n.manual_x, y: n.manual_y } : null,
+    edgeLabel,
   };
 }

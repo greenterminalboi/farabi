@@ -4,7 +4,7 @@ import { call } from "./helpers";
 
 async function rootWithReply(content = "Tell me about Pods") {
   const { body } = await call("POST", "/api/trees", {});
-  const msg = await call("POST", `/api/nodes/${body.node.id}/messages`, { content });
+  const msg = await call("POST", `/api/nodes/${body.node.id}/messages?wait=1`, { content });
   return { nodeId: body.node.id as string, treeId: body.tree.id as string, ai: msg.body.aiMessage };
 }
 
@@ -56,7 +56,7 @@ describe("US2 branching", () => {
 
   it("refuses to branch from replaced messages", async () => {
     const { nodeId, ai } = await rootWithReply();
-    await call("POST", `/api/messages/${ai.id}/regenerate`, {});
+    await call("POST", `/api/messages/${ai.id}/regenerate?wait=1`, {});
     const res = await call("POST", `/api/nodes/${nodeId}/branches`, anchorFor(ai, "Containers"));
     expect(res.status).toBe(409);
     expect(res.body.error.code).toBe("message_not_branchable");
@@ -72,7 +72,7 @@ describe("US2 branching", () => {
     const parent = await call("GET", `/api/nodes/${nodeId}`);
     expect(parent.body.markers).toHaveLength(2);
 
-    const childMsg = await call("POST", `/api/nodes/${a.body.node.id}/messages`, { content: "go deeper" });
+    const childMsg = await call("POST", `/api/nodes/${a.body.node.id}/messages?wait=1`, { content: "go deeper" });
     const grand = await call(
       "POST",
       `/api/nodes/${a.body.node.id}/branches`,
@@ -86,14 +86,14 @@ describe("US2 branching", () => {
     const { nodeId, ai } = await rootWithReply("first question");
     const branch = await call("POST", `/api/nodes/${nodeId}/branches`, anchorFor(ai, "Containers"));
     const childId = branch.body.node.id;
-    await call("POST", `/api/nodes/${nodeId}/messages`, { content: "parent continues later" });
+    await call("POST", `/api/nodes/${nodeId}/messages?wait=1`, { content: "parent continues later" });
 
     const child = await call("GET", `/api/nodes/${childId}`);
     expect(child.body.inheritedContext).toHaveLength(1);
     const inherited = child.body.inheritedContext[0].messages.map((m: { content: string }) => m.content);
     expect(inherited).toEqual(["first question", ai.content]);
 
-    await call("POST", `/api/nodes/${childId}/messages`, { content: "child question" });
+    await call("POST", `/api/nodes/${childId}/messages?wait=1`, { content: "child question" });
     const input = getFakeCalls().lastReply!;
     expect(input.anchorText).toBe("Containers");
     expect(input.inheritedContext.map((t) => t.content)).toEqual(["first question", ai.content]);
@@ -107,8 +107,8 @@ describe("US2 branching", () => {
   it("builds inherited context across three levels", async () => {
     const { nodeId, ai } = await rootWithReply("root q");
     const b1 = await call("POST", `/api/nodes/${nodeId}/branches`, anchorFor(ai, "Containers"));
-    const c1 = await call("POST", `/api/nodes/${b1.body.node.id}/messages`, { content: "child q" });
-    await call("POST", `/api/nodes/${b1.body.node.id}/messages`, { content: "child later" });
+    const c1 = await call("POST", `/api/nodes/${b1.body.node.id}/messages?wait=1`, { content: "child q" });
+    await call("POST", `/api/nodes/${b1.body.node.id}/messages?wait=1`, { content: "child later" });
     const b2 = await call(
       "POST",
       `/api/nodes/${b1.body.node.id}/branches`,
@@ -128,7 +128,7 @@ describe("US2 branching", () => {
     await call("POST", `/api/nodes/${nodeId}/branches`, anchorFor(ai, "Containers"));
     const view = await call("GET", `/api/nodes/${nodeId}`);
     expect(view.body.canRegenerate).toBeNull();
-    const res = await call("POST", `/api/messages/${ai.id}/regenerate`, {});
+    const res = await call("POST", `/api/messages/${ai.id}/regenerate?wait=1`, {});
     expect(res.status).toBe(409);
     expect(res.body.error.code).toBe("has_branches");
   });

@@ -11,8 +11,13 @@ export async function resetDb(): Promise<void> {
   await client.end();
 }
 
-export async function setAiMode(page: Page, mode: "ok" | "fail" | "slow", delayMs?: number) {
-  const res = await page.request.post("/api/test/ai-mode", { data: { mode, delayMs } });
+export async function setAiMode(
+  page: Page,
+  mode: "ok" | "fail" | "slow" | "stall",
+  delayMs?: number,
+  chunkDelayMs?: number,
+) {
+  const res = await page.request.post("/api/test/ai-mode", { data: { mode, delayMs, chunkDelayMs } });
   expect(res.ok()).toBeTruthy();
 }
 
@@ -28,7 +33,14 @@ export async function send(page: Page, text: string) {
   await page.getByLabel("Message").fill(text);
   await page.getByLabel("Message").press("Enter");
   await expect(page.getByTestId("message")).toHaveCount(before + 2);
+  await waitForReplyEnd(page);
+}
+
+/** Waits until no reply is streaming in the open conversation. */
+export async function waitForReplyEnd(page: Page) {
   await expect(page.locator(".typing", { hasText: "Thinking" })).toHaveCount(0);
+  await expect(page.getByTestId("streaming")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Stop" })).toHaveCount(0);
 }
 
 /** Selects `phrase` inside the last AI message by driving a DOM range, as a user drag would. */
@@ -75,7 +87,7 @@ export async function branchOn(page: Page, phrase: string): Promise<string> {
 
 export type MapDebug = {
   nodes: Array<{ id: string; treeId: string; x: number; y: number; isRoot: boolean; labelKind: string; label: string }>;
-  edges: Array<{ from: string; to: string }>;
+  edges: Array<{ from: string; to: string; label?: string | null }>;
   treeBoxes: Record<string, { minX: number; minY: number; maxX: number; maxY: number }>;
 };
 

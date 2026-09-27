@@ -3,45 +3,39 @@ import { db } from "../db/client";
 import { ConflictError, NotFoundError } from "../errors";
 import { assertId } from "../ids";
 import { toMessage } from "../mappers";
-import { completeReply, lockNode } from "./send";
+import { generate, insertPendingReply, lockNode } from "./send";
 
-/** Retries a failed AI reply. The failed row is kept, marked as replaced (Article VI). */
+const RETRYABLE = new Set(["failed", "incomplete", "stopped"]);
+
+/**
+ * Retries a failed, incomplete or stopped AI reply. The old row is kept, marked replaced
+ * (Article VI); a new attempt streams in its place (FR-003).
+ */
 export async function retryReply(messageId: string): Promise<{ aiMessage: Message }> {
   assertId(messageId, "Message");
-  const { nodeId, pendingId } = await db.transaction().execute(async (trx) => {
-    const failed = await trx.selectFrom("messages").selectAll().where("id", "=", messageId).executeTakeFirst();
-    if (!failed) throw new NotFoundError("Message not found");
-    await lockNode(trx, failed.node_id);
+  const pending = await db.transaction().execute(async (trx) => {
+    const old = await trx.selectFrom("messages").selectAll().where("id", "=", messageId).executeTakeFirst();
+    if (!old) throw new NotFoundError("Message not found");
+    await lockNode(trx, old.node_id);
 
     const latest = await trx
       .selectFrom("messages")
       .select("id")
-      .where("node_id", "=", failed.node_id)
+      .where("node_id", "=", old.node_id)
       .where("replaced_at", "is", null)
       .orderBy("seq", "desc")
       .limit(1)
       .executeTakeFirst();
-    if (failed.role !== "ai" || failed.status !== "failed" || failed.replaced_at !== null || latest?.id !== failed.id) {
-      throw new ConflictError("not_retryable", "Only the latest failed AI reply can be retried");
+    if (old.role !== "ai" || !RETRYABLE.has(old.status) || old.replaced_at !== null || latest?.id !== old.id) {
+      throw new ConflictError("not_retryable", "Only the latest failed, incomplete or stopped reply can be retried");
     }
 
-    await trx.updateTable("messages").set({ replaced_at: new Date() }).where("id", "=", failed.id).execute();
-    const pending = await trx
-      .insertInto("messages")
-      .values({
-        node_id: failed.node_id,
-        seq: failed.seq,
-        role: "ai",
-        content: "",
-        status: "pending",
-        provenance: "ai_suggested",
-      })
-      .returning("id")
-      .executeTakeFirstOrThrow();
-    await trx.updateTable("messages").set({ replaced_by: pending.id }).where("id", "=", failed.id).execute();
-    return { nodeId: failed.node_id, pendingId: pending.id };
+    await trx.updateTable("messages").set({ replaced_at: new Date() }).where("id", "=", old.id).execute();
+    const pending = await insertPendingReply(trx, old.node_id, old.seq);
+    await trx.updateTable("messages").set({ replaced_by: pending.id }).where("id", "=", old.id).execute();
+    return pending;
   });
 
-  const aiMessage = await completeReply(nodeId, pendingId);
-  return { aiMessage: toMessage(aiMessage) };
+  void generate(pending.node_id, pending.id);
+  return { aiMessage: toMessage(pending) };
 }

@@ -2,42 +2,50 @@
 
 import { memo, useMemo } from "react";
 import ReactMarkdown from "react-markdown";
+import { findTerms, type TermMatcher } from "@/lib/terms";
 import type { Marker, Message as MessageT } from "@/shared/schemas";
-import { splitByMarkers } from "./markerRanges";
+import { segmentAttributes, splitByMarkers } from "./markerRanges";
 import { rehypeSourceOffsets } from "./rehypeSourceOffsets";
 
 type Props = {
   message: MessageT;
   markers: Marker[];
+  /** Collected terms to underline (Feature 2, FR-036a). */
+  matcher: TermMatcher | null;
   canRegenerate: boolean;
+  /** Text so far while this reply streams. */
+  streamText?: string;
   busy: boolean;
   onRetry: (messageId: string) => void;
   onRegenerate: (messageId: string) => void;
 };
 
 /** User text is shown verbatim, so every character maps straight to its stored offset. */
-function PlainText({ content, markers }: { content: string; markers: Marker[] }) {
+function PlainText({ content, markers, matcher }: { content: string; markers: Marker[]; matcher: TermMatcher | null }) {
+  const segments = splitByMarkers(0, content.length, markers, findTerms(content, 0, matcher));
   return (
     <div className="body" style={{ whiteSpace: "pre-wrap" }}>
-      {splitByMarkers(0, content.length, markers).map((seg) => (
-        <span
-          key={seg.start}
-          data-start={seg.start}
-          data-end={seg.end}
-          className={
-            seg.markers.length ? `marker ${seg.markers.length > 1 ? "depth-2" : "depth-1"}` : undefined
-          }
-          data-markers={seg.markers.length ? seg.markers.map((m) => m.id).join(" ") : undefined}
-        >
-          {content.slice(seg.start, seg.end)}
-        </span>
-      ))}
+      {segments.map((seg) => {
+        const attrs = segmentAttributes(seg);
+        return (
+          <span
+            key={seg.start}
+            data-start={seg.start}
+            data-end={seg.end}
+            className={attrs.className}
+            data-markers={attrs.markers}
+            data-def-id={attrs.defId}
+          >
+            {content.slice(seg.start, seg.end)}
+          </span>
+        );
+      })}
     </div>
   );
 }
 
-function MarkdownText({ content, markers }: { content: string; markers: Marker[] }) {
-  const rehypePlugins = useMemo(() => [[rehypeSourceOffsets, { markers }] as const], [markers]);
+function MarkdownText({ content, markers, matcher = null }: { content: string; markers: Marker[]; matcher?: TermMatcher | null }) {
+  const rehypePlugins = useMemo(() => [[rehypeSourceOffsets, { markers, matcher }] as const], [markers, matcher]);
   return (
     <div className="body">
       {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
@@ -46,7 +54,12 @@ function MarkdownText({ content, markers }: { content: string; markers: Marker[]
   );
 }
 
-function MessageView({ message, markers, canRegenerate, busy, onRetry, onRegenerate }: Props) {
+const ENDED_LABEL: Partial<Record<MessageT["status"], string>> = {
+  incomplete: "Incomplete: the reply was cut off.",
+  stopped: "Stopped.",
+};
+
+function MessageView({ message, markers, matcher, canRegenerate, streamText, busy, onRetry, onRegenerate }: Props) {
   const isAi = message.role === "ai";
   const branchable = message.status === "complete";
   return (
@@ -70,7 +83,26 @@ function MessageView({ message, markers, canRegenerate, busy, onRetry, onRegener
           </button>
         )}
       </div>
-      {message.status === "pending" && <div className="typing">Thinking…</div>}
+      {message.status === "pending" &&
+        (streamText ? (
+          <div className="body streaming" data-testid="streaming">
+            <span style={{ whiteSpace: "pre-wrap" }}>{streamText}</span>
+            <span className="caret" aria-hidden="true" />
+          </div>
+        ) : (
+          <div className="typing">Thinking…</div>
+        ))}
+      {(message.status === "incomplete" || message.status === "stopped") && (
+        <>
+          {message.content && <MarkdownText content={message.content} markers={markers} />}
+          <div className="error" data-testid="ended-early">
+            {ENDED_LABEL[message.status]}
+            <button type="button" className="btn btn-small" disabled={busy} onClick={() => onRetry(message.id)}>
+              Retry
+            </button>
+          </div>
+        </>
+      )}
       {message.status === "failed" && (
         <div className="error">
           Couldn&apos;t get a reply.
@@ -81,9 +113,9 @@ function MessageView({ message, markers, canRegenerate, busy, onRetry, onRegener
       )}
       {message.status === "complete" &&
         (isAi ? (
-          <MarkdownText content={message.content} markers={markers} />
+          <MarkdownText content={message.content} markers={markers} matcher={matcher} />
         ) : (
-          <PlainText content={message.content} markers={markers} />
+          <PlainText content={message.content} markers={markers} matcher={matcher} />
         ))}
     </article>
   );

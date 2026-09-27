@@ -1,7 +1,18 @@
 # Farabi
 
 Branch a new, independent conversation from any highlighted phrase, and see every conversation
-as a map of trees. Specs, plan and tasks live in `specs/001-branching-chat-map/`; project rules
+as a map of trees.
+
+## Using it
+
+- **Chat**: replies stream in as they're written; **Stop** keeps what's arrived so far.
+- **Branch**: highlight any text and choose **Branch**, or send exactly `????` to branch from
+  your last message (it's resent as the new branch's first message).
+- **Definitions**: highlight a term and choose **Send to definitions** for a short AI draft
+  (general meaning + how your conversation used it). Every occurrence of a collected term is
+  underlined; hover it for the card. Confirm or edit drafts in the **Definitions** tab.
+- **Map**: drag a tree by its root, or any other node on its own. Click a line to label it.
+  Click a node to open its conversation. Specs, plan and tasks live in `specs/001-branching-chat-map/`; project rules
 are in `.specify/memory/constitution.md`.
 
 ## Prerequisites

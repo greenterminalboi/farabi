@@ -36,11 +36,14 @@ export async function createRootTree(): Promise<CreateTreeResponse> {
   });
 }
 
-/** Persists a tree's map origin (presentation only, research R4). */
-export async function setTreeOrigin(treeId: string, x: number, y: number): Promise<MapTree> {
+/**
+ * Persists a tree's map origin (presentation only, research R4). `byUser` marks a tree the user
+ * dragged, which is then never moved automatically (Feature 2, FR-020).
+ */
+export async function setTreeOrigin(treeId: string, x: number, y: number, byUser = false): Promise<MapTree> {
   const tree = await db
     .updateTable("trees")
-    .set({ layout_origin_x: x, layout_origin_y: y })
+    .set(byUser ? { layout_origin_x: x, layout_origin_y: y, user_placed: true } : { layout_origin_x: x, layout_origin_y: y })
     .where("id", "=", treeId)
     .returningAll()
     .executeTakeFirst();

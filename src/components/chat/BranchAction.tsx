@@ -1,9 +1,11 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { type RefObject, useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import type { Anchor } from "@/shared/schemas";
+import { useDefinitionsStore } from "@/state/definitionsStore";
 import { selectionToAnchor } from "./selection";
 
 type Props = {
@@ -18,6 +20,9 @@ export function BranchAction({ nodeId, containerRef, contentOf, onError }: Props
   const router = useRouter();
   const [pending, setPending] = useState<{ anchor: Anchor; x: number; y: number } | null>(null);
   const [busy, setBusy] = useState(false);
+  const [notice, setNotice] = useState<{ text: string; id: string } | null>(null);
+  const refreshIndex = useDefinitionsStore((s) => s.refreshIndex);
+  const remember = useDefinitionsStore((s) => s.remember);
 
   useEffect(() => {
     const update = () => {
@@ -35,30 +40,73 @@ export function BranchAction({ nodeId, containerRef, contentOf, onError }: Props
     return () => document.removeEventListener("selectionchange", update);
   }, [containerRef, contentOf]);
 
-  if (!pending) return null;
+  async function sendToDefinitions() {
+    if (!pending) return;
+    setBusy(true);
+    try {
+      const { anchor } = pending;
+      const { definition, created } = await api.captureDefinition({
+        nodeId,
+        messageId: anchor.messageId,
+        start: anchor.start,
+        end: anchor.end,
+        text: anchor.text,
+      });
+      remember(definition);
+      document.getSelection()?.removeAllRanges();
+      setPending(null);
+      setNotice({ text: created ? `Added “${definition.term}” to Definitions` : `“${definition.term}” is already in Definitions`, id: definition.id });
+      setTimeout(() => setNotice(null), 4000);
+      void refreshIndex();
+    } catch (err) {
+      onError(err instanceof Error ? err.message : "Couldn't add the term");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
-    <button
-      type="button"
-      className="btn btn-primary branch-action"
-      style={{ left: Math.min(pending.x, window.innerWidth - 100), top: pending.y }}
-      disabled={busy}
-      // Keep the selection alive while clicking.
-      onMouseDown={(e) => e.preventDefault()}
-      onClick={async () => {
-        setBusy(true);
-        try {
-          const { node } = await api.branch(nodeId, pending.anchor);
-          document.getSelection()?.removeAllRanges();
-          setPending(null);
-          router.push(`/n/${node.id}`);
-        } catch (err) {
-          onError(err instanceof Error ? err.message : "Couldn't create the branch");
-        } finally {
-          setBusy(false);
-        }
-      }}
-    >
-      Branch
-    </button>
+    <>
+      {notice && (
+        <div className="toast" role="status" data-testid="definitions-notice">
+          {notice.text} · <Link href={`/definitions#${notice.id}`}>Open</Link>
+        </div>
+      )}
+      {pending && (
+        <div className="branch-action" style={{ left: Math.min(pending.x, window.innerWidth - 260), top: pending.y }}>
+          <button
+            type="button"
+            className="btn btn-primary"
+            disabled={busy}
+            // Keep the selection alive while clicking.
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={async () => {
+              setBusy(true);
+              try {
+                const { node } = await api.branch(nodeId, pending.anchor);
+                document.getSelection()?.removeAllRanges();
+                setPending(null);
+                router.push(`/n/${node.id}`);
+              } catch (err) {
+                onError(err instanceof Error ? err.message : "Couldn't create the branch");
+              } finally {
+                setBusy(false);
+              }
+            }}
+          >
+            Branch
+          </button>{" "}
+          <button
+            type="button"
+            className="btn"
+            disabled={busy}
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => void sendToDefinitions()}
+          >
+            Send to definitions
+          </button>
+        </div>
+      )}
+    </>
   );
 }
