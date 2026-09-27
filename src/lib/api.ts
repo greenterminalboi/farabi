@@ -8,6 +8,9 @@ import {
   DefinitionResponse,
   DefinitionsResponse,
   ErrorBody,
+  FeedbackItemResponse,
+  type FeedbackCreateFields,
+  FeedbackListResponse,
   ForestResponse,
   NodeResponse,
   NodeView,
@@ -33,10 +36,11 @@ export class ApiError extends Error {
 }
 
 async function request<T>(method: string, path: string, schema: ZodType<T>, body?: unknown): Promise<T> {
+  const isForm = body instanceof FormData;
   const res = await fetch(path, {
     method,
-    headers: body === undefined ? undefined : { "content-type": "application/json" },
-    body: body === undefined ? undefined : JSON.stringify(body),
+    headers: body === undefined || isForm ? undefined : { "content-type": "application/json" },
+    body: body === undefined ? undefined : isForm ? body : JSON.stringify(body),
     cache: "no-store",
   });
   const json: unknown = await res.json().catch(() => undefined);
@@ -79,6 +83,24 @@ export const api = {
   editDefinition: (id: string, generalText: string, usageText: string) =>
     request("POST", `/api/definitions/${id}/versions`, DefinitionResponse, { generalText, usageText }),
   redraftDefinition: (id: string) => request("POST", `/api/definitions/${id}/redraft`, RefreshResponse, {}),
+  listFeedback: () => request("GET", "/api/feedback", FeedbackListResponse),
+  createFeedback: (fields: FeedbackCreateFields, images: Array<{ file: File; thumb: Blob | null }>) => {
+    const form = new FormData();
+    form.set("text", fields.text);
+    form.set("view", fields.view);
+    if (fields.nodeId) form.set("nodeId", fields.nodeId);
+    form.set("tags", JSON.stringify(fields.tags ?? []));
+    for (const { file, thumb } of images) {
+      form.append("image", file, file.name || "screenshot");
+      // An empty entry keeps thumbnails paired with their image by position.
+      form.append("thumb", thumb ?? new Blob([]), "thumb.webp");
+    }
+    return request("POST", "/api/feedback", FeedbackItemResponse, form);
+  },
+  moveFeedback: (id: string, aboveId: string | null, belowId: string | null) =>
+    request("PUT", `/api/feedback/${id}/position`, FeedbackItemResponse, { aboveId, belowId }),
+  resolveFeedback: (id: string) => request("POST", `/api/feedback/${id}/resolve`, FeedbackItemResponse, {}),
+  reopenFeedback: (id: string) => request("POST", `/api/feedback/${id}/reopen`, FeedbackItemResponse, {}),
   refreshSummary: (nodeId: string) =>
     request("POST", `/api/nodes/${nodeId}/summary/refresh`, RefreshResponse, {}),
 };

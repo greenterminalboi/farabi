@@ -6,7 +6,7 @@ import { currentEdgeLabels } from "./edgeLabels";
 
 /** The whole forest for the map (FR-017, FR-021). */
 export async function getForest(): Promise<ForestResponse> {
-  const [trees, nodes, anchors, summaries, labels] = await Promise.all([
+  const [trees, nodes, anchors, summaries, labels, counts] = await Promise.all([
     db.selectFrom("trees").selectAll().orderBy("created_at", "asc").execute(),
     db.selectFrom("nodes").selectAll().orderBy("created_at", "asc").execute(),
     db.selectFrom("branch_markers").select(["child_node_id", "anchor_text"]).execute(),
@@ -22,7 +22,11 @@ export async function getForest(): Promise<ForestResponse> {
       ORDER BY node_id, created_at DESC, id DESC
     `.execute(db),
     currentEdgeLabels(),
+    sql<{ node_id: string; n: number }>`
+      SELECT node_id, count(*)::int AS n FROM messages WHERE replaced_at IS NULL GROUP BY node_id
+    `.execute(db),
   ]);
+  const countByNode = new Map(counts.rows.map((c) => [c.node_id, c.n]));
 
   const anchorByNode = new Map(anchors.map((a) => [a.child_node_id, a.anchor_text]));
   const summaryByNode = new Map(summaries.rows.map((s) => [s.node_id, s]));
@@ -31,7 +35,13 @@ export async function getForest(): Promise<ForestResponse> {
     trees: trees.map(toTree),
     nodes: nodes.map((n) => {
       const anchorText = anchorByNode.get(n.id) ?? null;
-      return toMapNode(n, anchorText, toSummary(summaryByNode.get(n.id), anchorText), labels.get(n.id) ?? null);
+      return toMapNode(
+        n,
+        anchorText,
+        toSummary(summaryByNode.get(n.id), anchorText),
+        labels.get(n.id) ?? null,
+        countByNode.get(n.id) ?? 0,
+      );
     }),
   };
 }

@@ -3,7 +3,7 @@
 import { Application, BitmapText, Container, type FederatedPointerEvent, Graphics, Rectangle } from "pixi.js";
 import { Viewport } from "pixi-viewport";
 import type { ForestResponse, Summary } from "@/shared/schemas";
-import { buildForestGraph, type ForestGraph } from "./forestGraph";
+import { buildForestGraph, type ForestGraph, stackLayers } from "./forestGraph";
 import { type ForestLayout, layoutForest, type LayoutCache } from "./layout/forestLayout";
 import { NODE_HEIGHT, NODE_WIDTH } from "./layout/treeLayout";
 
@@ -30,10 +30,16 @@ type NodeSprite = {
   isRoot: boolean;
   /** Box height, grown to fit the text. */
   height: number;
+  /** Messages in the conversation; deep ones are drawn as a stack. */
+  messageCount: number;
 };
 
 export type MapDebug = {
-  nodes: Array<{ id: string; treeId: string; x: number; y: number; isRoot: boolean; labelKind: Summary["kind"]; label: string }>;
+  nodes: Array<{
+    id: string; treeId: string; x: number; y: number; isRoot: boolean; labelKind: Summary["kind"]; label: string;
+    /** Extra cards drawn behind a deep conversation. */
+    stack: number;
+  }>;
   edges: Array<{ from: string; to: string; label: string | null }>;
   treeBoxes: Record<string, { minX: number; minY: number; maxX: number; maxY: number }>;
 };
@@ -49,6 +55,12 @@ declare global {
     __farabiMapHitTest?: (x: number, y: number) => string | null;
   }
 }
+
+/** The app's font (OpenDyslexic, loaded by the root layout), with system fallbacks. */
+const MAP_FONT = "OpenDyslexic, system-ui, sans-serif";
+
+/** How far each card of a deep node's stack peeks out (see stackLayers). */
+const STACK_OFFSET = 5;
 
 /** Labels are drawn only when zoomed in enough to read them (FR-024). */
 const LABEL_MIN_ZOOM = 0.5;
@@ -140,6 +152,12 @@ export class MapRenderer {
 
   async mount(el: HTMLElement): Promise<void> {
     this.palette = window.matchMedia("(prefers-color-scheme: dark)").matches ? DARK : LIGHT;
+    // BitmapText rasterises glyphs once, so the font must be loaded before the first label.
+    await Promise.all(
+      ["13px OpenDyslexic", "italic 13px OpenDyslexic", "bold 10px OpenDyslexic"].map((f) =>
+        document.fonts.load(f).catch(() => []),
+      ),
+    );
     const app = new Application();
     await app.init({
       resizeTo: el,
@@ -366,7 +384,7 @@ export class MapRenderer {
       const bg = new Graphics();
       const text = new BitmapText({
         text: "",
-        style: { fontFamily: "system-ui, sans-serif", fontSize: LABEL_FONT_SIZE, fill: this.palette.edgeLabel },
+        style: { fontFamily: MAP_FONT, fontSize: LABEL_FONT_SIZE, fill: this.palette.edgeLabel },
       });
       text.anchor.set(0.5);
       group.addChild(bg, text);
@@ -434,6 +452,7 @@ export class MapRenderer {
         this.nodeLayer.addChild(sprite.container);
       }
       const before = this.nodeHeights.get(node.id);
+      sprite.messageCount = node.messageCount;
       this.applyLabel(sprite, node.summary);
       if (before !== undefined && before !== sprite.height) changedTrees.add(node.treeId);
     }
@@ -467,13 +486,15 @@ export class MapRenderer {
     // BitmapText draws from one shared glyph atlas, so hundreds of labels stay cheap (SC-006).
     const tag = new BitmapText({
       text: "AI",
-      style: { fontFamily: "system-ui, sans-serif", fontSize: 10, fontWeight: "700", fill: this.palette.ai },
+      style: { fontFamily: MAP_FONT, fontSize: 10, fontWeight: "700", fill: this.palette.ai },
     });
-    tag.position.set(10, 8);
+    // Header ("AI") and summary are centred in the box.
+    tag.anchor.set(0.5, 0);
+    tag.position.set(NODE_WIDTH / 2, 8);
     const label = new BitmapText({
       text: "",
       style: {
-        fontFamily: "system-ui, sans-serif",
+        fontFamily: MAP_FONT,
         fontSize: 13,
         fill: this.palette.text,
         wordWrap: true,
@@ -481,16 +502,18 @@ export class MapRenderer {
         breakWords: true,
         wordWrapWidth: NODE_WIDTH - 2 * BOX_PADDING,
         lineHeight: 16,
+        align: "center",
       },
     });
-    label.position.set(10, 22);
+    label.anchor.set(0.5, 0);
+    label.position.set(NODE_WIDTH / 2, 22);
     container.addChild(box, tag, label);
 
     container.on("pointerdown", (e) => this.startDrag(id, e));
     container.on("globalpointermove", (e) => this.moveDrag(id, e));
     container.on("pointerup", (e) => this.endDrag(id, e));
     container.on("pointerupoutside", (e) => this.endDrag(id, e));
-    return { id, container, box, label, tag, isRoot, height: NODE_HEIGHT };
+    return { id, container, box, label, tag, isRoot, height: NODE_HEIGHT, messageCount: 0 };
   }
 
   private startDrag(id: string, e: FederatedPointerEvent): void {
@@ -589,10 +612,17 @@ export class MapRenderer {
   private drawBox(sprite: NodeSprite, focused: boolean): void {
     const { box, isRoot } = sprite;
     box.clear();
+    const radius = isRoot ? 22 : 14;
+    const fill = isRoot ? this.palette.rootFill : this.palette.branchFill;
+    // Deep conversations look like a stack of cards: the back cards peek out below and right.
+    const layers = stackLayers(sprite.messageCount);
+    for (let i = layers; i >= 1; i--) {
+      const o = i * STACK_OFFSET;
+      box.roundRect(o, o, NODE_WIDTH, sprite.height, radius).fill({ color: fill });
+      box.stroke({ width: 1.5, color: isRoot ? this.palette.rootFill : this.palette.branchStroke, alpha: 0.6 });
+    }
     // Roots are filled, larger-radius blocks; branches are outlined cards (FR-019).
-    box.roundRect(0, 0, NODE_WIDTH, sprite.height, isRoot ? 14 : 6).fill({
-      color: isRoot ? this.palette.rootFill : this.palette.branchFill,
-    });
+    box.roundRect(0, 0, NODE_WIDTH, sprite.height, radius).fill({ color: fill });
     box.stroke({
       width: focused ? 3 : isRoot ? 0 : 1.5,
       color: focused ? this.palette.focus : this.palette.branchStroke,
@@ -633,6 +663,7 @@ export class MapRenderer {
         isRoot: n.isRoot,
         labelKind: n.summary.kind,
         label: n.summary.text,
+        stack: stackLayers(n.messageCount),
       })),
       edges: this.graph.mapEdges((_e, _a, from, to) => ({
         from,

@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { api, ApiError } from "@/lib/api";
 import { termKey } from "@/lib/terms";
 import type { Definition, DefinitionVersion } from "@/shared/schemas";
+import { termRoot } from "@/shared/termRoot";
 import { useDefinitionsStore } from "@/state/definitionsStore";
 import { DefinitionBody } from "./TermCard";
 
@@ -53,6 +54,17 @@ export function DefinitionsList() {
     return (definitions ?? []).filter((d) => !key || d.termKey.includes(key));
   }, [definitions, filter]);
 
+  // Terms sharing a root ("reductionist", "reductionism") are shown together. Display only: each
+  // stays its own definition. A group sits where its newest member would be.
+  const groups = useMemo(() => {
+    const byRoot = new Map<string, Definition[]>();
+    for (const d of shown) {
+      const root = termRoot(d.term);
+      byRoot.set(root, [...(byRoot.get(root) ?? []), d]);
+    }
+    return [...byRoot.values()];
+  }, [shown]);
+
   if (!definitions) return <div className="empty-state">{error ?? "Loading…"}</div>;
   return (
     <section className="definitions">
@@ -69,13 +81,26 @@ export function DefinitionsList() {
       {error && <p className="composer-error">{error}</p>}
       {definitions.length === 0 ? (
         <p className="muted">
-          Highlight a word or phrase in any conversation and choose “Send to definitions”.
+          Highlight a word or phrase in any conversation and choose “Define” in the toolbar that appears.
         </p>
       ) : (
         <ul className="definitions-list">
-          {shown.map((d) => (
-            <DefinitionCard key={d.id} definition={d} onChange={load} onError={setError} />
-          ))}
+          {groups.map((group) =>
+            group.length === 1 ? (
+              <DefinitionCard key={group[0].id} definition={group[0]} onChange={load} onError={setError} />
+            ) : (
+              <li key={group[0].id} className="definition-group" data-testid="definition-group">
+                <div className="definition-group-head">
+                  Related terms: {group.map((d) => d.term).join(" · ")}
+                </div>
+                <ul className="definitions-list">
+                  {group.map((d) => (
+                    <DefinitionCard key={d.id} definition={d} onChange={load} onError={setError} />
+                  ))}
+                </ul>
+              </li>
+            ),
+          )}
         </ul>
       )}
     </section>

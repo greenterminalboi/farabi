@@ -87,6 +87,27 @@ const routes: Array<{ pattern: RegExp; keys: string[]; load: () => Promise<Route
     keys: ["messageId"],
     load: () => import("@/app/api/messages/[messageId]/regenerate/route"),
   },
+  { pattern: /^\/api\/feedback$/, keys: [], load: () => import("@/app/api/feedback/route") },
+  {
+    pattern: /^\/api\/feedback\/attachments\/([^/]+)$/,
+    keys: ["id"],
+    load: () => import("@/app/api/feedback/attachments/[id]/route"),
+  },
+  {
+    pattern: /^\/api\/feedback\/([^/]+)\/position$/,
+    keys: ["id"],
+    load: () => import("@/app/api/feedback/[id]/position/route"),
+  },
+  {
+    pattern: /^\/api\/feedback\/([^/]+)\/resolve$/,
+    keys: ["id"],
+    load: () => import("@/app/api/feedback/[id]/resolve/route"),
+  },
+  {
+    pattern: /^\/api\/feedback\/([^/]+)\/reopen$/,
+    keys: ["id"],
+    load: () => import("@/app/api/feedback/[id]/reopen/route"),
+  },
 ];
 
 export type CallResult<T = any> = { status: number; body: T };
@@ -98,22 +119,37 @@ export async function call<T = any>(
   body?: unknown,
   headers: Record<string, string> = {},
 ): Promise<CallResult<T>> {
+  const res = await callRaw(method, path, body, headers);
+  const text = await res.text();
+  return { status: res.status, body: (text ? JSON.parse(text) : undefined) as T };
+}
+
+/** Like `call`, but returns the raw Response (binary bodies). A FormData body is sent as multipart. */
+export async function callRaw(
+  method: string,
+  path: string,
+  body?: unknown,
+  headers: Record<string, string> = {},
+): Promise<Response> {
+  const isForm = body instanceof FormData;
   for (const route of routes) {
     const pathOnly = path.split("?")[0];
     const match = route.pattern.exec(pathOnly);
     if (!match) continue;
     const mod = await route.load();
     const handler = mod[method] as Handler | undefined;
-    if (!handler) return { status: 405, body: undefined as T };
+    if (!handler) return new Response(null, { status: 405 });
     const params = Object.fromEntries(route.keys.map((k, i) => [k, match[i + 1]]));
     const req = new Request(`http://127.0.0.1:3000${path}`, {
       method,
-      headers: { host: "127.0.0.1:3000", "content-type": "application/json", ...headers },
-      body: body === undefined ? undefined : JSON.stringify(body),
+      headers: {
+        host: "127.0.0.1:3000",
+        ...(isForm ? {} : { "content-type": "application/json" }),
+        ...headers,
+      },
+      body: body === undefined ? undefined : isForm ? body : JSON.stringify(body),
     });
-    const res = await handler(req, { params: Promise.resolve(params) });
-    const text = await res.text();
-    return { status: res.status, body: (text ? JSON.parse(text) : undefined) as T };
+    return handler(req, { params: Promise.resolve(params) });
   }
   throw new Error(`No route for ${method} ${path}`);
 }
@@ -139,4 +175,32 @@ export async function readStream(messageId: string): Promise<Array<{ event: stri
       const data = JSON.parse(/^data: (.*)$/m.exec(chunk)?.[1] ?? "null");
       return { event, data };
     });
+}
+
+/** Posts a feedback item as the drawer does (multipart). */
+export function createFeedback(fields: {
+  text: string;
+  view: "chat" | "map" | "definitions";
+  nodeId?: string;
+  tags?: string[];
+  images?: Array<{ bytes: Uint8Array; name?: string; type?: string }>;
+  thumbs?: Array<{ bytes: Uint8Array } | null>;
+}) {
+  const form = new FormData();
+  form.set("text", fields.text);
+  form.set("view", fields.view);
+  if (fields.nodeId) form.set("nodeId", fields.nodeId);
+  if (fields.tags) form.set("tags", JSON.stringify(fields.tags));
+  (fields.images ?? []).forEach((img, i) => {
+    form.append("image", new File([new Uint8Array(img.bytes)], img.name ?? `shot-${i}.png`, { type: img.type ?? "image/png" }));
+    const thumb = fields.thumbs?.[i];
+    form.append("thumb", thumb ? new File([new Uint8Array(thumb.bytes)], "thumb.webp", { type: "image/webp" }) : new File([], ""));
+  });
+  return call("POST", "/api/feedback", form);
+}
+
+export async function readFeedbackFile(): Promise<string> {
+  const { readFile } = await import("node:fs/promises");
+  const { feedbackFilePath } = await import("@/server/feedback/paths");
+  return readFile(feedbackFilePath(), "utf8");
 }

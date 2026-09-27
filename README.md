@@ -42,6 +42,21 @@ Set `AI_PROVIDER` in `.env.local`, then restart `npm run dev`:
   (override with `CLAUDE_MODEL`).
 - `fake`: deterministic replies and summaries; the automated tests always use it.
 
+## Feedback
+
+The **Feedback** button in the top bar opens a drawer over any view. Type a note, add tags, paste
+or drop screenshots, and submit; the current view (and conversation, if one is open) is recorded.
+Drag items to reorder them, filter by tag, and resolve or reopen them. Nothing is ever deleted.
+
+Everything is exported to `feedback/FEEDBACK.md` after each change, with screenshots under
+`feedback/attachments/`. The folder is git-ignored; set `FEEDBACK_DIR` to move it. Claude Code
+reads that file and, after doing the work for an item, marks it addressed:
+
+```bash
+npm run feedback:addressed -- <item id>   # open → addressed; you confirm or reopen it in the app
+npm run feedback:export                   # rewrite FEEDBACK.md from the database
+```
+
 ## Test
 
 ```bash
@@ -49,4 +64,5 @@ npm run lint && npm run typecheck
 npm test                     # unit + integration (needs Docker Postgres, migrated test DB)
 npm run test:e2e             # Playwright against a production build on port 3100
 npm run seed:large           # 500 nodes across 20 trees, for trying the map at scale
+                             # (add `-- --feedback 200` for 200 feedback items too)
 ```

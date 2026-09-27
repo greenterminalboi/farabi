@@ -15,10 +15,15 @@ type Props = {
   onError: (message: string) => void;
 };
 
-/** Floating "Branch" button for a valid selection inside one message (FR-002). */
+const TOOLBAR_HEIGHT = 44;
+
+/**
+ * The highlighter toolbar: appears over a valid selection inside one message with its actions,
+ * Define (send the term to Definitions) and Branch (FR-002).
+ */
 export function BranchAction({ nodeId, containerRef, contentOf, onError }: Props) {
   const router = useRouter();
-  const [pending, setPending] = useState<{ anchor: Anchor; x: number; y: number } | null>(null);
+  const [pending, setPending] = useState<{ anchor: Anchor; x: number; y: number; below: boolean } | null>(null);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<{ text: string; id: string } | null>(null);
   const refreshIndex = useDefinitionsStore((s) => s.refreshIndex);
@@ -34,7 +39,9 @@ export function BranchAction({ nodeId, containerRef, contentOf, onError }: Props
       const anchor = selectionToAnchor(range, contentOf);
       if (!anchor) return setPending(null);
       const rect = range.getBoundingClientRect();
-      setPending({ anchor, x: rect.right, y: rect.bottom + 6 });
+      // Centred above the selection; below it when there is no room above.
+      const below = rect.top - TOOLBAR_HEIGHT - 8 < container.getBoundingClientRect().top;
+      setPending({ anchor, x: rect.left + rect.width / 2, y: below ? rect.bottom + 8 : rect.top - 8, below });
     };
     document.addEventListener("selectionchange", update);
     return () => document.removeEventListener("selectionchange", update);
@@ -73,13 +80,21 @@ export function BranchAction({ nodeId, containerRef, contentOf, onError }: Props
         </div>
       )}
       {pending && (
-        <div className="branch-action" style={{ left: Math.min(pending.x, window.innerWidth - 260), top: pending.y }}>
+        <div
+          className={`highlight-toolbar${pending.below ? " below" : ""}`}
+          role="toolbar"
+          aria-label="Highlight actions"
+          style={{ left: Math.max(90, Math.min(pending.x, window.innerWidth - 90)), top: pending.y }}
+          // Keep the selection alive while clicking.
+          onMouseDown={(e) => e.preventDefault()}
+        >
+          <button type="button" disabled={busy} onClick={() => void sendToDefinitions()} title="Add this term to Definitions">
+            <span aria-hidden="true">📖</span> Define
+          </button>
           <button
             type="button"
-            className="btn btn-primary"
             disabled={busy}
-            // Keep the selection alive while clicking.
-            onMouseDown={(e) => e.preventDefault()}
+            title="Start a new branch from this text"
             onClick={async () => {
               setBusy(true);
               try {
@@ -94,16 +109,7 @@ export function BranchAction({ nodeId, containerRef, contentOf, onError }: Props
               }
             }}
           >
-            Branch
-          </button>{" "}
-          <button
-            type="button"
-            className="btn"
-            disabled={busy}
-            onMouseDown={(e) => e.preventDefault()}
-            onClick={() => void sendToDefinitions()}
-          >
-            Send to definitions
+            <span aria-hidden="true">⑂</span> Branch
           </button>
         </div>
       )}

@@ -9,19 +9,14 @@ export const INHERITED_CONTEXT_DEFAULT_COLLAPSED = true;
 type Props = { anchor: Anchor; parentId: string; inherited: InheritedContextEntry[]; matcher: TermMatcher | null };
 
 /**
- * Shows what the AI in this branch knows from its parent (FR-005, FR-033). Read-only and set
+ * Shows what the AI in this branch knows from its parent (FR-005, FR-033): the earlier context
+ * first, then the highlighted anchor it led to. Read-only and set
  * apart; messages carry no data-message-id, so they can't be branched from here.
  */
 export function InheritedContext({ anchor, parentId, inherited, matcher }: Props) {
   const count = inherited.reduce((n, e) => n + e.messages.length, 0);
   return (
     <>
-      <blockquote className="anchor-quote" data-testid="anchor-quote">
-        “{anchor.text}”
-        <Link className="back" href={`/n/${parentId}`}>
-          Back to parent
-        </Link>
-      </blockquote>
       {count > 0 && (
         <details className="inherited" open={!INHERITED_CONTEXT_DEFAULT_COLLAPSED} data-testid="inherited-context">
           <summary>Context from earlier conversation ({count} messages, read-only)</summary>
@@ -39,6 +34,12 @@ export function InheritedContext({ anchor, parentId, inherited, matcher }: Props
           </div>
         </details>
       )}
+      <blockquote className="anchor-quote" data-testid="anchor-quote">
+        “{anchor.text}”
+        <Link className="back" href={`/n/${parentId}`}>
+          Back to parent
+        </Link>
+      </blockquote>
     </>
   );
 }

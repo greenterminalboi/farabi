@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { useViewStore } from "@/state/viewStore";
 
 type Props = {
@@ -19,6 +19,17 @@ export function Composer({ nodeId, disabled, streaming, onStop, canQuickBranch, 
   const draft = useViewStore((s) => s.byNode[nodeId]?.draft ?? "");
   const setDraft = useViewStore((s) => s.setDraft);
   const [sending, setSending] = useState(false);
+  const boxRef = useRef<HTMLTextAreaElement>(null);
+
+  // The box grows with its text (Shift+Enter adds a line), up to its max height; only then scrolls.
+  useLayoutEffect(() => {
+    const box = boxRef.current;
+    if (!box) return;
+    box.style.height = "auto";
+    const max = parseFloat(getComputedStyle(box).maxHeight) || Infinity;
+    box.style.height = `${Math.min(box.scrollHeight + 2, max)}px`;
+    box.classList.toggle("overflowing", box.scrollHeight + 2 > max);
+  }, [draft]);
 
   async function submit() {
     const content = draft;
@@ -47,6 +58,8 @@ export function Composer({ nodeId, disabled, streaming, onStop, canQuickBranch, 
         }}
       >
         <textarea
+          ref={boxRef}
+          rows={1}
           aria-label="Message"
           value={draft}
           placeholder="Write a message…"

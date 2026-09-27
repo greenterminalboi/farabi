@@ -1,10 +1,15 @@
 import { execFileSync } from "node:child_process";
+import { rmSync } from "node:fs";
 import { expect, test } from "@playwright/test";
 import { resetDb } from "./helpers";
 
 test.beforeAll(async () => {
   await resetDb();
-  execFileSync("npx", ["tsx", "scripts/seed-large.ts", "--test"], { stdio: "inherit" });
+  rmSync(".feedback-test/attachments", { recursive: true, force: true });
+  execFileSync("npx", ["tsx", "scripts/seed-large.ts", "--test", "--feedback", "200"], {
+    stdio: "inherit",
+    env: { ...process.env, FEEDBACK_DIR: ".feedback-test" },
+  });
 });
 
 test("map and navigation stay under 1 s at 500 nodes (SC-006)", async ({ page }) => {
@@ -104,4 +109,42 @@ test("dragging a node at 500 nodes keeps up with the pointer (SC-006)", async ({
   expect(after.x).toBeGreaterThan(before.x + 100); // the node followed the pointer
   // Rendering keeps pace while dragging: the typical frame stays within two 60 Hz frames.
   expect(sorted[Math.floor(sorted.length / 2)]).toBeLessThan(34);
+});
+
+test("the feedback drawer opens and scrolls smoothly with 200 items and screenshots (SC-008)", async ({ page }) => {
+  await page.goto("/map");
+  const button = page.getByRole("button", { name: /^Feedback/ });
+  await expect(button).toContainText("to confirm"); // the list has loaded in the background
+  const t0 = Date.now();
+  await button.click();
+  const list = page.getByRole("list", { name: "Feedback items" });
+  await expect(page.getByTestId("feedback-card")).toHaveCount(200);
+  await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+  const openMs = Date.now() - t0;
+
+  // Scroll to the end in steps while recording frame intervals in the page.
+  const frames = await list.evaluate(async (el) => {
+    const intervals: number[] = [];
+    let last = performance.now();
+    let recording = true;
+    const tick = (now: number) => {
+      intervals.push(now - last);
+      last = now;
+      if (recording) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+    while (el.scrollTop + el.clientHeight < el.scrollHeight - 1) {
+      el.scrollTop += 120;
+      await new Promise((r) => requestAnimationFrame(r));
+    }
+    recording = false;
+    return intervals.slice(1);
+  });
+  const sorted = [...frames].sort((a, b) => a - b);
+  const median = sorted[Math.floor(sorted.length / 2)];
+  const p95 = sorted[Math.floor(sorted.length * 0.95)];
+  console.log({ openMs, frames: frames.length, medianFrameMs: Math.round(median), p95FrameMs: Math.round(p95) });
+  expect(openMs).toBeLessThan(1000);
+  expect(median).toBeLessThan(34);
+  expect(p95).toBeLessThan(50);
 });

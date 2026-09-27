@@ -39,6 +39,8 @@ export const MapNode = z.object({
   manual: z.object({ x: z.number(), y: z.number() }).nullable(),
   /** Label on the edge from this node to its parent (Feature 2). */
   edgeLabel: z.string().nullable(),
+  /** Live messages in the conversation; the map draws deep ones as a stack. */
+  messageCount: z.number().int(),
 });
 export type MapNode = z.infer<typeof MapNode>;
 
@@ -174,3 +176,66 @@ export const DefinitionDetailResponse = z.object({
 });
 export const DefinitionResponse = z.object({ definition: Definition });
 export const EditDefinitionRequest = z.object({ generalText: z.string(), usageText: z.string() });
+
+// Feature 3: feedback (specs/003-feedback-loop/contracts/http-api.md)
+
+export const FeedbackState = z.enum(["open", "addressed", "resolved"]);
+export type FeedbackState = z.infer<typeof FeedbackState>;
+export const FeedbackView = z.enum(["chat", "map", "definitions"]);
+export type FeedbackView = z.infer<typeof FeedbackView>;
+
+export const FeedbackStateEvent = z.object({ state: FeedbackState, provenance: Provenance, at: z.string() });
+export type FeedbackStateEvent = z.infer<typeof FeedbackStateEvent>;
+
+export const FeedbackAttachment = z.object({
+  id: z.string(),
+  url: z.string(),
+  thumbUrl: z.string(),
+  /** Relative to the repo root, as written in FEEDBACK.md. */
+  path: z.string(),
+  mimeType: z.string(),
+  byteSize: z.number().int(),
+  createdAt: z.string(),
+});
+export type FeedbackAttachment = z.infer<typeof FeedbackAttachment>;
+
+export const FeedbackItem = z.object({
+  id: z.string(),
+  text: z.string(),
+  context: z.object({ view: FeedbackView, nodeId: z.string().nullable() }),
+  tags: z.array(z.object({ text: z.string(), key: z.string() })),
+  attachments: z.array(FeedbackAttachment),
+  state: FeedbackState,
+  /** Oldest first, never shortened. */
+  history: z.array(FeedbackStateEvent),
+  manuallyPlaced: z.boolean(),
+  createdAt: z.string(),
+});
+export type FeedbackItem = z.infer<typeof FeedbackItem>;
+
+export const FeedbackListResponse = z.object({ items: z.array(FeedbackItem) });
+export const FeedbackItemResponse = z.object({ item: FeedbackItem });
+export const FeedbackPositionRequest = z.object({
+  aboveId: z.string().uuid().nullable(),
+  belowId: z.string().uuid().nullable(),
+});
+
+export const FEEDBACK_TEXT_MAX = 20000;
+export const FEEDBACK_TAG_MAX = 60;
+export const FEEDBACK_MAX_IMAGES = 10;
+export const FEEDBACK_MAX_IMAGE_BYTES = 10 * 1024 * 1024;
+
+export const FeedbackCreateFields = z
+  .object({
+    text: z
+      .string()
+      .max(FEEDBACK_TEXT_MAX)
+      .refine((t) => t.trim().length > 0, "Feedback text is required"),
+    view: FeedbackView,
+    nodeId: z.string().uuid().nullable().default(null),
+    tags: z
+      .array(z.string().trim().min(1).max(FEEDBACK_TAG_MAX))
+      .default([]),
+  })
+  .refine((f) => f.nodeId === null || f.view === "chat", "A node can only be recorded from the chat view");
+export type FeedbackCreateFields = z.input<typeof FeedbackCreateFields>;

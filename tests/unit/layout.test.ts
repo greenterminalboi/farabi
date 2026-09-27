@@ -16,6 +16,7 @@ function node(id: string, treeId: string, parentId: string | null): MapNode {
     createdAt: new Date(Date.UTC(2026, 0, 1, 0, 0, clock++)).toISOString(),
     manual: null,
     edgeLabel: null,
+    messageCount: 0,
   };
 }
 
