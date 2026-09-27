@@ -1,0 +1,92 @@
+import { expect, type Page } from "@playwright/test";
+import pg from "pg";
+
+const TEST_DATABASE_URL =
+  process.env.TEST_DATABASE_URL ?? "postgres://farabi:farabi@127.0.0.1:5432/farabi_test";
+
+export async function resetDb(): Promise<void> {
+  const client = new pg.Client({ connectionString: TEST_DATABASE_URL });
+  await client.connect();
+  await client.query("TRUNCATE node_summaries, branch_markers, messages, nodes, trees RESTART IDENTITY CASCADE");
+  await client.end();
+}
+
+export async function setAiMode(page: Page, mode: "ok" | "fail" | "slow", delayMs?: number) {
+  const res = await page.request.post("/api/test/ai-mode", { data: { mode, delayMs } });
+  expect(res.ok()).toBeTruthy();
+}
+
+export async function startConversation(page: Page): Promise<string> {
+  await page.goto("/");
+  await page.getByRole("button", { name: /start a conversation|new conversation/i }).first().click();
+  await page.waitForURL(/\/n\/[0-9a-f-]+$/);
+  return page.url().split("/n/")[1];
+}
+
+export async function send(page: Page, text: string) {
+  const before = await page.getByTestId("message").count();
+  await page.getByLabel("Message").fill(text);
+  await page.getByLabel("Message").press("Enter");
+  await expect(page.getByTestId("message")).toHaveCount(before + 2);
+  await expect(page.locator(".typing", { hasText: "Thinking" })).toHaveCount(0);
+}
+
+/** Selects `phrase` inside the last AI message by driving a DOM range, as a user drag would. */
+export async function selectInLastAiMessage(page: Page, phrase: string) {
+  await expect(page.locator('[data-role="ai"][data-message-id]').last()).toContainText(phrase);
+  await page.evaluate((phrase) => {
+    const messages = document.querySelectorAll<HTMLElement>('[data-role="ai"][data-message-id]');
+    const msg = messages[messages.length - 1];
+    // The phrase may span several text nodes (marker boundaries split text), so search the
+    // concatenated text and map both ends back to their nodes.
+    const walker = document.createTreeWalker(msg, NodeFilter.SHOW_TEXT);
+    const nodes: Text[] = [];
+    for (let n = walker.nextNode(); n; n = walker.nextNode()) nodes.push(n as Text);
+    const full = nodes.map((n) => n.data).join("");
+    const at = full.indexOf(phrase);
+    if (at < 0) throw new Error(`phrase not found: ${phrase}`);
+    const locate = (offset: number, isEnd: boolean) => {
+      let seen = 0;
+      for (const n of nodes) {
+        const within = offset - seen;
+        if (isEnd ? within <= n.data.length : within < n.data.length) return { node: n, offset: within };
+        seen += n.data.length;
+      }
+      throw new Error("offset out of range");
+    };
+    const start = locate(at, false);
+    const end = locate(at + phrase.length, true);
+    const range = document.createRange();
+    range.setStart(start.node, start.offset);
+    range.setEnd(end.node, end.offset);
+    const sel = document.getSelection()!;
+    sel.removeAllRanges();
+    sel.addRange(range);
+  }, phrase);
+}
+
+export async function branchOn(page: Page, phrase: string): Promise<string> {
+  const parentUrl = page.url();
+  await selectInLastAiMessage(page, phrase);
+  await page.getByRole("button", { name: "Branch" }).click();
+  await page.waitForURL((url) => url.toString() !== parentUrl && /\/n\//.test(url.pathname));
+  return page.url().split("/n/")[1];
+}
+
+export type MapDebug = {
+  nodes: Array<{ id: string; treeId: string; x: number; y: number; isRoot: boolean; labelKind: string; label: string }>;
+  edges: Array<{ from: string; to: string }>;
+  treeBoxes: Record<string, { minX: number; minY: number; maxX: number; maxY: number }>;
+};
+
+export async function mapDebug(page: Page): Promise<MapDebug> {
+  return page.evaluate(() => window.__farabiMapDebug as unknown as MapDebug);
+}
+
+export async function openMap(page: Page, expectedNodes: number) {
+  await page.getByRole("link", { name: "Map" }).click();
+  await page.waitForURL(/\/map$/);
+  await expect
+    .poll(async () => (await mapDebug(page))?.nodes.length ?? 0, { timeout: 10_000 })
+    .toBe(expectedNodes);
+}

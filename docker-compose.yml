@@ -1,0 +1,15 @@
+services:
+  db:
+    image: pgvector/pgvector:pg17
+    environment:
+      POSTGRES_USER: farabi
+      POSTGRES_PASSWORD: farabi
+      POSTGRES_DB: farabi
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - farabi-pgdata:/var/lib/postgresql/data
+      - ./db/init:/docker-entrypoint-initdb.d:ro
+
+volumes:
+  farabi-pgdata:
