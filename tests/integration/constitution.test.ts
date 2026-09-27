@@ -76,4 +76,26 @@ describe("constitution guards", () => {
       expect(src, file).not.toMatch(/(updateTable|deleteFrom)\("(definition_versions|edge_label_versions)"\)/);
     }
   });
+
+  it("Feature 5, Articles I and II: suggestions are ai_suggested, insert-only and stay out of the structure", async () => {
+    const t = await call("POST", "/api/trees", {});
+    await call("POST", `/api/nodes/${t.body.node.id}/messages?wait=1`, { content: "Pods" });
+    await call("POST", `/api/nodes/${t.body.node.id}/suggestions`, {});
+    const rows = await db.selectFrom("span_suggestions").select("provenance").execute();
+    expect(rows.length).toBeGreaterThan(0);
+    expect(rows.every((r) => r.provenance === "ai_suggested")).toBe(true);
+
+    for (const file of files(path.join(root, "src"), /\.(ts|tsx)$/)) {
+      const src = readFileSync(file, "utf8");
+      const rel = path.relative(root, file);
+      expect(src, rel).not.toMatch(/(updateTable|deleteFrom)\("span_suggestions"\)/);
+      // Only the suggestions module, the schema and migrations know the cache exists (FR-006).
+      if (/span_suggestions/.test(src)) expect(rel).toMatch(/^src\/server\/(suggestions|db)\//);
+    }
+    for (const file of files(path.join(root, "src/server/suggestions"), /\.ts$/)) {
+      expect(readFileSync(file, "utf8")).not.toMatch(
+        /insertInto\("(nodes|branch_markers|definitions|definition_versions|messages|node_summaries|edge_label_versions)"\)/,
+      );
+    }
+  });
 });

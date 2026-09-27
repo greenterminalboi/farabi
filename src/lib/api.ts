@@ -24,6 +24,7 @@ import {
   RetryResponse,
   SendMessageResponse,
   StopResponse,
+  SuggestionsResponse,
   TermIndexResponse,
 } from "@/shared/schemas";
 
@@ -109,6 +110,8 @@ export const api = {
     request("PUT", `/api/feedback/${id}/position`, FeedbackItemResponse, { aboveId, belowId }),
   resolveFeedback: (id: string) => request("POST", `/api/feedback/${id}/resolve`, FeedbackItemResponse, {}),
   reopenFeedback: (id: string) => request("POST", `/api/feedback/${id}/reopen`, FeedbackItemResponse, {}),
+  getSuggestions: (nodeId: string) =>
+    request("POST", `/api/nodes/${nodeId}/suggestions`, SuggestionsResponse, {}),
   refreshSummary: (nodeId: string) =>
     request("POST", `/api/nodes/${nodeId}/summary/refresh`, RefreshResponse, {}),
 };

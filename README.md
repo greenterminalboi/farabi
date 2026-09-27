@@ -8,6 +8,11 @@ as a map of trees.
 - **Chat**: replies stream in as they're written; **Stop** keeps what's arrived so far.
 - **Branch**: highlight any text and choose **Branch**, or send exactly `????` to branch from
   your last message (it's resent as the new branch's first message).
+- **Suggestions**: a grey dotted line marks up to three phrases in a finished reply that look
+  worth exploring on their own. Click one to select it, then choose **Branch** or **Define** as
+  usual; nothing is added to your map until you do. Each reply is analyzed once, with one
+  low-effort AI call, the first time you view it with suggestions on. Turn them off with the
+  **Suggestions** button in the conversation header.
 - **Definitions**: highlight a term and choose **Send to definitions** for a short AI draft
   (general meaning + how your conversation used it). Every occurrence of a collected term is
   underlined; hover it for the card. Confirm or edit drafts in the **Definitions** tab.

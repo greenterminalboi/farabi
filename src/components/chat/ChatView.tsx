@@ -5,8 +5,9 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { api, ApiError } from "@/lib/api";
 import { getCachedNode, setCachedNode } from "@/lib/nodeCache";
 import { useReplyStream } from "@/lib/replyStream";
-import type { Marker, NodeView } from "@/shared/schemas";
+import type { Marker, NodeView, SuggestedSpan } from "@/shared/schemas";
 import { useDefinitionsStore } from "@/state/definitionsStore";
+import { useSettingsStore } from "@/state/settingsStore";
 import { nodeViewState, useViewStore } from "@/state/viewStore";
 import { TermCard } from "@/components/definitions/TermCard";
 import { BranchAction } from "./BranchAction";
@@ -14,9 +15,13 @@ import { Composer } from "./Composer";
 import { InheritedContext } from "./InheritedContext";
 import { Message } from "./Message";
 import { NodeHeader } from "./NodeHeader";
+import { rangeForOffsets } from "./selection";
 
 const SUMMARY_POLL_MS = 4000;
 const NO_MARKERS: Marker[] = [];
+const NO_SUGGESTIONS: SuggestedSpan[] = [];
+/** Requests per round of suggestions while messages are still being analyzed (research R4). */
+const SUGGESTION_ROUNDS = 6;
 
 export function ChatView({ nodeId }: { nodeId: string }) {
   const router = useRouter();
@@ -32,6 +37,23 @@ export function ChatView({ nodeId }: { nodeId: string }) {
   const matcher = useDefinitionsStore((s) => s.matcher);
   const refreshIndex = useDefinitionsStore((s) => s.refreshIndex);
   const sectionRef = useRef<HTMLElement>(null);
+  const showSuggestions = useSettingsStore((s) => s.showSuggestions);
+  const setShowSuggestions = useSettingsStore((s) => s.setShowSuggestions);
+  // Suggested spans per message for the open node; never part of the node's data (Feature 5).
+  const [suggestions, setSuggestions] = useState<{ nodeId: string; byMessage: Record<string, SuggestedSpan[]> }>(
+    { nodeId, byMessage: {} },
+  );
+  // Messages already asked about for this node, and whether a round is in flight.
+  const suggestTracker = useRef<{ nodeId: string; asked: Set<string>; busy: boolean }>({
+    nodeId,
+    asked: new Set(),
+    busy: false,
+  });
+
+  // Read the per-browser setting once mounted (research R8).
+  useEffect(() => {
+    void useSettingsStore.persist.rehydrate();
+  }, []);
 
   // Load the collected terms once per conversation, so they're underlined (FR-036a).
   useEffect(() => {
@@ -83,6 +105,39 @@ export function ChatView({ nodeId }: { nodeId: string }) {
     for (const m of view?.markers ?? []) map.set(m.messageId, [...(map.get(m.messageId) ?? []), m]);
     return map;
   }, [view]);
+
+  // Ask for suggestions whenever a complete AI reply appears that hasn't been asked about, and keep
+  // asking while the server is still analyzing (Feature 5, research R4). Nothing while turned off.
+  useEffect(() => {
+    // getState() too: on the first render the stored setting may have only just been rehydrated.
+    if (!view || !showSuggestions || !useSettingsStore.getState().showSuggestions) return;
+    const tracker = suggestTracker.current;
+    if (tracker.nodeId !== nodeId) suggestTracker.current = { nodeId, asked: new Set(), busy: false };
+    const t = suggestTracker.current;
+    const wanted = view.messages.filter((m) => m.role === "ai" && m.status === "complete" && !t.asked.has(m.id));
+    if (wanted.length === 0 || t.busy) return;
+    t.busy = true;
+    void (async () => {
+      try {
+        for (let round = 0; round < SUGGESTION_ROUNDS && suggestTracker.current === t; round++) {
+          const res = await api.getSuggestions(nodeId);
+          setSuggestions((prev) =>
+            prev.nodeId === nodeId
+              ? { nodeId, byMessage: { ...prev.byMessage, ...res.byMessage } }
+              : { nodeId, byMessage: res.byMessage },
+          );
+          if (res.pending.length === 0) break;
+        }
+      } catch {
+        // Suggestions are optional; the conversation works the same without them.
+      } finally {
+        for (const m of wanted) t.asked.add(m.id);
+        t.busy = false;
+      }
+    })();
+  }, [view, nodeId, showSuggestions]);
+  const suggestionsOf = (messageId: string) =>
+    showSuggestions && suggestions.nodeId === nodeId ? (suggestions.byMessage[messageId] ?? NO_SUGGESTIONS) : NO_SUGGESTIONS;
 
   const scrollToBottom = () =>
     requestAnimationFrame(() => {
@@ -150,14 +205,29 @@ export function ChatView({ nodeId }: { nodeId: string }) {
   }
 
   function onListClick(e: React.MouseEvent) {
-    const target = (e.target as HTMLElement).closest<HTMLElement>("[data-markers]");
-    if (!target || !view) return;
+    const el = e.target as HTMLElement;
     const sel = document.getSelection();
-    if (sel && !sel.isCollapsed) return; // the user is selecting, not clicking a marker
-    const ids = target.dataset.markers!.split(" ");
-    const markers = view.markers.filter((m) => ids.includes(m.id));
-    if (markers.length === 1) router.push(`/n/${markers[0].childNodeId}`);
-    else setMenu({ markers, x: e.clientX, y: e.clientY });
+    if (sel && !sel.isCollapsed) return; // the user is selecting, not clicking
+    const target = el.closest<HTMLElement>("[data-markers]");
+    if (target && view) {
+      const ids = target.dataset.markers!.split(" ");
+      const markers = view.markers.filter((m) => ids.includes(m.id));
+      if (markers.length === 1) router.push(`/n/${markers[0].childNodeId}`);
+      else setMenu({ markers, x: e.clientX, y: e.clientY });
+      return;
+    }
+    // A collected term keeps its own card (Feature 2); it never selects a suggestion.
+    if (el.closest(".term-mark")) return;
+    // A suggested span becomes the selection, exactly as if dragged over; the highlighter
+    // toolbar takes it from there (Feature 5, FR-004, FR-005).
+    const suggestion = el.closest<HTMLElement>("[data-suggest]");
+    const messageEl = suggestion?.closest<HTMLElement>("[data-message-id]");
+    if (!suggestion || !messageEl || !sel) return;
+    const [start, end] = suggestion.dataset.suggest!.split("-").map(Number);
+    const range = rangeForOffsets(messageEl, start, end);
+    if (!range) return;
+    sel.removeAllRanges();
+    sel.addRange(range);
   }
 
   if (loadError && !view) return <div className="empty-state">{loadError}</div>;
@@ -165,7 +235,11 @@ export function ChatView({ nodeId }: { nodeId: string }) {
 
   return (
     <section className="chat" data-node-id={nodeId} ref={sectionRef}>
-      <NodeHeader summary={view.node.summary} />
+      <NodeHeader
+        summary={view.node.summary}
+        showSuggestions={showSuggestions}
+        onToggleSuggestions={() => setShowSuggestions(!showSuggestions)}
+      />
       {view.anchor && view.node.parentId && (
         <InheritedContext
           anchor={view.anchor}
@@ -192,6 +266,7 @@ export function ChatView({ nodeId }: { nodeId: string }) {
             message={m}
             markers={markersByMessage.get(m.id) ?? NO_MARKERS}
             matcher={matcher}
+            suggestions={suggestionsOf(m.id)}
             canRegenerate={view.canRegenerate?.messageId === m.id}
             streamText={m.id === pending?.id ? streamText : undefined}
             busy={busy}

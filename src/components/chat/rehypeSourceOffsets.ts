@@ -1,5 +1,5 @@
 import { findTerms, type TermMatcher } from "@/lib/terms";
-import type { Marker } from "@/shared/schemas";
+import type { Marker, SuggestedSpan } from "@/shared/schemas";
 import { segmentAttributes, splitByMarkers } from "./markerRanges";
 
 // Minimal hast types (avoids a direct dependency on @types/hast).
@@ -14,14 +14,21 @@ type HastElement = {
 };
 type HastNode = HastText | HastElement | { type: string; children?: HastNode[] };
 
-function segmentSpans(value: string, start: number, markers: Marker[], matcher: TermMatcher | null = null): HastElement[] {
+function segmentSpans(
+  value: string,
+  start: number,
+  markers: Marker[],
+  matcher: TermMatcher | null = null,
+  suggestions: SuggestedSpan[] = [],
+): HastElement[] {
   const terms = findTerms(value, start, matcher);
-  return splitByMarkers(start, start + value.length, markers, terms).map((seg) => {
+  return splitByMarkers(start, start + value.length, markers, terms, suggestions).map((seg) => {
     const attrs = segmentAttributes(seg);
     const properties: Record<string, unknown> = { "data-start": seg.start, "data-end": seg.end };
     if (attrs.className) properties.className = attrs.className.split(" ");
     if (attrs.markers) properties["data-markers"] = attrs.markers;
     if (attrs.defId) properties["data-def-id"] = attrs.defId;
+    if (attrs.suggest) properties["data-suggest"] = attrs.suggest;
     return {
       type: "element",
       tagName: "span",
@@ -35,9 +42,14 @@ function segmentSpans(value: string, start: number, markers: Marker[], matcher: 
  * Wraps every text node whose source offsets map 1:1 onto its text in
  * `<span data-start data-end>`, split at branch-marker boundaries. Text whose source differs from
  * its rendered value (escapes, entities, inline code) is left unwrapped and can't anchor a branch.
+ * Suggested spans (Feature 5) are marked the same way as markers and terms.
  */
-export function rehypeSourceOffsets(options: { markers: Marker[]; matcher?: TermMatcher | null }) {
-  const { markers, matcher = null } = options;
+export function rehypeSourceOffsets(options: {
+  markers: Marker[];
+  matcher?: TermMatcher | null;
+  suggestions?: SuggestedSpan[];
+}) {
+  const { markers, matcher = null, suggestions = [] } = options;
   return (tree: HastNode) => {
     const visit = (node: HastNode) => {
       if (!("children" in node) || !node.children) return;
@@ -48,7 +60,7 @@ export function rehypeSourceOffsets(options: { markers: Marker[]; matcher?: Term
           const s = text.position?.start.offset;
           const e = text.position?.end.offset;
           if (s !== undefined && e !== undefined && e - s === text.value.length) {
-            next.push(...segmentSpans(text.value, s, markers, matcher));
+            next.push(...segmentSpans(text.value, s, markers, matcher, suggestions));
             continue;
           }
         } else {

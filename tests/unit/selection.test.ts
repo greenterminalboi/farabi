@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from "vitest";
-import { selectionToAnchor } from "@/components/chat/selection";
+import { rangeForOffsets, selectionToAnchor } from "@/components/chat/selection";
 
 function render(html: string): HTMLElement {
   document.body.innerHTML = html;
@@ -58,5 +58,35 @@ describe("selectionToAnchor", () => {
     expect(selectionToAnchor(rangeOf(first, 1, first, 1), contentOf)).toBeNull();
     expect(selectionToAnchor(rangeOf(first, 5, first, 6), contentOf)).toBeNull();
     expect(selectionToAnchor(rangeOf(first, 0, spans[3].firstChild!, 2), contentOf)).toBeNull();
+  });
+});
+
+describe("rangeForOffsets (Feature 5)", () => {
+  const roundTrip = (messageId: string, start: number, end: number) => {
+    const el = document.querySelector<HTMLElement>(`[data-message-id="${messageId}"]`)!;
+    const range = rangeForOffsets(el, start, end);
+    expect(range).not.toBeNull();
+    return selectionToAnchor(range!, contentOf);
+  };
+
+  it("selects plain text exactly as a manual selection would", () => {
+    render(html);
+    expect(roundTrip("m1", 1, 5)).toMatchObject({ start: 1, end: 5, text: "ello" });
+  });
+
+  it("selects across a formatted element", () => {
+    render(html);
+    expect(roundTrip("m1", 0, 20)).toMatchObject({ start: 0, end: 20, text: content });
+  });
+
+  it("selects across a marker segment boundary", () => {
+    render(`<article data-message-id="m1"><span data-start="0" data-end="3">Hel</span><span class="marker" data-start="3" data-end="9">lo **b</span></article>`);
+    expect(roundTrip("m1", 1, 7)).toMatchObject({ start: 1, end: 7, text: "ello *" });
+  });
+
+  it("returns null when an end falls in unmapped text", () => {
+    render(html);
+    const el = document.querySelector<HTMLElement>('[data-message-id="m1"]')!;
+    expect(rangeForOffsets(el, 7, 10)).toBeNull();
   });
 });

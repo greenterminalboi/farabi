@@ -77,3 +77,29 @@ export function selectionToAnchor(
     suffix: content.slice(end, end + 32),
   };
 }
+
+/** The text node and offset inside it for raw offset `raw`, searching mapped spans in `root`. */
+function textPoint(root: HTMLElement, raw: number, edge: "start" | "end"): Boundary | null {
+  for (const span of root.querySelectorAll<HTMLElement>("span[data-start]")) {
+    const start = Number(span.dataset.start);
+    const end = Number(span.dataset.end);
+    const inside = edge === "start" ? start <= raw && raw < end : start < raw && raw <= end;
+    const text = span.firstChild;
+    if (inside && text?.nodeType === 3) return { node: text, offset: raw - start };
+  }
+  return null;
+}
+
+/**
+ * The DOM range over raw offsets [start, end) of a rendered message: the inverse of
+ * `selectionToAnchor` (Feature 5, research R7). Null when either end isn't in mapped text.
+ */
+export function rangeForOffsets(messageEl: HTMLElement, start: number, end: number): Range | null {
+  const from = textPoint(messageEl, start, "start");
+  const to = textPoint(messageEl, end, "end");
+  if (!from || !to) return null;
+  const range = messageEl.ownerDocument.createRange();
+  range.setStart(from.node, from.offset);
+  range.setEnd(to.node, to.offset);
+  return range;
+}
