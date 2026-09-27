@@ -100,6 +100,18 @@ export interface DefinitionVersionsTable {
   created_at: CreatedAt;
 }
 
+/** One suggested span as stored in the cache (Feature 5, data-model.md). */
+export type SuggestedSpanRow = { start: number; end: number; text: string };
+
+export interface SpanSuggestionsTable {
+  message_id: string;
+  detector_version: number;
+  /** Inserted as a JSON string; read back parsed. */
+  spans: ColumnType<SuggestedSpanRow[], string, never>;
+  provenance: ColumnType<Provenance, never, never>;
+  created_at: CreatedAt;
+}
+
 export type FeedbackView = "chat" | "map" | "definitions";
 export type FeedbackState = "open" | "addressed" | "resolved";
 
@@ -153,6 +165,7 @@ export interface Database {
   edge_label_versions: EdgeLabelVersionsTable;
   definitions: DefinitionsTable;
   definition_versions: DefinitionVersionsTable;
+  span_suggestions: SpanSuggestionsTable;
   feedback_items: FeedbackItemsTable;
   feedback_tags: FeedbackTagsTable;
   feedback_attachments: FeedbackAttachmentsTable;

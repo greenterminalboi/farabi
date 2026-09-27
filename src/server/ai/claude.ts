@@ -1,5 +1,13 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { buildDefineRequest, buildReplyRequest, buildSummaryRequest, cleanSummary, parseDefinition } from "./claudePrompts";
+import {
+  buildDefineRequest,
+  buildReplyRequest,
+  buildSuggestRequest,
+  buildSummaryRequest,
+  cleanSummary,
+  parseDefinition,
+  parseSpans,
+} from "./claudePrompts";
 import {
   AIPartialReplyError,
   AIUnavailableError,
@@ -9,6 +17,7 @@ import {
   type DefinitionText,
   type ReplyInput,
   type ReplyOptions,
+  type SuggestSpansInput,
   type SummaryInput,
 } from "./provider";
 
@@ -135,6 +144,27 @@ export class ClaudeProvider implements AIProvider {
         { signal: input.signal },
       );
       return parseDefinition(textOf(message));
+    } catch (err) {
+      throw toProviderError(err);
+    }
+  }
+
+  async suggestSpans(input: SuggestSpansInput): Promise<string[]> {
+    const { system, prompt } = buildSuggestRequest(input);
+    try {
+      const message = await this.getClient().beta.messages.create(
+        {
+          model: MODEL,
+          max_tokens: 1000,
+          betas: [FALLBACK_BETA],
+          fallbacks: "default",
+          output_config: { effort: "low" },
+          system,
+          messages: [{ role: "user", content: prompt }],
+        },
+        { signal: input.signal },
+      );
+      return parseSpans(textOf(message));
     } catch (err) {
       throw toProviderError(err);
     }

@@ -13,10 +13,29 @@ export function SummaryLabel({ summary }: { summary: Summary }) {
   );
 }
 
-export function NodeHeader({ summary }: { summary: Summary }) {
+export function NodeHeader({
+  summary,
+  showSuggestions,
+  onToggleSuggestions,
+}: {
+  summary: Summary;
+  showSuggestions: boolean;
+  onToggleSuggestions: () => void;
+}) {
   return (
     <div className="node-header" data-testid="node-header">
       <SummaryLabel summary={summary} />
+      {/* Suggested underlines can always be turned off (Feature 5, FR-012, Article IV). */}
+      <button
+        type="button"
+        className="btn btn-small suggestions-toggle"
+        data-testid="suggestions-toggle"
+        aria-pressed={showSuggestions}
+        title="Show suggested places to branch"
+        onClick={onToggleSuggestions}
+      >
+        Suggestions
+      </button>
     </div>
   );
 }

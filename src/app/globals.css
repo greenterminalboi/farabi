@@ -63,7 +63,10 @@ body { display: flex; flex-direction: column; }
 
 /* Chat */
 .chat { flex: 1; display: flex; flex-direction: column; min-width: 0; max-width: 820px; margin: 0 auto; width: 100%; }
-.node-header { padding: 12px 16px 4px; }
+.node-header { padding: 12px 16px 4px; display: flex; gap: 12px; align-items: baseline; }
+.node-header > :first-child { flex: 1; }
+.suggestions-toggle { font-size: 0.8em; color: var(--muted); }
+.suggestions-toggle[aria-pressed="true"] { color: var(--accent); border-color: var(--accent); }
 .node-header .summary { color: var(--text); }
 .node-header .placeholder { color: var(--muted); font-style: italic; }
 .ai-tag {
@@ -147,6 +150,16 @@ body { display: flex; flex-direction: column; }
 
 /* Definitions (Feature 2) */
 .term-mark { text-decoration: underline dotted var(--ai); text-decoration-thickness: 1.5px; text-underline-offset: 3px; cursor: help; }
+/* Feature 5: suggested places to branch. A dotted grey line drawn as a background image, so it
+   layers with markers (background-color, border) and terms (text-decoration) without hiding
+   either (FR-010). The quietest of the three underlines (FR-002). */
+.suggest-mark {
+  background-image: radial-gradient(circle, var(--muted) 0.75px, transparent 1px);
+  background-size: 4px 2px; background-repeat: repeat-x; background-position: 0 100%;
+  /* Sits below a term's dotted underline (text-underline-offset: 3px) so both stay visible. */
+  padding-bottom: 5px;
+}
+.suggest-mark:not(.term-mark):not(.marker) { cursor: pointer; }
 .term-card {
   position: fixed; z-index: 40; width: 320px; background: var(--surface); border: 1px solid var(--border);
   border-radius: 10px; box-shadow: 0 6px 20px rgba(0,0,0,0.15); padding: 10px 12px; font-size: 0.92em;

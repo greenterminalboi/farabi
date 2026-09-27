@@ -3,7 +3,7 @@
 import { memo, useMemo } from "react";
 import ReactMarkdown from "react-markdown";
 import { findTerms, type TermMatcher } from "@/lib/terms";
-import type { Marker, Message as MessageT } from "@/shared/schemas";
+import type { Marker, Message as MessageT, SuggestedSpan } from "@/shared/schemas";
 import { segmentAttributes, splitByMarkers } from "./markerRanges";
 import { rehypeSourceOffsets } from "./rehypeSourceOffsets";
 
@@ -12,6 +12,8 @@ type Props = {
   markers: Marker[];
   /** Collected terms to underline (Feature 2, FR-036a). */
   matcher: TermMatcher | null;
+  /** Suggested places to branch; drawn only on a complete AI reply (Feature 5, FR-003). */
+  suggestions: SuggestedSpan[];
   canRegenerate: boolean;
   /** Text so far while this reply streams. */
   streamText?: string;
@@ -56,14 +58,16 @@ function MarkdownText({
   content,
   markers,
   matcher = null,
+  suggestions,
 }: {
   content: string;
   markers: Marker[];
   matcher?: TermMatcher | null;
+  suggestions?: SuggestedSpan[];
 }) {
   const rehypePlugins = useMemo(
-    () => [[rehypeSourceOffsets, { markers, matcher }] as const],
-    [markers, matcher],
+    () => [[rehypeSourceOffsets, { markers, matcher, suggestions }] as const],
+    [markers, matcher, suggestions],
   );
   return (
     <div className="body">
@@ -82,6 +86,7 @@ function MessageView({
   message,
   markers,
   matcher,
+  suggestions,
   canRegenerate,
   streamText,
   busy,
@@ -153,7 +158,7 @@ function MessageView({
       )}
       {message.status === "complete" &&
         (isAi ? (
-          <MarkdownText content={message.content} markers={markers} matcher={matcher} />
+          <MarkdownText content={message.content} markers={markers} matcher={matcher} suggestions={suggestions} />
         ) : (
           <PlainText content={message.content} markers={markers} matcher={matcher} />
         ))}

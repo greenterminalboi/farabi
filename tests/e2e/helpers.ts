@@ -7,7 +7,7 @@ const TEST_DATABASE_URL =
 export async function resetDb(): Promise<void> {
   const client = new pg.Client({ connectionString: TEST_DATABASE_URL });
   await client.connect();
-  await client.query("TRUNCATE feedback_state_events, feedback_attachments, feedback_tags, feedback_items, node_summaries, branch_markers, messages, nodes, trees, projects RESTART IDENTITY CASCADE");
+  await client.query("TRUNCATE feedback_state_events, feedback_attachments, feedback_tags, feedback_items, span_suggestions, node_summaries, branch_markers, messages, nodes, trees, projects RESTART IDENTITY CASCADE");
   await client.end();
 }
 

@@ -3,6 +3,7 @@ import {
   buildReplyRequest,
   buildSummaryRequest,
   cleanSummary,
+  parseSpans,
   REPLY_SYSTEM,
 } from "@/server/ai/claudePrompts";
 
@@ -87,5 +88,20 @@ describe("buildHeadlessReply", () => {
     expect(system).toContain("Write only your next reply");
     expect(prompt).toContain('<turn speaker="assistant">\nanswer\n</turn>');
     expect(prompt.trim().endsWith("second\n</turn>\n</conversation>")).toBe(true);
+  });
+});
+
+describe("parseSpans", () => {
+  it("keeps SPAN lines, trimmed and unquoted", () => {
+    expect(parseSpans('SPAN: control plane\nSPAN:  "storage volumes" \n')).toEqual(["control plane", "storage volumes"]);
+  });
+
+  it("treats NONE and empty output as no suggestions", () => {
+    expect(parseSpans("NONE")).toEqual([]);
+    expect(parseSpans("   ")).toEqual([]);
+  });
+
+  it("throws on output in neither form", () => {
+    expect(() => parseSpans("Here are some ideas you might like")).toThrow();
   });
 });

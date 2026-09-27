@@ -1,5 +1,13 @@
 import type Anthropic from "@anthropic-ai/sdk";
-import { AIUnavailableError, type ChatTurn, type DefineInput, type DefinitionText, type ReplyInput, type SummaryInput } from "./provider";
+import {
+  AIUnavailableError,
+  type ChatTurn,
+  type DefineInput,
+  type DefinitionText,
+  type ReplyInput,
+  type SuggestSpansInput,
+  type SummaryInput,
+} from "./provider";
 
 type TextBlock = Anthropic.Beta.BetaTextBlockParam;
 type MessageParam = Anthropic.Beta.BetaMessageParam;
@@ -125,4 +133,32 @@ export function parseDefinition(text: string): DefinitionText {
   const clean = (s?: string) => (s ?? "").replace(/\s+/g, " ").trim();
   if (!clean(general) || !clean(usage)) throw new AIUnavailableError("The definition came back in an unexpected format");
   return { general: clean(general), usage: clean(usage) };
+}
+
+/** Bump when the suggestion prompt or rules change, so cached results are recomputed (Feature 5). */
+export const SPAN_DETECTOR_VERSION = 1;
+
+export const SUGGEST_SYSTEM = `You point out places in an assistant's reply that a reader might want to explore as a conversation of their own.
+
+Pick at most 3 short phrases from the reply, each 2 to 20 words, that name a distinct idea worth following up on separately. Copy each phrase exactly, character for character, from the reply. Use plain prose only: no markdown symbols, and never cross a line break. Fewer is better; if nothing clearly stands out, pick none.
+
+Reply with one line per phrase in the form "SPAN: <phrase>", or with the single line "NONE".`;
+
+export function buildSuggestRequest(input: SuggestSpansInput): { system: string; prompt: string } {
+  return {
+    system: SUGGEST_SYSTEM,
+    prompt: `<reply>\n${escape(input.text)}\n</reply>\n\nList the phrases.`,
+  };
+}
+
+/** Parses "SPAN: <phrase>" lines; "NONE" or nothing gives []. Anything else is a format error. */
+export function parseSpans(text: string): string[] {
+  const lines = text.split(/\n+/).map((l) => l.trim()).filter(Boolean);
+  const spans = lines
+    .map((l) => /^SPAN:\s*(.+)$/i.exec(l)?.[1]?.trim())
+    .filter((s): s is string => !!s)
+    .map((s) => s.replace(/^["“]+|["”]+$/g, ""));
+  if (spans.length) return spans;
+  if (lines.length === 0 || lines.some((l) => /^NONE\.?$/i.test(l))) return [];
+  throw new AIUnavailableError("The suggestions came back in an unexpected format");
 }
