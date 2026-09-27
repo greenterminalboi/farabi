@@ -1,14 +1,19 @@
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { NewConversationButton } from "@/components/common/NewConversationButton";
 import { db } from "@/server/db/client";
+import { PROJECT_COOKIE, resolveProject } from "@/server/projects/projects";
 
 export const dynamic = "force-dynamic";
 
 export default async function Home() {
+  const projectId = await resolveProject((await cookies()).get(PROJECT_COOKIE)?.value);
   const latest = await db
     .selectFrom("nodes")
-    .select("id")
-    .orderBy("created_at", "desc")
+    .innerJoin("trees", "trees.id", "nodes.tree_id")
+    .select("nodes.id")
+    .where("trees.project_id", "=", projectId)
+    .orderBy("nodes.created_at", "desc")
     .limit(1)
     .executeTakeFirst();
   if (latest) redirect(`/n/${latest.id}`);

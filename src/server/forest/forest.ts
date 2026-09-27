@@ -4,11 +4,17 @@ import { db } from "../db/client";
 import { toMapNode, toSummary, toTree } from "../mappers";
 import { currentEdgeLabels } from "./edgeLabels";
 
-/** The whole forest for the map (FR-017, FR-021). */
-export async function getForest(): Promise<ForestResponse> {
+/** The open project's forest for the map (FR-017, FR-021; Feature 4 FR-005). */
+export async function getForest(projectId: string): Promise<ForestResponse> {
   const [trees, nodes, anchors, summaries, labels, counts] = await Promise.all([
-    db.selectFrom("trees").selectAll().orderBy("created_at", "asc").execute(),
-    db.selectFrom("nodes").selectAll().orderBy("created_at", "asc").execute(),
+    db.selectFrom("trees").selectAll().where("project_id", "=", projectId).orderBy("created_at", "asc").execute(),
+    db
+      .selectFrom("nodes")
+      .innerJoin("trees", "trees.id", "nodes.tree_id")
+      .selectAll("nodes")
+      .where("trees.project_id", "=", projectId)
+      .orderBy("nodes.created_at", "asc")
+      .execute(),
     db.selectFrom("branch_markers").select(["child_node_id", "anchor_text"]).execute(),
     sql<{
       node_id: string;

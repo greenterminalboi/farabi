@@ -36,10 +36,23 @@ export async function captureDefinition(input: {
   if (!term) throw new InvalidSelectionError("The selection is empty");
   if (term.length > MAX_TERM) throw new InvalidSelectionError(`Terms are limited to ${MAX_TERM} characters`);
 
+  // A term belongs to the project of the conversation it came from (Feature 4, plan D4).
+  const { project_id: projectId } = await db
+    .selectFrom("nodes")
+    .innerJoin("trees", "trees.id", "nodes.tree_id")
+    .select("trees.project_id")
+    .where("nodes.id", "=", input.nodeId)
+    .executeTakeFirstOrThrow();
   const inserted = await db
     .insertInto("definitions")
-    .values({ term, term_key: termKey(term), source_node_id: input.nodeId, source_message_id: input.messageId })
-    .onConflict((oc) => oc.column("term_key").doNothing())
+    .values({
+      project_id: projectId,
+      term,
+      term_key: termKey(term),
+      source_node_id: input.nodeId,
+      source_message_id: input.messageId,
+    })
+    .onConflict((oc) => oc.columns(["project_id", "term_key"]).doNothing())
     .returning("id")
     .executeTakeFirst();
   if (inserted) {
@@ -49,6 +62,7 @@ export async function captureDefinition(input: {
   const existing = await db
     .selectFrom("definitions")
     .select("id")
+    .where("project_id", "=", projectId)
     .where("term_key", "=", termKey(term))
     .executeTakeFirst();
   if (!existing) throw new NotFoundError("Definition not found");

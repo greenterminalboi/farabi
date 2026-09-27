@@ -7,14 +7,15 @@ import { placeholderFor } from "../summaries/placeholder";
 
 const TREE_SPACING = 2000;
 
-/** Starts a new, independent root conversation (FR-001). */
-export async function createRootTree(): Promise<CreateTreeResponse> {
+/** Starts a new, independent root conversation in a project (FR-001). */
+export async function createRootTree(projectId: string): Promise<CreateTreeResponse> {
   return db.transaction().execute(async (trx) => {
     // Serialize origin allocation between concurrent creates.
     await sql`SELECT pg_advisory_xact_lock(hashtext('farabi:tree-origin'))`.execute(trx);
     const { maxX } = await trx
       .selectFrom("trees")
       .select((eb) => eb.fn.max("layout_origin_x").as("maxX"))
+      .where("project_id", "=", projectId) // each project's map starts at x = 0 (plan D5)
       .executeTakeFirstOrThrow();
     const x = (maxX === null ? -TREE_SPACING : Number(maxX)) + TREE_SPACING;
 
@@ -23,7 +24,7 @@ export async function createRootTree(): Promise<CreateTreeResponse> {
     // trees.root_node_id is DEFERRABLE, so the tree can reference its root before the root exists.
     const tree = await trx
       .insertInto("trees")
-      .values({ id: treeId, root_node_id: nodeId, layout_origin_x: x, layout_origin_y: 0 })
+      .values({ id: treeId, project_id: projectId, root_node_id: nodeId, layout_origin_x: x, layout_origin_y: 0 })
       .returningAll()
       .executeTakeFirstOrThrow();
     const node = await trx

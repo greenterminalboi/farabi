@@ -38,7 +38,7 @@ beforeEach(async () => {
   await drainSummaries();
   await drainDrafts();
   resetFakeCalls();
-  await sql`TRUNCATE feedback_state_events, feedback_attachments, feedback_tags, feedback_items, definition_versions, definitions, edge_label_versions, node_summaries, branch_markers, messages, nodes, trees RESTART IDENTITY CASCADE`.execute(db);
+  await sql`TRUNCATE feedback_state_events, feedback_attachments, feedback_tags, feedback_items, definition_versions, definitions, edge_label_versions, node_summaries, branch_markers, messages, nodes, trees, projects RESTART IDENTITY CASCADE`.execute(db);
   setFakeMode({ mode: "ok" });
   // The throwaway feedback folder follows the database: empty before each test.
   await fs.rm(process.env.FEEDBACK_DIR!, { recursive: true, force: true });

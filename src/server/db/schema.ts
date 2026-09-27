@@ -7,8 +7,16 @@ export type MarkerKind = "selection" | "whole_message";
 
 type CreatedAt = ColumnType<Date, never, never>;
 
+export interface ProjectsTable {
+  id: Generated<string>;
+  name: string;
+  created_at: CreatedAt;
+  trashed_at: Date | null;
+}
+
 export interface TreesTable {
   id: Generated<string>;
+  project_id: string;
   root_node_id: string;
   layout_origin_x: number;
   layout_origin_y: number;
@@ -74,6 +82,7 @@ export interface EdgeLabelVersionsTable {
 
 export interface DefinitionsTable {
   id: Generated<string>;
+  project_id: string;
   term: string;
   term_key: string;
   source_node_id: string;
@@ -135,6 +144,7 @@ export interface FeedbackStateEventsTable {
 }
 
 export interface Database {
+  projects: ProjectsTable;
   trees: TreesTable;
   nodes: NodesTable;
   branch_markers: BranchMarkersTable;

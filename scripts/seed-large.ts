@@ -12,6 +12,9 @@ const url = useTest ? process.env.TEST_DATABASE_URL : process.env.DATABASE_URL;
 if (!url) throw new Error("database URL not set");
 const db = createDb(url);
 
+// Feature 4: everything is seeded into one project.
+const project = await db.insertInto("projects").values({ name: "Scale seed" }).returning("id").executeTakeFirstOrThrow();
+
 const TREES = 20;
 const NODES = 500;
 const MAX_DEPTH = 6;
@@ -63,7 +66,7 @@ for (let t = 0; t < TREES; t++) {
   const treeId = crypto.randomUUID();
   const rootId = crypto.randomUUID();
   await db.transaction().execute(async (trx) => {
-    await trx.insertInto("trees").values({ id: treeId, root_node_id: rootId, layout_origin_x: t * 2000, layout_origin_y: 0 }).execute();
+    await trx.insertInto("trees").values({ id: treeId, project_id: project.id, root_node_id: rootId, layout_origin_x: t * 2000, layout_origin_y: 0 }).execute();
     await trx.insertInto("nodes").values({ id: rootId, tree_id: treeId, parent_id: null, provenance: "user_authored" }).execute();
   });
   const turns = [
@@ -89,6 +92,7 @@ const DEFINITIONS = 500;
 const defRows = Array.from({ length: DEFINITIONS }, (_, i) => {
   const source = all[i % all.length];
   return {
+    project_id: project.id,
     term: `term ${i}`,
     term_key: `term ${i}`,
     source_node_id: source.id,

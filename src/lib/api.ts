@@ -11,6 +11,9 @@ import {
   FeedbackItemResponse,
   type FeedbackCreateFields,
   FeedbackListResponse,
+  ProjectResponse,
+  ProjectsResponse,
+  TrashProjectResponse,
   ForestResponse,
   NodeResponse,
   NodeView,
@@ -83,6 +86,11 @@ export const api = {
   editDefinition: (id: string, generalText: string, usageText: string) =>
     request("POST", `/api/definitions/${id}/versions`, DefinitionResponse, { generalText, usageText }),
   redraftDefinition: (id: string) => request("POST", `/api/definitions/${id}/redraft`, RefreshResponse, {}),
+  listProjects: () => request("GET", "/api/projects", ProjectsResponse),
+  createProject: (name: string) => request("POST", "/api/projects", ProjectResponse, { name }),
+  openProject: (id: string) => request("POST", `/api/projects/${id}/open`, ProjectResponse, {}),
+  trashProject: (id: string) => request("POST", `/api/projects/${id}/trash`, TrashProjectResponse, {}),
+  restoreProject: (id: string) => request("POST", `/api/projects/${id}/restore`, ProjectResponse, {}),
   listFeedback: () => request("GET", "/api/feedback", FeedbackListResponse),
   createFeedback: (fields: FeedbackCreateFields, images: Array<{ file: File; thumb: Blob | null }>) => {
     const form = new FormData();
