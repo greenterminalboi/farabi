@@ -14,6 +14,8 @@ function node(id: string, treeId: string, parentId: string | null): MapNode {
     anchorText: parentId ? "x" : null,
     summary: { kind: "placeholder", text: id },
     createdAt: new Date(Date.UTC(2026, 0, 1, 0, 0, clock++)).toISOString(),
+    manual: null,
+    edgeLabel: null,
   };
 }
 
@@ -22,6 +24,7 @@ function forest(nodes: MapNode[], origins: Record<string, number>): ForestRespon
     id,
     rootNodeId: nodes.find((n) => n.treeId === id && n.parentId === null)!.id,
     origin: { x, y: 0 },
+    userPlaced: false,
   }));
   return { trees, nodes };
 }

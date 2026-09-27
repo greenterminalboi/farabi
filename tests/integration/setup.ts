@@ -13,6 +13,9 @@ process.env.SUMMARY_TRIGGER = "reply"; // tests expect labels after each reply, 
 const { db } = await import("@/server/db/client");
 const { setFakeMode } = await import("@/server/ai/fake");
 const { drainSummaries } = await import("@/server/summaries/queue");
+const { drainGenerations } = await import("@/server/messages/generation");
+const { drainDrafts } = await import("@/server/definitions/draftQueue");
+const { resetFakeCalls } = await import("@/server/ai/fake");
 
 beforeAll(async () => {
   const migrator = new Migrator({
@@ -28,11 +31,15 @@ beforeAll(async () => {
 });
 
 beforeEach(async () => {
+  await drainGenerations();
   await drainSummaries();
-  await sql`TRUNCATE node_summaries, branch_markers, messages, nodes, trees RESTART IDENTITY CASCADE`.execute(db);
+  await drainDrafts();
+  resetFakeCalls();
+  await sql`TRUNCATE definition_versions, definitions, edge_label_versions, node_summaries, branch_markers, messages, nodes, trees RESTART IDENTITY CASCADE`.execute(db);
   setFakeMode({ mode: "ok" });
 });
 
 afterAll(async () => {
+  await drainGenerations();
   await drainSummaries();
 });

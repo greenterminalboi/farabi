@@ -5,7 +5,7 @@ describe("US3 forest", () => {
   it("returns every tree and node with parents, roots, anchors and placeholders", async () => {
     const t1 = await call("POST", "/api/trees", {});
     await call("POST", "/api/trees", {});
-    const msg = await call("POST", `/api/nodes/${t1.body.node.id}/messages`, { content: "q" });
+    const msg = await call("POST", `/api/nodes/${t1.body.node.id}/messages?wait=1`, { content: "q" });
     const ai = msg.body.aiMessage;
     const start = ai.content.indexOf("Containers");
     const branch = await call("POST", `/api/nodes/${t1.body.node.id}/branches`, {

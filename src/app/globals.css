@@ -111,3 +111,50 @@ body { display: flex; flex-direction: column; }
 /* Map */
 .map-host { position: absolute; inset: 0; }
 .map-host[hidden] { display: block; visibility: hidden; pointer-events: none; }
+
+/* Streaming (Feature 2) */
+.caret { display: inline-block; width: 7px; height: 1em; margin-left: 2px; vertical-align: text-bottom; background: var(--muted); animation: blink 1s steps(2) infinite; }
+@keyframes blink { 50% { opacity: 0; } }
+.message.ended { border-style: dashed; }
+
+/* Definitions (Feature 2) */
+.term-mark { text-decoration: underline dotted var(--ai); text-decoration-thickness: 1.5px; text-underline-offset: 3px; cursor: help; }
+.term-card {
+  position: fixed; z-index: 40; width: 320px; background: var(--surface); border: 1px solid var(--border);
+  border-radius: 10px; box-shadow: 0 6px 20px rgba(0,0,0,0.15); padding: 10px 12px; font-size: 0.92em;
+}
+.term-card p { margin: 6px 0; }
+.term-card-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.term-card-link { font-size: 0.85em; }
+.def-part { font-size: 0.75em; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.03em; margin-right: 4px; }
+.def-badge { font-size: 0.72em; border-radius: 4px; padding: 1px 6px; border: 1px solid var(--border); color: var(--muted); }
+.def-draft { color: var(--ai); border-color: var(--ai); }
+.def-confirmed { color: #2b8a3e; border-color: #2b8a3e; }
+.def-failed { color: var(--danger); border-color: var(--danger); }
+.muted { color: var(--muted); }
+.definitions { flex: 1; max-width: 820px; margin: 0 auto; padding: 16px; overflow-y: auto; }
+.definitions-head { display: flex; align-items: center; gap: 16px; justify-content: space-between; }
+.definitions-head input { font: inherit; padding: 6px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text); min-width: 240px; }
+.definitions-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 10px; }
+.definition-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; }
+.definition-card:target { border-color: var(--accent); }
+.definition-actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+.definition-actions a.btn { text-decoration: none; }
+.definition-edit { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+.definition-edit label { display: flex; flex-direction: column; gap: 4px; font-size: 0.85em; color: var(--muted); }
+.definition-edit textarea { font: inherit; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); color: var(--text); }
+.definition-history { font-size: 0.88em; margin: 8px 0 0; padding-left: 18px; }
+.toast { position: fixed; bottom: 88px; left: 50%; transform: translateX(-50%); z-index: 50; background: var(--text); color: var(--bg); padding: 8px 14px; border-radius: 8px; font-size: 0.9em; }
+.toast a { color: inherit; }
+
+/* Edge label editor (Feature 2) */
+.edge-label-editor { position: fixed; z-index: 30; transform: translate(-50%, -50%); }
+.edge-label-editor input {
+  font: inherit; font-size: 0.9em; padding: 4px 8px; border-radius: 6px; border: 1px solid var(--accent);
+  background: var(--surface); color: var(--text); min-width: 220px; box-shadow: 0 4px 14px rgba(0,0,0,0.15);
+}
+
+/* Opening a conversation from the map continues the zoom into the chat (Feature 2 polish). */
+.chat { animation: chat-zoom-in 220ms ease-out; }
+@keyframes chat-zoom-in { from { opacity: 0; transform: scale(0.97); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .chat { animation: none; } }

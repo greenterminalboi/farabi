@@ -3,8 +3,9 @@ import { setFakeMode } from "@/server/ai/fake";
 import { readJson, withApi } from "@/server/http/withApi";
 
 const Body = z.object({
-  mode: z.enum(["ok", "fail", "slow"]),
+  mode: z.enum(["ok", "fail", "slow", "stall"]),
   delayMs: z.number().int().min(0).optional(),
+  chunkDelayMs: z.number().int().min(0).optional(),
 });
 
 function enabled(): boolean {

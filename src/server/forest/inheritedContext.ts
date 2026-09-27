@@ -21,7 +21,10 @@ export async function getInheritedContext(nodeId: string): Promise<InheritedCont
       FROM nodes p JOIN chain c ON p.id = c.parent_id
     ),
     cuts AS (
-      SELECT anc.node_id, anc.depth, cut.seq AS cut_seq
+      -- A quick-branch ("????") anchor is resent as the branch's first message, so the inherited
+      -- context stops just before it (FR-011).
+      SELECT anc.node_id, anc.depth,
+             CASE WHEN bm.kind = 'whole_message' THEN cut.seq - 1 ELSE cut.seq END AS cut_seq
       FROM chain anc
       JOIN chain child ON child.depth = anc.depth - 1
       JOIN branch_markers bm ON bm.child_node_id = child.node_id

@@ -32,23 +32,24 @@ export function layoutForest(
   trees: MapTree[],
   changedTreeIds: Set<string>,
   cache: LayoutCache,
+  heights: ReadonlyMap<string, number> = new Map(),
 ): ForestLayout {
   const origins = new Map(trees.map((t) => [t.id, { ...t.origin }]));
   for (const t of trees) {
-    if (!cache.has(t.id) || changedTreeIds.has(t.id)) cache.set(t.id, layoutTree(graph, t.rootNodeId));
+    if (!cache.has(t.id) || changedTreeIds.has(t.id)) cache.set(t.id, layoutTree(graph, t.rootNodeId, heights));
   }
 
   const placed = new Map<string, Box>();
   const relocations: ForestLayout["relocations"] = [];
-  // Unchanged trees are fixed; place them first, then fit changed trees around them.
-  const ordered = [...trees].sort(
-    (a, b) => Number(changedTreeIds.has(a.id)) - Number(changedTreeIds.has(b.id)),
-  );
+  // Unchanged and user-placed trees are fixed; place them first, then fit the rest around them.
+  const movable = (t: MapTree) => changedTreeIds.has(t.id) && !t.userPlaced;
+  const ordered = [...trees].sort((a, b) => Number(movable(a)) - Number(movable(b)));
   for (const t of ordered) {
     const layout = cache.get(t.id)!;
     let origin = origins.get(t.id)!;
     let box = offset(layout.box, origin.x, origin.y);
-    if (changedTreeIds.has(t.id) && [...placed.values()].some((other) => overlaps(box, other))) {
+    // A tree the user placed is never moved automatically (Feature 2, FR-020).
+    if (!t.userPlaced && changedTreeIds.has(t.id) && [...placed.values()].some((other) => overlaps(box, other))) {
       const rightmost = Math.max(...[...placed.values()].map((b) => b.maxX));
       origin = { x: rightmost + TREE_GAP - layout.box.minX, y: 0 };
       box = offset(layout.box, origin.x, origin.y);

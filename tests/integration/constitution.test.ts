@@ -24,7 +24,7 @@ describe("constitution guards", () => {
 
   it("Article I: every summary and AI message is ai_suggested", async () => {
     const t = await call("POST", "/api/trees", {});
-    await call("POST", `/api/nodes/${t.body.node.id}/messages`, { content: "hi" });
+    await call("POST", `/api/nodes/${t.body.node.id}/messages?wait=1`, { content: "hi" });
     await drainSummaries();
     const summaries = await db.selectFrom("node_summaries").select("provenance").execute();
     expect(summaries.length).toBeGreaterThan(0);
@@ -42,6 +42,38 @@ describe("constitution guards", () => {
     for (const f of callers) expect(path.relative(root, f)).toMatch(/^src\/server\/(messages|ai)\//);
     for (const f of files(path.join(root, "src/server/ai"), /\.ts$/)) {
       expect(readFileSync(f, "utf8")).not.toMatch(/insertInto\("nodes"\)|insertInto\("branch_markers"\)/);
+    }
+  });
+
+  it("Article II: nothing updates a node's parent after it is created (drags never re-parent)", () => {
+    for (const file of files(path.join(root, "src"), /\.(ts|tsx)$/)) {
+      const src = readFileSync(file, "utf8");
+      const updatesNodes = /updateTable\("nodes"\)[\s\S]{0,200}?\.set\(\{[^}]*parent_id/.test(src);
+      expect(updatesNodes, file).toBe(false);
+      expect(src, file).not.toMatch(/UPDATE\s+nodes\s+SET[^;]*parent_id/i);
+    }
+  });
+
+  it("Articles I and VI: definition and edge-label history is typed and append-only", async () => {
+    const t = await call("POST", "/api/trees", {});
+    const ai = (await call("POST", `/api/nodes/${t.body.node.id}/messages?wait=1`, { content: "Pods" })).body.aiMessage;
+    const start = ai.content.indexOf("Containers");
+    const sel = { nodeId: t.body.node.id, messageId: ai.id, start, end: start + 10, text: "Containers" };
+    const def = (await call("POST", "/api/definitions", sel)).body.definition;
+    const { drainDrafts } = await import("@/server/definitions/draftQueue");
+    await drainDrafts();
+    await call("POST", `/api/definitions/${def.id}/confirm`, {});
+    const branch = await call("POST", `/api/nodes/${t.body.node.id}/branches`, { ...sel, prefix: "", suffix: "" });
+    await call("PUT", `/api/nodes/${branch.body.node.id}/edge-label`, { text: "builds on" });
+
+    const versions = await db.selectFrom("definition_versions").select("provenance").orderBy("created_at").execute();
+    expect(versions.map((v) => v.provenance)).toEqual(["ai_suggested", "user_confirmed"]);
+    const labels = await db.selectFrom("edge_label_versions").select("provenance").execute();
+    expect(labels.every((l) => l.provenance === "user_authored")).toBe(true);
+    // No update or delete statements touch the version tables.
+    for (const file of files(path.join(root, "src/server"), /\.ts$/)) {
+      const src = readFileSync(file, "utf8");
+      expect(src, file).not.toMatch(/(updateTable|deleteFrom)\("(definition_versions|edge_label_versions)"\)/);
     }
   });
 });

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { splitByMarkers } from "@/components/chat/markerRanges";
 
 const m = (id: string, start: number, end: number) => ({
-  id, start, end, messageId: "x", anchorText: "", childNodeId: `c-${id}`,
+  id, start, end, messageId: "x", anchorText: "", childNodeId: `c-${id}`, kind: "selection" as const,
 });
 
 describe("splitByMarkers", () => {

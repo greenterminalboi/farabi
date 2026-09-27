@@ -1,5 +1,8 @@
 # Contract: Local HTTP API
 
+> Feature 2 changed and extended this API (asynchronous sending, streaming, quick branch,
+> positions, edge labels, definitions): see `specs/002-map-definitions-streaming/contracts/http-api.md`.
+
 Served by Next.js route handlers on the local server (research R1), bound to `127.0.0.1`.
 Requests with a foreign `Host` or `Origin` are rejected with `403`.
 All bodies are JSON and validated with shared Zod schemas (research R12). Errors use

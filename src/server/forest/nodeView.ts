@@ -3,6 +3,7 @@ import { db } from "../db/client";
 import { NotFoundError } from "../errors";
 import { assertId } from "../ids";
 import { toMapNode, toMarker, toMessage, toSummary } from "../mappers";
+import { finalizeOrphan } from "../messages/generation";
 import { getInheritedContext } from "./inheritedContext";
 
 export async function latestSummary(nodeId: string) {
@@ -35,6 +36,12 @@ export async function liveMessages(nodeId: string) {
     .execute();
 }
 
+/** Live messages, with any orphaned pending reply finalised as incomplete first (research R2). */
+async function liveMessagesFinalized(nodeId: string) {
+  const rows = await liveMessages(nodeId);
+  return Promise.all(rows.map((row) => finalizeOrphan(row)));
+}
+
 /** Everything the chat view needs for one node (GET /api/nodes/{nodeId}). */
 export async function getNodeView(nodeId: string): Promise<NodeView> {
   assertId(nodeId, "Node");
@@ -44,7 +51,7 @@ export async function getNodeView(nodeId: string): Promise<NodeView> {
   const [incoming, summary, messages, markers, inheritedContext] = await Promise.all([
     getIncomingMarker(nodeId),
     latestSummary(nodeId),
-    liveMessages(nodeId),
+    liveMessagesFinalized(nodeId),
     db
       .selectFrom("branch_markers")
       .selectAll()

@@ -19,7 +19,7 @@ test("chat → map → chat keeps position and draft", async ({ page }) => {
 
   const point = await page.evaluate((id) => window.__farabiMapScreenPoint?.(id), nodeId);
   expect(point).toBeTruthy();
-  await page.mouse.click(point!.x, point!.y);
+  await page.mouse.dblclick(point!.x, point!.y);
   await page.waitForURL(new RegExp(`/n/${nodeId}$`));
 
   await expect(page.getByLabel("Message")).toHaveValue("unsent thought");
@@ -37,7 +37,7 @@ test("clicking a map node opens its conversation", async ({ page }) => {
   await expect.poll(async () => page.evaluate(() => window.__farabiMapDebug?.nodes.length ?? 0)).toBe(2);
   const point = await page.evaluate((id) => window.__farabiMapScreenPoint?.(id), first);
   expect(point).toBeTruthy();
-  await page.mouse.click(point!.x, point!.y);
+  await page.mouse.dblclick(point!.x, point!.y);
   await page.waitForURL(new RegExp(`/n/${first}$`));
   await expect(page.getByTestId("message")).toHaveCount(2);
 });

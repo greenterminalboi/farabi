@@ -1,16 +1,18 @@
 import Link from "next/link";
+import type { TermMatcher } from "@/lib/terms";
 import type { Anchor, InheritedContextEntry } from "@/shared/schemas";
+import { TermText } from "./TermText";
 
 /** Design can flip this default (FR-033 leaves collapsed vs. inline to design). */
 export const INHERITED_CONTEXT_DEFAULT_COLLAPSED = true;
 
-type Props = { anchor: Anchor; parentId: string; inherited: InheritedContextEntry[] };
+type Props = { anchor: Anchor; parentId: string; inherited: InheritedContextEntry[]; matcher: TermMatcher | null };
 
 /**
  * Shows what the AI in this branch knows from its parent (FR-005, FR-033). Read-only and set
  * apart; messages carry no data-message-id, so they can't be branched from here.
  */
-export function InheritedContext({ anchor, parentId, inherited }: Props) {
+export function InheritedContext({ anchor, parentId, inherited, matcher }: Props) {
   const count = inherited.reduce((n, e) => n + e.messages.length, 0);
   return (
     <>
@@ -28,7 +30,9 @@ export function InheritedContext({ anchor, parentId, inherited }: Props) {
               entry.messages.map((m) => (
                 <div key={m.id} className="inherited-message">
                   <strong>{m.role === "ai" ? "AI" : "You"}:</strong>{" "}
-                  <span style={{ whiteSpace: "pre-wrap" }}>{m.content}</span>
+                  <span style={{ whiteSpace: "pre-wrap" }}>
+                    <TermText text={m.content} matcher={matcher} />
+                  </span>
                 </div>
               )),
             )}

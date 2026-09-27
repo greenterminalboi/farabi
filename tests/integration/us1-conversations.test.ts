@@ -26,7 +26,7 @@ describe("US1 root conversations", () => {
 
   it("stores the user message and AI reply with provenance and consecutive seq", async () => {
     const { node } = await newRoot();
-    const res = await call("POST", `/api/nodes/${node.id}/messages`, { content: "Tell me about Pods" });
+    const res = await call("POST", `/api/nodes/${node.id}/messages?wait=1`, { content: "Tell me about Pods" });
     expect(res.status).toBe(201);
     expect(res.body.userMessage).toMatchObject({ role: "user", provenance: "user_authored", seq: 1 });
     expect(res.body.aiMessage).toMatchObject({
@@ -41,24 +41,25 @@ describe("US1 root conversations", () => {
 
   it("rejects empty messages", async () => {
     const { node } = await newRoot();
-    const res = await call("POST", `/api/nodes/${node.id}/messages`, { content: "   " });
+    const res = await call("POST", `/api/nodes/${node.id}/messages?wait=1`, { content: "   " });
     expect(res.status).toBe(422);
   });
 
   it("keeps the user message when the AI is unavailable, and retry recovers", async () => {
     const { node } = await newRoot();
     setFakeMode({ mode: "fail" });
-    const res = await call("POST", `/api/nodes/${node.id}/messages`, { content: "hello" });
-    expect(res.status).toBe(503);
-    expect(res.body.error.code).toBe("ai_unavailable");
+    const res = await call("POST", `/api/nodes/${node.id}/messages?wait=1`, { content: "hello" });
+    // Sending is asynchronous since Feature 2: the message is stored and the reply ends failed.
+    expect(res.status).toBe(201);
     expect(res.body.userMessage.content).toBe("hello");
+    expect(res.body.aiMessage.status).toBe("failed");
 
     const view = await call("GET", `/api/nodes/${node.id}`);
     expect(view.body.messages.map((m: { status: string }) => m.status)).toEqual(["complete", "failed"]);
 
     setFakeMode({ mode: "ok" });
     const failedId = view.body.messages[1].id;
-    const retry = await call("POST", `/api/messages/${failedId}/retry`, {});
+    const retry = await call("POST", `/api/messages/${failedId}/retry?wait=1`, {});
     expect(retry.status).toBe(201);
     expect(retry.body.aiMessage.status).toBe("complete");
 
@@ -69,17 +70,17 @@ describe("US1 root conversations", () => {
 
   it("regenerates only the latest AI reply and keeps the replaced one", async () => {
     const { node } = await newRoot();
-    const first = await call("POST", `/api/nodes/${node.id}/messages`, { content: "one" });
-    const second = await call("POST", `/api/nodes/${node.id}/messages`, { content: "two" });
+    const first = await call("POST", `/api/nodes/${node.id}/messages?wait=1`, { content: "one" });
+    const second = await call("POST", `/api/nodes/${node.id}/messages?wait=1`, { content: "two" });
 
-    const stale = await call("POST", `/api/messages/${first.body.aiMessage.id}/regenerate`, {});
+    const stale = await call("POST", `/api/messages/${first.body.aiMessage.id}/regenerate?wait=1`, {});
     expect(stale.status).toBe(409);
     expect(stale.body.error.code).toBe("not_latest_ai_message");
 
     const view = await call("GET", `/api/nodes/${node.id}`);
     expect(view.body.canRegenerate).toEqual({ messageId: second.body.aiMessage.id });
 
-    const regen = await call("POST", `/api/messages/${second.body.aiMessage.id}/regenerate`, {});
+    const regen = await call("POST", `/api/messages/${second.body.aiMessage.id}/regenerate?wait=1`, {});
     expect(regen.status).toBe(201);
     expect(regen.body.replaced.id).toBe(second.body.aiMessage.id);
     const old = await db

@@ -13,13 +13,13 @@ describe("US5 summaries", () => {
 
   it("writes an ai_suggested summary through the latest message after each reply", async () => {
     const t = await call("POST", "/api/trees", {});
-    const msg = await call("POST", `/api/nodes/${t.body.node.id}/messages`, { content: "leader election" });
+    const msg = await call("POST", `/api/nodes/${t.body.node.id}/messages?wait=1`, { content: "leader election" });
     await drainSummaries();
     const rows = await db.selectFrom("node_summaries").selectAll().execute();
     expect(rows).toHaveLength(1);
     expect(rows[0]).toMatchObject({ provenance: "ai_suggested", through_message_id: msg.body.aiMessage.id });
 
-    await call("POST", `/api/nodes/${t.body.node.id}/messages`, { content: "Raft versus Paxos in general" });
+    await call("POST", `/api/nodes/${t.body.node.id}/messages?wait=1`, { content: "Raft versus Paxos in general" });
     await drainSummaries();
     const view = await call("GET", `/api/nodes/${t.body.node.id}`);
     expect(view.body.node.summary.kind).toBe("summary");
@@ -29,14 +29,14 @@ describe("US5 summaries", () => {
 
   it("summarizes a branch from its own messages and anchor only", async () => {
     const t = await call("POST", "/api/trees", {});
-    const msg = await call("POST", `/api/nodes/${t.body.node.id}/messages`, { content: "parent only text" });
+    const msg = await call("POST", `/api/nodes/${t.body.node.id}/messages?wait=1`, { content: "parent only text" });
     const ai = msg.body.aiMessage;
     const start = ai.content.indexOf("Containers");
     const branch = await call("POST", `/api/nodes/${t.body.node.id}/branches`, {
       messageId: ai.id, start, end: start + 10, text: "Containers", prefix: "", suffix: "",
     });
     await drainSummaries();
-    await call("POST", `/api/nodes/${branch.body.node.id}/messages`, { content: "branch talk" });
+    await call("POST", `/api/nodes/${branch.body.node.id}/messages?wait=1`, { content: "branch talk" });
     await drainSummaries();
     const input = getFakeCalls().lastSummary!;
     expect(input.anchorText).toBe("Containers");
@@ -47,12 +47,12 @@ describe("US5 summaries", () => {
 
   it("keeps the previous summary when summarizing fails", async () => {
     const t = await call("POST", "/api/trees", {});
-    await call("POST", `/api/nodes/${t.body.node.id}/messages`, { content: "first" });
+    await call("POST", `/api/nodes/${t.body.node.id}/messages?wait=1`, { content: "first" });
     await drainSummaries();
     const before = (await call("GET", `/api/nodes/${t.body.node.id}`)).body.node.summary;
 
     // Reply succeeds, then the summarizer fails.
-    await call("POST", `/api/nodes/${t.body.node.id}/messages`, { content: "second" });
+    await call("POST", `/api/nodes/${t.body.node.id}/messages?wait=1`, { content: "second" });
     setFakeMode({ mode: "fail" });
     const refresh = await call("POST", `/api/nodes/${t.body.node.id}/summary/refresh`, {});
     expect(refresh.status).toBe(202);
@@ -65,7 +65,7 @@ describe("US5 summaries", () => {
 
   it("returns 202 immediately even when the summarizer is slow", async () => {
     const t = await call("POST", "/api/trees", {});
-    await call("POST", `/api/nodes/${t.body.node.id}/messages`, { content: "x" });
+    await call("POST", `/api/nodes/${t.body.node.id}/messages?wait=1`, { content: "x" });
     await drainSummaries();
     setFakeMode({ mode: "slow", delayMs: 1500 });
     const started = Date.now();
@@ -83,7 +83,7 @@ describe("SUMMARY_TRIGGER=map", () => {
     try {
       const t = await call("POST", "/api/trees", {});
       const other = await call("POST", "/api/trees", {});
-      await call("POST", `/api/nodes/${t.body.node.id}/messages`, { content: "leader election" });
+      await call("POST", `/api/nodes/${t.body.node.id}/messages?wait=1`, { content: "leader election" });
       await drainSummaries();
       expect(await db.selectFrom("node_summaries").selectAll().execute()).toHaveLength(0);
 

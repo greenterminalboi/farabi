@@ -1,6 +1,16 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { buildReplyRequest, buildSummaryRequest, cleanSummary } from "./claudePrompts";
-import { AIUnavailableError, type AIProvider, type ReplyInput, type SummaryInput } from "./provider";
+import { buildDefineRequest, buildReplyRequest, buildSummaryRequest, cleanSummary, parseDefinition } from "./claudePrompts";
+import {
+  AIPartialReplyError,
+  AIUnavailableError,
+  isAbortError,
+  type AIProvider,
+  type DefineInput,
+  type DefinitionText,
+  type ReplyInput,
+  type ReplyOptions,
+  type SummaryInput,
+} from "./provider";
 
 const MODEL = process.env.CLAUDE_MODEL ?? "claude-opus-5";
 // Server-side refusal fallback: a declined request is re-run on Anthropic's recommended model.
@@ -51,10 +61,11 @@ export class ClaudeProvider implements AIProvider {
     return this.client;
   }
 
-  async reply(input: ReplyInput): Promise<string> {
+  async reply(input: ReplyInput, options?: ReplyOptions): Promise<string> {
     const { system, messages } = buildReplyRequest(input);
+    let delivered = "";
     try {
-      // Streamed so long answers don't hit HTTP timeouts; the app stores the finished reply.
+      // Streamed so long answers don't hit HTTP timeouts, and so the app can show text as it comes.
       const stream = this.getClient().beta.messages.stream(
         {
           model: MODEL,
@@ -67,11 +78,20 @@ export class ClaudeProvider implements AIProvider {
         },
         { signal: input.signal },
       );
+      stream.on("text", (delta) => {
+        delivered += delta;
+        options?.onText?.(delta);
+      });
       const text = textOf(await stream.finalMessage());
       if (!text) throw new AIUnavailableError("Claude returned an empty reply");
       return text;
     } catch (err) {
-      throw toProviderError(err);
+      if (isAbortError(err) || input.signal?.aborted) throw err;
+      const mapped = toProviderError(err);
+      if (delivered && mapped instanceof AIUnavailableError && !(mapped instanceof AIPartialReplyError)) {
+        throw new AIPartialReplyError(delivered, mapped.message);
+      }
+      throw mapped;
     }
   }
 
@@ -94,6 +114,27 @@ export class ClaudeProvider implements AIProvider {
       const summary = cleanSummary(textOf(message));
       if (!summary) throw new AIUnavailableError("Claude returned an empty summary");
       return summary;
+    } catch (err) {
+      throw toProviderError(err);
+    }
+  }
+
+  async define(input: DefineInput): Promise<DefinitionText> {
+    const { system, prompt } = buildDefineRequest(input);
+    try {
+      const message = await this.getClient().beta.messages.create(
+        {
+          model: MODEL,
+          max_tokens: 4000,
+          betas: [FALLBACK_BETA],
+          fallbacks: "default",
+          output_config: { effort: "low" },
+          system,
+          messages: [{ role: "user", content: prompt }],
+        },
+        { signal: input.signal },
+      );
+      return parseDefinition(textOf(message));
     } catch (err) {
       throw toProviderError(err);
     }

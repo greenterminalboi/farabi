@@ -80,5 +80,35 @@ while (all.length < NODES) {
   await addNode(parent.treeId, parent, parent.depth + 1);
 }
 
-console.log(`Seeded ${TREES} trees, ${all.length} nodes.`);
+// Feature 2: 500 definitions (one draft each) and a few edge labels.
+const DEFINITIONS = 500;
+const defRows = Array.from({ length: DEFINITIONS }, (_, i) => {
+  const source = all[i % all.length];
+  return {
+    term: `term ${i}`,
+    term_key: `term ${i}`,
+    source_node_id: source.id,
+    source_message_id: source.aiMessageId,
+  };
+});
+defRows[0] = { ...defRows[0], term: "Containers", term_key: "containers" };
+const defs = await db.insertInto("definitions").values(defRows).returning(["id", "term"]).execute();
+await db
+  .insertInto("definition_versions")
+  .values(
+    defs.map((d) => ({
+      definition_id: d.id,
+      general_text: `General meaning of ${d.term}.`,
+      usage_text: `How ${d.term} was used in the conversation.`,
+      provenance: "ai_suggested" as const,
+    })),
+  )
+  .execute();
+const labelled = all.filter((n) => n.depth > 0).slice(0, 10);
+await db
+  .insertInto("edge_label_versions")
+  .values(labelled.map((n) => ({ child_node_id: n.id, text: "builds on", provenance: "user_authored" as const })))
+  .execute();
+
+console.log(`Seeded ${TREES} trees, ${all.length} nodes, ${defs.length} definitions.`);
 await db.destroy();

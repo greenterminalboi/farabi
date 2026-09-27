@@ -1,47 +1,68 @@
 import { sql } from "kysely";
 import type { SendMessageResponse } from "@/shared/schemas";
-import { getAIProvider } from "../ai";
-import { AIUnavailableError } from "../ai/provider";
 import { db, type Trx } from "../db/client";
-import { AIServiceUnavailable, ConflictError, InvalidRequestError, NotFoundError } from "../errors";
+import { ConflictError, InvalidRequestError, NotFoundError } from "../errors";
 import { assertId } from "../ids";
 import { toMessage } from "../mappers";
-import { summaryAfterReply } from "../summaries/queue";
+import { startGeneration } from "./generation";
+import { QUICK_BRANCH, tryQuickBranch } from "./quickBranch";
 import { buildReplyInput } from "./replyInput";
 
-/**
- * Fills a pending AI message with the provider's reply. Content is written exactly once, at
- * completion (FR-028). On failure the message is marked failed and AIServiceUnavailable is thrown.
- */
-export async function completeReply(nodeId: string, pendingId: string) {
-  try {
-    const content = await getAIProvider().reply(await buildReplyInput(nodeId));
-    const done = await db
-      .updateTable("messages")
-      .set({ content, status: "complete" })
-      .where("id", "=", pendingId)
-      .where("status", "=", "pending")
-      .returningAll()
-      .executeTakeFirstOrThrow();
-    summaryAfterReply(nodeId);
-    return done;
-  } catch (err) {
-    await db
-      .updateTable("messages")
-      .set({ status: "failed" })
-      .where("id", "=", pendingId)
-      .where("status", "=", "pending")
-      .execute();
-    if (err instanceof AIUnavailableError) throw new AIServiceUnavailable();
-    throw err;
-  }
+/** Locks a node's row for the rest of the transaction, serializing message writes per node. */
+export async function lockNode(trx: Trx, nodeId: string): Promise<void> {
+  await sql`SELECT 1 FROM nodes WHERE id = ${nodeId} FOR UPDATE`.execute(trx);
 }
 
-/** Stores the user's message, then obtains and stores the AI reply (FR-004, FR-032). */
-export async function sendMessage(nodeId: string, content: string): Promise<SendMessageResponse> {
+/** Inserts a pending AI message at `seq` and starts generating it in the background. */
+export async function insertPendingReply(trx: Trx, nodeId: string, seq: number) {
+  return trx
+    .insertInto("messages")
+    .values({
+      node_id: nodeId,
+      seq,
+      role: "ai",
+      content: "",
+      status: "pending",
+      provenance: "ai_suggested",
+    })
+    .returningAll()
+    .executeTakeFirstOrThrow();
+}
+
+export function generate(nodeId: string, messageId: string) {
+  return startGeneration(nodeId, messageId, () => buildReplyInput(nodeId));
+}
+
+/**
+ * Stores the user's message and a pending AI reply, starts the reply in the background and
+ * returns immediately; the reply streams separately (Feature 2, FR-001, FR-004).
+ */
+export async function sendMessage(
+  nodeId: string,
+  content: string,
+): Promise<Extract<SendMessageResponse, { kind: "message" }>> {
   assertId(nodeId, "Node");
   if (content.trim() === "") throw new InvalidRequestError("Message must not be empty");
+  return sendOrdinary(nodeId, content);
+}
 
+/**
+ * Entry point for the user's composer: an exact "????" becomes a quick branch when possible
+ * (FR-006–FR-013); anything else is an ordinary message.
+ */
+export async function sendFromComposer(nodeId: string, content: string): Promise<SendMessageResponse> {
+  assertId(nodeId, "Node");
+  if (content.trim() === QUICK_BRANCH) {
+    const branched = await tryQuickBranch(nodeId);
+    if (branched) return branched;
+  }
+  return sendMessage(nodeId, content);
+}
+
+async function sendOrdinary(
+  nodeId: string,
+  content: string,
+): Promise<Extract<SendMessageResponse, { kind: "message" }>> {
   const { userMessage, pending } = await db.transaction().execute(async (trx) => {
     const node = await trx
       .selectFrom("nodes")
@@ -76,33 +97,10 @@ export async function sendMessage(nodeId: string, content: string): Promise<Send
       })
       .returningAll()
       .executeTakeFirstOrThrow();
-    const pending = await trx
-      .insertInto("messages")
-      .values({
-        node_id: nodeId,
-        seq: seq + 1,
-        role: "ai",
-        content: "",
-        status: "pending",
-        provenance: "ai_suggested",
-      })
-      .returningAll()
-      .executeTakeFirstOrThrow();
+    const pending = await insertPendingReply(trx, nodeId, seq + 1);
     return { userMessage, pending };
   });
 
-  try {
-    const aiMessage = await completeReply(nodeId, pending.id);
-    return { userMessage: toMessage(userMessage), aiMessage: toMessage(aiMessage) };
-  } catch (err) {
-    if (err instanceof AIServiceUnavailable) {
-      throw new AIServiceUnavailable({ userMessage: toMessage(userMessage) });
-    }
-    throw err;
-  }
-}
-
-/** Locks a node's row for the rest of the transaction, serializing message writes per node. */
-export async function lockNode(trx: Trx, nodeId: string): Promise<void> {
-  await sql`SELECT 1 FROM nodes WHERE id = ${nodeId} FOR UPDATE`.execute(trx);
+  void generate(nodeId, pending.id);
+  return { kind: "message", userMessage: toMessage(userMessage), aiMessage: toMessage(pending) };
 }
