@@ -45,16 +45,25 @@ async function latestVersions(ids: string[]): Promise<Map<string, VersionRow>> {
   return new Map(rows.map((r) => [r.definition_id, r]));
 }
 
-/** Every entry, newest first (FR-031). */
-export async function listDefinitions(): Promise<Definition[]> {
-  const defs = await db.selectFrom("definitions").selectAll().orderBy("created_at", "desc").execute();
+/** Every entry of a project, newest first (FR-031). */
+export async function listDefinitions(projectId: string): Promise<Definition[]> {
+  const defs = await db
+    .selectFrom("definitions")
+    .selectAll()
+    .where("project_id", "=", projectId)
+    .orderBy("created_at", "desc")
+    .execute();
   const latest = await latestVersions(defs.map((d) => d.id));
   return defs.map((d) => toDefinition(d, latest.get(d.id)));
 }
 
 /** Compact index for marking terms in text (FR-036a). */
-export async function termIndex(): Promise<TermIndexEntry[]> {
-  const rows = await db.selectFrom("definitions").select(["id", "term", "term_key"]).execute();
+export async function termIndex(projectId: string): Promise<TermIndexEntry[]> {
+  const rows = await db
+    .selectFrom("definitions")
+    .select(["id", "term", "term_key"])
+    .where("project_id", "=", projectId)
+    .execute();
   return rows.map((r) => ({ id: r.id, term: r.term, termKey: r.term_key }));
 }
 

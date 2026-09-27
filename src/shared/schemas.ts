@@ -239,3 +239,27 @@ export const FeedbackCreateFields = z
   })
   .refine((f) => f.nodeId === null || f.view === "chat", "A node can only be recorded from the chat view");
 export type FeedbackCreateFields = z.input<typeof FeedbackCreateFields>;
+
+// Feature 4: projects (specs/004-projects/plan.md)
+
+export const Project = z.object({
+  id: z.string(),
+  name: z.string(),
+  createdAt: z.string(),
+  trashedAt: z.string().nullable(),
+});
+export type Project = z.infer<typeof Project>;
+
+export const ProjectsResponse = z.object({
+  projects: z.array(Project),
+  trashed: z.array(Project),
+  currentId: z.string(),
+});
+export const ProjectResponse = z.object({ project: Project });
+export const TrashProjectResponse = z.object({ currentId: z.string() });
+export const CreateProjectRequest = z.object({
+  name: z
+    .string()
+    .transform((n) => n.trim().replace(/\s+/g, " "))
+    .pipe(z.string().min(1, "A project needs a name").max(80, "Project names are limited to 80 characters")),
+});

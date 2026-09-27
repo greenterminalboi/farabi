@@ -42,6 +42,12 @@ Set `AI_PROVIDER` in `.env.local`, then restart `npm run dev`:
   (override with `CLAUDE_MODEL`).
 - `fake`: deterministic replies and summaries; the automated tests always use it.
 
+## Projects
+
+Each project is its own map, with its own conversations and definitions. Use the 🗂 menu at the
+left of the top bar to create a project, switch between projects, or move one to the trash. The
+trash only hides a project; restore it from the same menu. Everything saves automatically.
+
 ## Feedback
 
 The **Feedback** button in the top bar opens a drawer over any view. Type a note, add tags, paste

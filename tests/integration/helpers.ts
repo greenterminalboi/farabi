@@ -88,6 +88,21 @@ const routes: Array<{ pattern: RegExp; keys: string[]; load: () => Promise<Route
     load: () => import("@/app/api/messages/[messageId]/regenerate/route"),
   },
   { pattern: /^\/api\/feedback$/, keys: [], load: () => import("@/app/api/feedback/route") },
+  { pattern: /^\/api\/projects$/, keys: [], load: () => import("@/app/api/projects/route") },
+  {
+    pattern: /^\/api\/projects\/([^/]+)\/(open|trash|restore)$/,
+    keys: ["id", "action"],
+    load: async () => {
+      // One pattern for the three project actions; pick the module by the last path segment.
+      const mods = {
+        open: await import("@/app/api/projects/[id]/open/route"),
+        trash: await import("@/app/api/projects/[id]/trash/route"),
+        restore: await import("@/app/api/projects/[id]/restore/route"),
+      };
+      return { POST: (req: Request, ctx: { params: Promise<Record<string, string>> }) =>
+        ctx.params.then((p) => (mods as any)[p.action].POST(req, ctx)) };
+    },
+  },
   {
     pattern: /^\/api\/feedback\/attachments\/([^/]+)$/,
     keys: ["id"],
