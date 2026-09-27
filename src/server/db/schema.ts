@@ -91,6 +91,49 @@ export interface DefinitionVersionsTable {
   created_at: CreatedAt;
 }
 
+export type FeedbackView = "chat" | "map" | "definitions";
+export type FeedbackState = "open" | "addressed" | "resolved";
+
+export interface FeedbackItemsTable {
+  id: Generated<string>;
+  text: string;
+  view: FeedbackView;
+  node_id: string | null;
+  rank: string | null;
+  provenance: Provenance;
+  created_at: CreatedAt;
+}
+
+export interface FeedbackTagsTable {
+  id: Generated<string>;
+  item_id: string;
+  text: string;
+  tag_key: string;
+  provenance: Provenance;
+  created_at: CreatedAt;
+}
+
+export interface FeedbackAttachmentsTable {
+  id: Generated<string>;
+  item_id: string;
+  file_path: string;
+  thumb_path: string | null;
+  original_name: string | null;
+  mime_type: string;
+  byte_size: number;
+  sha256: string;
+  provenance: Provenance;
+  created_at: CreatedAt;
+}
+
+export interface FeedbackStateEventsTable {
+  id: Generated<string>;
+  item_id: string;
+  state: FeedbackState;
+  provenance: Provenance;
+  created_at: CreatedAt;
+}
+
 export interface Database {
   trees: TreesTable;
   nodes: NodesTable;
@@ -100,4 +143,8 @@ export interface Database {
   edge_label_versions: EdgeLabelVersionsTable;
   definitions: DefinitionsTable;
   definition_versions: DefinitionVersionsTable;
+  feedback_items: FeedbackItemsTable;
+  feedback_tags: FeedbackTagsTable;
+  feedback_attachments: FeedbackAttachmentsTable;
+  feedback_state_events: FeedbackStateEventsTable;
 }

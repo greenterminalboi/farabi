@@ -15,3 +15,7 @@ playwright-report/
 .DS_Store
 .vscode/
 .idea/
+
+# Feature 3 feedback data (screenshots, notes); regenerated FEEDBACK.md
+/feedback/
+/.feedback-test/

@@ -7,7 +7,7 @@ test("collect a term, see it everywhere, confirm and edit it", async ({ page }) 
   const first = await startConversation(page);
   await send(page, "Tell me about Pods");
   await selectInLastAiMessage(page, "Containers");
-  await page.getByRole("button", { name: "Send to definitions" }).click();
+  await page.getByRole("toolbar", { name: "Highlight actions" }).getByRole("button", { name: "Define" }).click();
   await expect(page.getByTestId("definitions-notice")).toContainText("Added “Containers”");
   // The captured word is now underlined in this conversation.
   await expect(page.locator(".term-mark").first()).toHaveText("Containers");
@@ -18,7 +18,7 @@ test("collect a term, see it everywhere, confirm and edit it", async ({ page }) 
   await send(page, "More about containers please");
   await expect(page.locator('[data-role="user"] .term-mark')).toHaveText("containers");
   await selectInLastAiMessage(page, "Containers");
-  await page.getByRole("button", { name: "Send to definitions" }).click();
+  await page.getByRole("toolbar", { name: "Highlight actions" }).getByRole("button", { name: "Define" }).click();
   await expect(page.getByTestId("definitions-notice")).toContainText("already in Definitions");
 
   // Hovering a marked term shows its card.

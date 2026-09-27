@@ -64,6 +64,7 @@ export function toMapNode(
   anchorText: string | null,
   summary: Summary,
   edgeLabel: string | null = null,
+  messageCount = 0,
 ): MapNode {
   return {
     id: n.id,
@@ -75,5 +76,6 @@ export function toMapNode(
     createdAt: iso(n.created_at),
     manual: n.manual_x !== null && n.manual_y !== null ? { x: n.manual_x, y: n.manual_y } : null,
     edgeLabel,
+    messageCount,
   };
 }

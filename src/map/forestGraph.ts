@@ -42,6 +42,17 @@ export type ForestDiff = {
 const sameSummary = (a: Summary, b: Summary) =>
   a.kind === b.kind && a.text === b.text && (a.kind !== "summary" || b.kind !== "summary" || a.createdAt === b.createdAt);
 
+/**
+ * Deep conversations are drawn as a stack of cards behind the node: none for shallow ones, one or
+ * two for deeper ones. Counted in exchanges (a message and its reply).
+ */
+export const STACK_EXCHANGES = [4, 10];
+
+export function stackLayers(messageCount: number): number {
+  const exchanges = Math.floor(messageCount / 2);
+  return STACK_EXCHANGES.filter((n) => exchanges >= n).length;
+}
+
 export function diffForest(prev: ForestResponse | null, next: ForestResponse): ForestDiff {
   const before = new Map(prev?.nodes.map((n) => [n.id, n]));
   const diff: ForestDiff = { addedNodes: [], changedSummaries: [], changedTreeIds: new Set(), labelsChanged: false };
@@ -54,6 +65,8 @@ export function diffForest(prev: ForestResponse | null, next: ForestResponse): F
       if (!sameSummary(old.summary, n.summary)) diff.changedSummaries.push({ id: n.id, summary: n.summary });
       if (old.manual?.x !== n.manual?.x || old.manual?.y !== n.manual?.y) diff.changedTreeIds.add(n.treeId);
       if (old.edgeLabel !== n.edgeLabel) diff.labelsChanged = true;
+      // A conversation that got deep enough to show another card is redrawn.
+      if (stackLayers(old.messageCount) !== stackLayers(n.messageCount)) diff.changedTreeIds.add(n.treeId);
     }
   }
   const prevTrees = new Map(prev?.trees.map((t) => [t.id, t]));

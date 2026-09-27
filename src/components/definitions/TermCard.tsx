@@ -6,16 +6,28 @@ import type { Definition } from "@/shared/schemas";
 import { useDefinitionsStore } from "@/state/definitionsStore";
 
 const HIDE_DELAY_MS = 200;
+/** Holding a hover this long locks the card open; a click anywhere else unlocks and closes it. */
+export const LOCK_AFTER_MS = 2000;
 
 /**
  * Definition card shown when hovering or focusing an underlined term (FR-036b). One instance
  * serves the whole conversation; it follows `.term-mark` elements inside `containerRef`.
  */
 export function TermCard({ containerRef }: { containerRef: RefObject<HTMLElement | null> }) {
-  const [shown, setShown] = useState<{ id: string; x: number; y: number } | null>(null);
+  const [shown, setShown] = useState<{ id: string; x: number; y: number; locked: boolean } | null>(null);
+  const lockedRef = useRef(false);
+  const lockTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
   const entries = useDefinitionsStore((s) => s.entries);
   const loadEntry = useDefinitionsStore((s) => s.loadEntry);
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const close = () => {
+    if (lockTimer.current) clearTimeout(lockTimer.current);
+    if (hideTimer.current) clearTimeout(hideTimer.current);
+    lockedRef.current = false;
+    setShown(null);
+  };
 
   // Preload the definitions of terms visible in this conversation, so a hover shows the card at
   // once instead of waiting for a request (SC-009a).
@@ -38,15 +50,24 @@ export function TermCard({ containerRef }: { containerRef: RefObject<HTMLElement
     if (!root) return;
     const show = (e: Event) => {
       const mark = (e.target as HTMLElement).closest<HTMLElement>(".term-mark");
-      if (!mark?.dataset.defId) return;
+      if (!mark?.dataset.defId || lockedRef.current) return; // a locked card stays put
       if (hideTimer.current) clearTimeout(hideTimer.current);
+      const id = mark.dataset.defId;
       const rect = mark.getBoundingClientRect();
-      setShown({ id: mark.dataset.defId, x: rect.left, y: rect.bottom + 6 });
-      void loadEntry(mark.dataset.defId);
+      setShown((prev) => (prev?.id === id ? prev : { id, x: rect.left, y: rect.bottom + 6, locked: false }));
+      if (lockTimer.current) clearTimeout(lockTimer.current);
+      lockTimer.current = setTimeout(() => {
+        lockedRef.current = true;
+        setShown((prev) => (prev ? { ...prev, locked: true } : prev));
+      }, LOCK_AFTER_MS);
+      void loadEntry(id);
     };
     const hide = (e: Event) => {
-      if (!(e.target as HTMLElement).closest(".term-mark")) return;
-      hideTimer.current = setTimeout(() => setShown(null), HIDE_DELAY_MS);
+      if (!(e.target as HTMLElement).closest(".term-mark") || lockedRef.current) return;
+      hideTimer.current = setTimeout(() => {
+        if (lockTimer.current) clearTimeout(lockTimer.current);
+        setShown(null);
+      }, HIDE_DELAY_MS);
     };
     root.addEventListener("pointerover", show);
     root.addEventListener("focusin", show);
@@ -60,16 +81,34 @@ export function TermCard({ containerRef }: { containerRef: RefObject<HTMLElement
     };
   }, [containerRef, loadEntry]);
 
+  // A locked card closes on a click anywhere outside it, or on Esc.
+  const locked = shown?.locked ?? false;
+  useEffect(() => {
+    if (!locked) return;
+    const onDown = (e: PointerEvent) => {
+      if (!cardRef.current?.contains(e.target as Node)) close();
+    };
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && close();
+    document.addEventListener("pointerdown", onDown, true);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("pointerdown", onDown, true);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [locked]);
+
   if (!shown) return null;
   const def: Definition | undefined = entries[shown.id];
   return (
     <div
-      className="term-card"
+      ref={cardRef}
+      className={`term-card${shown.locked ? " locked" : ""}`}
       role="tooltip"
       data-testid="term-card"
+      data-locked={shown.locked || undefined}
       style={{ left: Math.min(shown.x, window.innerWidth - 340), top: shown.y }}
       onPointerEnter={() => hideTimer.current && clearTimeout(hideTimer.current)}
-      onPointerLeave={() => setShown(null)}
+      onPointerLeave={() => !lockedRef.current && close()}
     >
       {!def ? (
         <p className="muted">Loading…</p>
@@ -79,6 +118,14 @@ export function TermCard({ containerRef }: { containerRef: RefObject<HTMLElement
       <Link href={`/definitions#${shown.id}`} className="term-card-link">
         Open in Definitions
       </Link>
+      {/* Fills while the hover is held; at the end the circle fills and the card is locked. */}
+      <div className="term-card-lock" key={shown.id} aria-hidden="true">
+        <div className="term-card-lock-bar" style={{ animationDuration: `${LOCK_AFTER_MS}ms` }} />
+        <svg className="term-card-lock-circle" viewBox="0 0 16 16" width="14" height="14">
+          <circle cx="8" cy="8" r="6" />
+        </svg>
+      </div>
+      {shown.locked && <span className="sr-only">Locked. Click elsewhere to close.</span>}
     </div>
   );
 }

@@ -29,6 +29,7 @@ export default defineConfig({
       FARABI_TEST_HOOKS: "1",
       NEXT_PUBLIC_FARABI_TEST_HOOKS: "1",
       NEXT_DIST_DIR: ".next-test",
+      FEEDBACK_DIR: ".feedback-test",
     },
   },
 });

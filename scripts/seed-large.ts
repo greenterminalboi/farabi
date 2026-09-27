@@ -1,5 +1,9 @@
 // Seeds 20 trees with 500 nodes total for the scale check (quickstart scenario 8).
+// `--feedback N` also seeds N feedback items, about a third with a screenshot (Feature 3, SC-008).
+import { crc32, deflateSync } from "node:zlib";
 import { createDb } from "../src/server/db/client";
+import { writeAttachmentFiles } from "../src/server/feedback/attachments";
+import { regenerateFeedbackFile } from "../src/server/feedback/exportFile";
 import { loadEnv } from "./env";
 
 loadEnv();
@@ -110,5 +114,71 @@ await db
   .values(labelled.map((n) => ({ child_node_id: n.id, text: "builds on", provenance: "user_authored" as const })))
   .execute();
 
-console.log(`Seeded ${TREES} trees, ${all.length} nodes, ${defs.length} definitions.`);
+// Feature 3: feedback items for the panel scale check.
+const feedbackArg = process.argv.indexOf("--feedback");
+const FEEDBACK = feedbackArg >= 0 ? Number(process.argv[feedbackArg + 1]) : 0;
+
+/** A solid-colour RGB PNG, like a real screenshot in size (encoded with zlib, no image library). */
+function solidPng(width: number, height: number, [r, g, b]: [number, number, number]): Uint8Array {
+  const chunk = (type: string, data: Buffer) => {
+    const len = Buffer.alloc(4);
+    len.writeUInt32BE(data.length);
+    const body = Buffer.concat([Buffer.from(type, "ascii"), data]);
+    const crc = Buffer.alloc(4);
+    crc.writeUInt32BE(crc32(body));
+    return Buffer.concat([len, body, crc]);
+  };
+  const header = Buffer.alloc(13);
+  header.writeUInt32BE(width, 0);
+  header.writeUInt32BE(height, 4);
+  header.set([8, 2, 0, 0, 0], 8); // 8-bit RGB
+  const row = Buffer.alloc(1 + width * 3);
+  for (let x = 0; x < width; x++) row.set([r, g, b], 1 + x * 3);
+  const pixels = Buffer.concat(Array.from({ length: height }, () => row));
+  return new Uint8Array(
+    Buffer.concat([
+      Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+      chunk("IHDR", header),
+      chunk("IDAT", deflateSync(pixels)),
+      chunk("IEND", Buffer.alloc(0)),
+    ]),
+  );
+}
+
+const TAGS = ["map", "chat", "layout", "Map View", "streaming", "definitions"];
+for (let i = 0; i < FEEDBACK; i++) {
+  const id = crypto.randomUUID();
+  const node = all[i % all.length];
+  const inChat = i % 2 === 0;
+  await db
+    .insertInto("feedback_items")
+    .values({
+      id,
+      text: `Feedback ${i}: something about ${inChat ? "this conversation" : "the map"}.\nSecond line with detail.`,
+      view: inChat ? "chat" : "map",
+      node_id: inChat ? node.id : null,
+      provenance: "user_authored",
+    })
+    .execute();
+  for (const tag of [TAGS[i % TAGS.length], TAGS[(i + 2) % TAGS.length]]) {
+    await db
+      .insertInto("feedback_tags")
+      .values({ item_id: id, text: tag, tag_key: tag.toLowerCase(), provenance: "user_authored" })
+      .execute();
+  }
+  await db.insertInto("feedback_state_events").values({ item_id: id, state: "open", provenance: "user_authored" }).execute();
+  if (i % 5 === 1) {
+    await db.insertInto("feedback_state_events").values({ item_id: id, state: "addressed", provenance: "ai_suggested" }).execute();
+  }
+  if (i % 3 === 0) {
+    const png = solidPng(1280, 800, [(i * 40) % 256, 120, 200]);
+    const rows = await writeAttachmentFiles(id, [{ bytes: png, name: `shot-${i}.png`, thumb: null, mimeType: "image/png" }], []);
+    for (const row of rows) {
+      await db.insertInto("feedback_attachments").values({ ...row, item_id: id, provenance: "user_authored" }).execute();
+    }
+  }
+}
+if (FEEDBACK > 0) await regenerateFeedbackFile(db);
+
+console.log(`Seeded ${TREES} trees, ${all.length} nodes, ${defs.length} definitions, ${FEEDBACK} feedback items.`);
 await db.destroy();

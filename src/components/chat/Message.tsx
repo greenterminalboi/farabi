@@ -21,7 +21,15 @@ type Props = {
 };
 
 /** User text is shown verbatim, so every character maps straight to its stored offset. */
-function PlainText({ content, markers, matcher }: { content: string; markers: Marker[]; matcher: TermMatcher | null }) {
+function PlainText({
+  content,
+  markers,
+  matcher,
+}: {
+  content: string;
+  markers: Marker[];
+  matcher: TermMatcher | null;
+}) {
   const segments = splitByMarkers(0, content.length, markers, findTerms(content, 0, matcher));
   return (
     <div className="body" style={{ whiteSpace: "pre-wrap" }}>
@@ -44,8 +52,19 @@ function PlainText({ content, markers, matcher }: { content: string; markers: Ma
   );
 }
 
-function MarkdownText({ content, markers, matcher = null }: { content: string; markers: Marker[]; matcher?: TermMatcher | null }) {
-  const rehypePlugins = useMemo(() => [[rehypeSourceOffsets, { markers, matcher }] as const], [markers, matcher]);
+function MarkdownText({
+  content,
+  markers,
+  matcher = null,
+}: {
+  content: string;
+  markers: Marker[];
+  matcher?: TermMatcher | null;
+}) {
+  const rehypePlugins = useMemo(
+    () => [[rehypeSourceOffsets, { markers, matcher }] as const],
+    [markers, matcher],
+  );
   return (
     <div className="body">
       {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
@@ -59,7 +78,16 @@ const ENDED_LABEL: Partial<Record<MessageT["status"], string>> = {
   stopped: "Stopped.",
 };
 
-function MessageView({ message, markers, matcher, canRegenerate, streamText, busy, onRetry, onRegenerate }: Props) {
+function MessageView({
+  message,
+  markers,
+  matcher,
+  canRegenerate,
+  streamText,
+  busy,
+  onRetry,
+  onRegenerate,
+}: Props) {
   const isAi = message.role === "ai";
   const branchable = message.status === "complete";
   return (
@@ -70,24 +98,26 @@ function MessageView({ message, markers, matcher, canRegenerate, streamText, bus
       data-message-id={branchable ? message.id : undefined}
       data-testid="message"
     >
-      <div className="role">
-        {isAi ? <span className="ai-tag">AI</span> : <span>You</span>}
-        {canRegenerate && (
-          <button
-            type="button"
-            className="btn btn-small"
-            disabled={busy}
-            onClick={() => onRegenerate(message.id)}
-          >
-            Regenerate
-          </button>
-        )}
-      </div>
+      {(isAi || canRegenerate) && (
+        <div className="role">
+          {isAi && <span className="ai-tag">AI</span>}
+          {canRegenerate && (
+            <button
+              type="button"
+              className="btn btn-small"
+              disabled={busy}
+              onClick={() => onRegenerate(message.id)}
+            >
+              Regenerate
+            </button>
+          )}
+        </div>
+      )}
       {message.status === "pending" &&
         (streamText ? (
+          // Markdown is rendered as it arrives, not only when the reply ends.
           <div className="body streaming" data-testid="streaming">
-            <span style={{ whiteSpace: "pre-wrap" }}>{streamText}</span>
-            <span className="caret" aria-hidden="true" />
+            <ReactMarkdown>{streamText}</ReactMarkdown>
           </div>
         ) : (
           <div className="typing">Thinking…</div>
@@ -97,7 +127,12 @@ function MessageView({ message, markers, matcher, canRegenerate, streamText, bus
           {message.content && <MarkdownText content={message.content} markers={markers} />}
           <div className="error" data-testid="ended-early">
             {ENDED_LABEL[message.status]}
-            <button type="button" className="btn btn-small" disabled={busy} onClick={() => onRetry(message.id)}>
+            <button
+              type="button"
+              className="btn btn-small"
+              disabled={busy}
+              onClick={() => onRetry(message.id)}
+            >
               Retry
             </button>
           </div>
@@ -106,7 +141,12 @@ function MessageView({ message, markers, matcher, canRegenerate, streamText, bus
       {message.status === "failed" && (
         <div className="error">
           Couldn&apos;t get a reply.
-          <button type="button" className="btn btn-small" disabled={busy} onClick={() => onRetry(message.id)}>
+          <button
+            type="button"
+            className="btn btn-small"
+            disabled={busy}
+            onClick={() => onRetry(message.id)}
+          >
             Retry
           </button>
         </div>
