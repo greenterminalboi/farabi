@@ -88,6 +88,11 @@ not merely a nice-to-look-at replay feature.
 - Any personalization of AI behavior (e.g. how aggressively to suggest, how wide or deep to
   place ghost peaks) MUST be derived from observed behavior, never from user self-report or a
   static preference form standing in for it.
+- This governs what the AI *infers* about how the user learns. It does not restrict explicit
+  instructions the user gives about the form of AI output (for example, how long replies should
+  be): those are the user directing the AI (Article I), not the AI personalizing itself. Such a
+  setting MUST NOT be treated as evidence about how the user learns, and MUST NOT stand in for
+  observed behavior in any personalization.
 
 ## Governance
 
@@ -108,4 +113,13 @@ to accommodate a single feature's convenience.
 before it is accepted (the plan's Constitution Check gate). A violation MUST either be removed
 or be resolved through a formal amendment; it is never waived for a single feature.
 
-**Version**: 1.0.0 | **Ratified**: 2026-09-26 | **Last Amended**: 2026-09-26
+**Version**: 1.0.1 | **Ratified**: 2026-09-26 | **Last Amended**: 2026-09-27
+
+**Amendment log**:
+
+- 1.0.1 (2026-09-27, PATCH), Article VI: clarified that the rule against preference forms covers
+  AI-inferred personalization, not explicit user instructions about output form. Why: Feature 006
+  (Information Pressure) adds a reply-length setting. The article's own examples (suggestion
+  aggressiveness, ghost-peak placement) are about the AI adapting to the user, so it was unclear
+  whether a direct user instruction counted. Meaning is unchanged: behavior-derived
+  personalization still may not come from self-report.

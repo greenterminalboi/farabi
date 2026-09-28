@@ -52,14 +52,10 @@ type StreamLine = {
 };
 
 /**
- * Runs `claude -p` with streaming JSON output. Text deltas go to onText as they arrive; the final
- * `result` line decides success. Verified against Claude Code 2.1.283 (research R3).
+ * Command-line arguments for `claude -p`. A reply's chosen model is passed with --model, otherwise
+ * CLAUDE_CODE_MODEL, otherwise the CLI's own default (Feature 6, research R2).
  */
-function runHeadless(
-  system: string,
-  prompt: string,
-  options: { effort?: string; signal?: AbortSignal; onText?: (delta: string) => void },
-): Promise<string> {
+export function headlessArgs(system: string, options: { effort?: string; model?: string | null }): string[] {
   const args = [
     "-p",
     "--output-format", "stream-json",
@@ -71,8 +67,22 @@ function runHeadless(
     "--disable-slash-commands",
     "--no-session-persistence",
   ];
-  if (process.env.CLAUDE_CODE_MODEL) args.push("--model", process.env.CLAUDE_CODE_MODEL);
+  const model = options.model ?? process.env.CLAUDE_CODE_MODEL;
+  if (model) args.push("--model", model);
   if (options.effort) args.push("--effort", options.effort);
+  return args;
+}
+
+/**
+ * Runs `claude -p` with streaming JSON output. Text deltas go to onText as they arrive; the final
+ * `result` line decides success. Verified against Claude Code 2.1.283 (research R3).
+ */
+function runHeadless(
+  system: string,
+  prompt: string,
+  options: { effort?: string; model?: string | null; signal?: AbortSignal; onText?: (delta: string) => void },
+): Promise<string> {
+  const args = headlessArgs(system, options);
 
   return new Promise((resolve, reject) => {
     if (options.signal?.aborted) return reject(abortError());
@@ -154,7 +164,7 @@ function runHeadless(
 export class ClaudeCodeProvider implements AIProvider {
   async reply(input: ReplyInput, options?: ReplyOptions): Promise<string> {
     const { system, prompt } = buildHeadlessReply(input);
-    return runHeadless(system, prompt, { signal: input.signal, onText: options?.onText });
+    return runHeadless(system, prompt, { model: input.model, signal: input.signal, onText: options?.onText });
   }
 
   async summarize(input: SummaryInput): Promise<string> {

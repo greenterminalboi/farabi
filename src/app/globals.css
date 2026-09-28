@@ -325,3 +325,21 @@ body { display: flex; flex-direction: column; }
 .project-trash-confirm { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 0.9em; }
 .project-trashed { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 4px 8px; color: var(--muted); }
 .btn-danger { background: var(--danger); border-color: var(--danger); color: #fff; }
+
+/* Feature 6: settings page and the per-reply settings label. */
+.settings-link { text-decoration: none; line-height: 1; }
+.settings-link[aria-current="page"] { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); }
+.settings-page { flex: 1; max-width: 640px; margin: 0 auto; padding: 16px; overflow-y: auto; }
+.settings-page h1 { font-size: 1.4em; margin: 0 0 4px; }
+.settings-page h2 { font-size: 1.05em; margin: 0 0 4px; }
+.settings-section { margin-top: 24px; padding: 14px 16px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; }
+.pressure-control { margin-top: 12px; }
+.pressure-control input[type="range"] { width: 100%; accent-color: var(--accent); }
+/* Five bands of two stops each, under the slider (FR-003). */
+.pressure-bands { display: grid; grid-template-columns: repeat(5, 1fr); font-size: 0.8em; color: var(--muted); text-align: center; }
+.pressure-band { padding: 2px 0; border-top: 2px solid var(--border); }
+.pressure-band[aria-current="true"] { color: var(--accent); border-top-color: var(--accent); font-weight: 600; }
+.pressure-readout { margin: 8px 0 0; font-weight: 600; }
+.settings-section select { font: inherit; padding: 6px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text); }
+.settings-status { color: var(--accent); margin-top: 12px; }
+.reply-meta { font-size: 0.75em; color: var(--muted); }

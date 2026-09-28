@@ -12,6 +12,10 @@ export interface ReplyInput {
   anchorText: string | null;
   /** This node's own non-replaced messages, ending with the latest user message. */
   messages: ChatTurn[];
+  /** Information pressure level for this reply; null means no length guidance (Feature 6). */
+  pressureLevel: number | null;
+  /** Model id for this reply; null means the setup's configured default (Feature 6). */
+  model: string | null;
   signal?: AbortSignal;
 }
 

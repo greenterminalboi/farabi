@@ -21,6 +21,8 @@ export function toMessage(m: Selectable<MessagesTable>): Message {
     provenance: m.provenance,
     createdAt: iso(m.created_at),
     partialContent: m.partial_content,
+    pressureLevel: m.pressure_level,
+    replyModel: m.reply_model,
   };
 }
 

@@ -38,10 +38,32 @@ ${escape(input.anchorText)}
 </highlighted_passage>`;
 }
 
+// Information pressure (Feature 6, research R1): one length target per level. The five bands are
+// what the user sees; these sentences are internal.
+const LENGTH_GUIDANCE: Record<number, string> = {
+  1: "Keep your reply to one or two sentences: only the direct answer.",
+  2: "Keep your reply to a short paragraph of about 60 words.",
+  3: "Keep your reply to about 100 words: the answer plus the single most useful detail.",
+  4: "Keep your reply to about 175 words.",
+  5: "Aim for about 275 words, explaining the reasoning briefly.",
+  6: "Aim for about 400 words.",
+  7: "Aim for about 550 words, covering the main aspects with an example where it helps.",
+  8: "Aim for about 750 words.",
+  9: "Aim for about 1,100 words, covering the topic thoroughly, including nuances and edge cases.",
+  10: "Be exhaustive: write as much as the topic warrants.",
+};
+
+/** Length guidance for a level; the person's explicit request in a message always wins (Article I). */
+export function lengthGuidance(level: number): string {
+  return `${LENGTH_GUIDANCE[level]} Match this length unless the person explicitly asks for a different length in their message.`;
+}
+
 export function buildReplyRequest(input: ReplyInput): { system: TextBlock[]; messages: MessageParam[] } {
   const system: TextBlock[] = [{ type: "text", text: REPLY_SYSTEM }];
   const context = branchContext(input);
   if (context) system.push({ type: "text", text: context });
+  // Last, after the stable prefix, so a level change doesn't invalidate the cached system prompt.
+  if (input.pressureLevel !== null) system.push({ type: "text", text: lengthGuidance(input.pressureLevel) });
 
   const messages: MessageParam[] = input.messages.map((m) => ({
     role: m.role === "user" ? "user" : "assistant",

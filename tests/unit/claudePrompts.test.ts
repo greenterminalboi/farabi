@@ -12,6 +12,8 @@ describe("buildReplyRequest", () => {
     const req = buildReplyRequest({
       inheritedContext: [],
       anchorText: null,
+      pressureLevel: null,
+      model: null,
       messages: [
         { role: "user", content: "What is a Pod?" },
         { role: "ai", content: "A group of containers." },
@@ -29,6 +31,8 @@ describe("buildReplyRequest", () => {
         { role: "ai", content: "Pods run <containers>." },
       ],
       anchorText: "containers",
+      pressureLevel: null,
+      model: null,
       messages: [{ role: "user", content: "What is a container?" }],
     });
     expect(req.system[0].text).toBe(REPLY_SYSTEM); // cacheable prefix unchanged
@@ -45,6 +49,8 @@ describe("buildReplyRequest", () => {
       buildReplyRequest({
         inheritedContext: [],
         anchorText: null,
+        pressureLevel: null,
+        model: null,
         messages: [{ role: "ai", content: "hi" }],
       }),
     ).toThrow();
@@ -77,6 +83,8 @@ describe("buildHeadlessReply", () => {
     const { system, prompt } = buildHeadlessReply({
       inheritedContext: [{ role: "user", content: "Pods?" }],
       anchorText: "Pods",
+      pressureLevel: null,
+      model: null,
       messages: [
         { role: "user", content: "first" },
         { role: "ai", content: "answer" },

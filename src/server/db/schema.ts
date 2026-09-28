@@ -60,6 +60,10 @@ export interface MessagesTable {
   replaced_at: Date | null;
   replaced_by: string | null;
   partial_content: string | null;
+  /** Information pressure level the reply started with (Feature 6); set once, at insert. */
+  pressure_level: ColumnType<number | null, number | null | undefined, never>;
+  /** Resolved model the reply was requested from (Feature 6); set once, at insert. */
+  reply_model: ColumnType<string | null, string | null | undefined, never>;
   created_at: CreatedAt;
 }
 
@@ -108,6 +112,18 @@ export interface SpanSuggestionsTable {
   detector_version: number;
   /** Inserted as a JSON string; read back parsed. */
   spans: ColumnType<SuggestedSpanRow[], string, never>;
+  provenance: ColumnType<Provenance, never, never>;
+  created_at: CreatedAt;
+}
+
+export type SettingKey = "information_pressure" | "reply_model";
+
+/** Append-only history of global settings (Feature 6); the newest row per key is in effect. */
+export interface SettingChangesTable {
+  id: Generated<string>;
+  key: SettingKey;
+  /** Inserted as a JSON string; read back parsed. */
+  value: ColumnType<unknown, string, never>;
   provenance: ColumnType<Provenance, never, never>;
   created_at: CreatedAt;
 }
@@ -166,6 +182,7 @@ export interface Database {
   definitions: DefinitionsTable;
   definition_versions: DefinitionVersionsTable;
   span_suggestions: SpanSuggestionsTable;
+  setting_changes: SettingChangesTable;
   feedback_items: FeedbackItemsTable;
   feedback_tags: FeedbackTagsTable;
   feedback_attachments: FeedbackAttachmentsTable;

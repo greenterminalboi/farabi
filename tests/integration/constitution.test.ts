@@ -98,4 +98,26 @@ describe("constitution guards", () => {
       );
     }
   });
+
+  it("Feature 6, Articles I and VI: settings are user-authored instructions that tune nothing else", async () => {
+    await call("PUT", "/api/settings", { informationPressure: 3, replyModel: "claude-sonnet-5" });
+    const rows = await db.selectFrom("setting_changes").select("provenance").execute();
+    expect(rows.length).toBe(2);
+    expect(rows.every((r) => r.provenance === "user_authored")).toBe(true);
+
+    for (const file of files(path.join(root, "src"), /\.(ts|tsx)$/)) {
+      const src = readFileSync(file, "utf8");
+      const rel = path.relative(root, file);
+      // A reply's recorded level and model are never rewritten (FR-010, FR-019).
+      expect(src, rel).not.toMatch(/updateTable\("messages"\)[\s\S]{0,300}?(pressure_level|reply_model)/);
+      // Only the settings module reads the settings history (Article VI, 1.0.1).
+      if (/setting_changes/.test(src)) expect(rel).toMatch(/^src\/server\/(settings|db)\//);
+    }
+    // Summaries, definitions and suggestions never see the level or reply model (FR-007, FR-018).
+    for (const dir of ["summaries", "definitions", "suggestions"]) {
+      for (const file of files(path.join(root, "src/server", dir), /\.ts$/)) {
+        expect(readFileSync(file, "utf8"), file).not.toMatch(/pressure|reply_model|replyModel/i);
+      }
+    }
+  });
 });

@@ -3,6 +3,8 @@
 import { memo, useMemo } from "react";
 import ReactMarkdown from "react-markdown";
 import { findTerms, type TermMatcher } from "@/lib/terms";
+import { modelLabel } from "@/shared/models";
+import { bandOf } from "@/shared/pressure";
 import type { Marker, Message as MessageT, SuggestedSpan } from "@/shared/schemas";
 import { segmentAttributes, splitByMarkers } from "./markerRanges";
 import { rehypeSourceOffsets } from "./rehypeSourceOffsets";
@@ -106,6 +108,12 @@ function MessageView({
       {(isAi || canRegenerate) && (
         <div className="role">
           {isAi && <span className="ai-tag">AI</span>}
+          {/* The settings this reply was written with; none for replies from before Feature 6 (FR-011). */}
+          {isAi && message.pressureLevel !== null && (
+            <span className="reply-meta" data-testid="reply-meta" title="Settings when this reply was written">
+              {bandOf(message.pressureLevel)} · {message.pressureLevel} · {modelLabel(message.replyModel)}
+            </span>
+          )}
           {canRegenerate && (
             <button
               type="button"
