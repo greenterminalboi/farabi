@@ -7,7 +7,7 @@ const TEST_DATABASE_URL =
 export async function resetDb(): Promise<void> {
   const client = new pg.Client({ connectionString: TEST_DATABASE_URL });
   await client.connect();
-  await client.query("TRUNCATE feedback_state_events, feedback_attachments, feedback_tags, feedback_items, setting_changes, span_suggestions, node_summaries, branch_markers, messages, nodes, trees, projects RESTART IDENTITY CASCADE");
+  await client.query("TRUNCATE parked_tangent_events, parked_tangents, feedback_state_events, feedback_attachments, feedback_tags, feedback_items, setting_changes, span_suggestions, node_summaries, branch_markers, messages, nodes, trees, projects RESTART IDENTITY CASCADE");
   await client.end();
 }
 
@@ -77,10 +77,21 @@ export async function selectInLastAiMessage(page: Page, phrase: string) {
   }, phrase);
 }
 
-export async function branchOn(page: Page, phrase: string): Promise<string> {
+/**
+ * Branch and Park ask for an optional question first (Feature 8); this confirms that step with
+ * `question`, or blank.
+ */
+export async function confirmQuestion(page: Page, question = "") {
+  const form = page.getByTestId("branch-question-form");
+  if (question) await form.getByLabel("Your question (optional)").fill(question);
+  await form.getByLabel("Your question (optional)").press("Enter");
+}
+
+export async function branchOn(page: Page, phrase: string, question = ""): Promise<string> {
   const parentUrl = page.url();
   await selectInLastAiMessage(page, phrase);
-  await page.getByRole("button", { name: "Branch" }).click();
+  await page.getByRole("toolbar", { name: "Highlight actions" }).getByRole("button", { name: "Branch" }).click();
+  await confirmQuestion(page, question);
   await page.waitForURL((url) => url.toString() !== parentUrl && /\/n\//.test(url.pathname));
   return page.url().split("/n/")[1];
 }

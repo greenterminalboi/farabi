@@ -1,10 +1,11 @@
 import type { Selectable } from "kysely";
-import type { MapNode, MapTree, Marker, Message, Summary } from "@/shared/schemas";
+import type { MapNode, MapTree, Marker, Message, ParkedTangent, Summary } from "@/shared/schemas";
 import type {
   BranchMarkersTable,
   MessagesTable,
   NodeSummariesTable,
   NodesTable,
+  ParkedTangentsTable,
   TreesTable,
 } from "./db/schema";
 import { placeholderFor } from "./summaries/placeholder";
@@ -35,6 +36,23 @@ export function toMarker(m: Selectable<BranchMarkersTable>): Marker {
     anchorText: m.anchor_text,
     childNodeId: m.child_node_id,
     kind: m.kind,
+  };
+}
+
+export function toParkedTangent(t: Selectable<ParkedTangentsTable>, question: string | null): ParkedTangent {
+  return {
+    id: t.id,
+    nodeId: t.node_id,
+    anchor: {
+      messageId: t.message_id,
+      start: t.start_offset,
+      end: t.end_offset,
+      text: t.anchor_text,
+      prefix: t.prefix,
+      suffix: t.suffix,
+    },
+    question,
+    createdAt: iso(t.created_at),
   };
 }
 

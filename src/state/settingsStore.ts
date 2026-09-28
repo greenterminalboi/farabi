@@ -7,6 +7,9 @@ type SettingsStore = {
   /** Show suggested places to branch (FR-012). On by default. */
   showSuggestions: boolean;
   setShowSuggestions: (show: boolean) => void;
+  /** Branch panel beside the chat is open (Feature 8, research R7). Open by default. */
+  branchPanelOpen: boolean;
+  setBranchPanelOpen: (open: boolean) => void;
 };
 
 export const useSettingsStore = create<SettingsStore>()(
@@ -14,11 +17,13 @@ export const useSettingsStore = create<SettingsStore>()(
     (set) => ({
       showSuggestions: true,
       setShowSuggestions: (showSuggestions) => set({ showSuggestions }),
+      branchPanelOpen: true,
+      setBranchPanelOpen: (branchPanelOpen) => set({ branchPanelOpen }),
     }),
     {
       name: "farabi.settings",
       storage: createJSONStorage(() => localStorage),
-      partialize: (s) => ({ showSuggestions: s.showSuggestions }),
+      partialize: (s) => ({ showSuggestions: s.showSuggestions, branchPanelOpen: s.branchPanelOpen }),
       skipHydration: true,
     },
   ),

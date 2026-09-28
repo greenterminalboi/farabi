@@ -170,8 +170,10 @@ test("chat rows share one centered column at every width", async ({ page }) => {
     await page.setViewportSize({ width, height: HEIGHT });
     const main = await box(page.locator(".main"));
     const chat = await box(page.locator("section.chat"));
+    // Centered in the space left of the branch panel (Feature 8).
+    const right = (await box(page.getByTestId("branch-panel"))).x;
     expect(chat.width).toBeLessThanOrEqual(820);
-    expect(Math.abs(chat.x - main.x - (main.right - chat.right)), `centered at ${width}px`).toBeLessThanOrEqual(1);
+    expect(Math.abs(chat.x - main.x - (right - chat.right)), `centered at ${width}px`).toBeLessThanOrEqual(1);
 
     const content = await listContent(page);
     const composer = await box(page.locator("form.composer"));

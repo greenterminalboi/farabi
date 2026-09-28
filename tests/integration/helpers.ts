@@ -129,6 +129,26 @@ const routes: Array<{ pattern: RegExp; keys: string[]; load: () => Promise<Route
     keys: ["id"],
     load: () => import("@/app/api/feedback/[id]/reopen/route"),
   },
+  {
+    pattern: /^\/api\/nodes\/([^/]+)\/parked$/,
+    keys: ["nodeId"],
+    load: () => import("@/app/api/nodes/[nodeId]/parked/route"),
+  },
+  {
+    pattern: /^\/api\/parked\/([^/]+)\/question$/,
+    keys: ["id"],
+    load: () => import("@/app/api/parked/[id]/question/route"),
+  },
+  {
+    pattern: /^\/api\/parked\/([^/]+)\/discard$/,
+    keys: ["id"],
+    load: () => import("@/app/api/parked/[id]/discard/route"),
+  },
+  {
+    pattern: /^\/api\/parked\/([^/]+)\/fire$/,
+    keys: ["id"],
+    load: () => import("@/app/api/parked/[id]/fire/route"),
+  },
 ];
 
 export type CallResult<T = any> = { status: number; body: T };

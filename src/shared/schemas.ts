@@ -101,6 +101,17 @@ export const OriginResponse = z.object({ tree: MapTree });
 export const InheritedContextEntry = z.object({ nodeId: z.string(), messages: z.array(Message) });
 export type InheritedContextEntry = z.infer<typeof InheritedContextEntry>;
 
+/** A tangent parked from a node, not yet a branch (Feature 8). */
+export const ParkedTangent = z.object({
+  id: z.string(),
+  nodeId: z.string(),
+  anchor: Anchor,
+  /** The typed question exactly as typed; null when there is none. */
+  question: z.string().nullable(),
+  createdAt: z.string(),
+});
+export type ParkedTangent = z.infer<typeof ParkedTangent>;
+
 export const NodeView = z.object({
   node: MapNode,
   anchor: Anchor.nullable(),
@@ -108,11 +119,26 @@ export const NodeView = z.object({
   messages: z.array(Message),
   markers: z.array(Marker),
   canRegenerate: z.object({ messageId: z.string() }).nullable(),
+  /** Direct children, newest first (Feature 8, FR-002). */
+  children: z.array(MapNode),
+  /** Live tangents parked from this node, newest first (Feature 8, FR-003). */
+  parked: z.array(ParkedTangent),
 });
 export type NodeView = z.infer<typeof NodeView>;
 
 export const BranchResponse = z.object({ node: MapNode, marker: Marker });
 export type BranchResponse = z.infer<typeof BranchResponse>;
+
+export const ParkRequest = Anchor.extend({ question: z.string().nullable().optional() });
+export type ParkRequest = z.infer<typeof ParkRequest>;
+export const ParkedQuestionRequest = z.object({ question: z.string().nullable() });
+export const ParkedResponse = z.object({ parked: ParkedTangent });
+export const DiscardParkedResponse = z.object({ discarded: z.object({ id: z.string() }) });
+export const FireParkedResponse = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("sent"), node: MapNode, marker: Marker, userMessage: Message, aiMessage: Message }),
+  z.object({ kind: z.literal("preload"), node: MapNode, marker: Marker, draft: z.string() }),
+]);
+export type FireParkedResponse = z.infer<typeof FireParkedResponse>;
 
 export const SendMessageRequest = z.object({ content: z.string() });
 export const SendMessageResponse = z.discriminatedUnion("kind", [

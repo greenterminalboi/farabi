@@ -120,4 +120,37 @@ describe("constitution guards", () => {
       }
     }
   });
+
+  it("Feature 8, Articles I, II and VI: parked tangents are user-authored, append-only and kept from the AI", async () => {
+    const t = await call("POST", "/api/trees", {});
+    const nodeId = t.body.node.id;
+    const ai = (await call("POST", `/api/nodes/${nodeId}/messages?wait=1`, { content: "Pods" })).body.aiMessage;
+    const start = ai.content.indexOf("Containers");
+    const anchor = { messageId: ai.id, start, end: start + 10, text: "Containers", prefix: "", suffix: "" };
+    const a = (await call("POST", `/api/nodes/${nodeId}/parked`, { ...anchor, question: "Why?" })).body.parked;
+    const b = (await call("POST", `/api/nodes/${nodeId}/parked`, anchor)).body.parked;
+    await call("POST", `/api/parked/${a.id}/question`, { question: "How?" });
+    await call("POST", `/api/parked/${b.id}/discard`);
+    await call("POST", `/api/parked/${a.id}/fire?wait=1`);
+
+    const tangents = await db.selectFrom("parked_tangents").select("provenance").execute();
+    const events = await db.selectFrom("parked_tangent_events").select("provenance").execute();
+    expect(tangents.length).toBe(2);
+    expect(events.length).toBe(4);
+    expect([...tangents, ...events].every((r) => r.provenance === "user_authored")).toBe(true);
+
+    const aiFree = ["src/server/ai", "src/server/summaries", "src/server/suggestions"];
+    const aiFreeFiles = ["src/server/messages/replyInput.ts", "src/server/forest/forest.ts"];
+    for (const file of files(path.join(root, "src"), /\.(ts|tsx)$/)) {
+      const src = readFileSync(file, "utf8");
+      const rel = path.relative(root, file);
+      expect(src, rel).not.toMatch(/(updateTable|deleteFrom)\("parked_(tangents|tangent_events)"\)/);
+      // Only the parked module, the schema and migrations touch the tables (research R9).
+      if (/parked_tangent/.test(src)) expect(rel).toMatch(/^src\/server\/(parked|db)\//);
+      // Parked questions reach the AI only once fired, as a message; the map never sees them.
+      if (aiFree.some((d) => rel.startsWith(d + "/")) || aiFreeFiles.includes(rel)) {
+        expect(src, rel).not.toMatch(/parked/i);
+      }
+    }
+  });
 });

@@ -1,5 +1,12 @@
 import { expect, test, type Page } from "@playwright/test";
-import { resetDb, selectInLastAiMessage, send, setAiMode, startConversation } from "./helpers";
+import {
+  confirmQuestion,
+  resetDb,
+  selectInLastAiMessage,
+  send,
+  setAiMode,
+  startConversation,
+} from "./helpers";
 
 test.beforeEach(async ({ page }) => {
   await resetDb();
@@ -31,6 +38,7 @@ test("a suggestion appears on a completed reply and hands off to the toolbar (US
 
   const parentUrl = page.url();
   await toolbar(page).getByRole("button", { name: "Branch" }).click();
+  await confirmQuestion(page);
   await page.waitForURL((url) => url.toString() !== parentUrl);
   const childId = page.url().split("/n/")[1];
   const child = await (await page.request.get(`/api/nodes/${childId}`)).json();
@@ -86,6 +94,7 @@ test("suggestions coexist with terms and branch markers (US2)", async ({ page })
   // Branch from it; afterwards the same text is a marker too, and clicking opens the branch.
   const parentUrl = page.url();
   await toolbar(page).getByRole("button", { name: "Branch" }).click();
+  await confirmQuestion(page);
   await page.waitForURL((url) => url.toString() !== parentUrl);
   const childUrl = page.url();
   await page.goto(parentUrl);
