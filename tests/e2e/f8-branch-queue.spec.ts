@@ -19,20 +19,6 @@ const panel = (page: Page) => page.getByTestId("branch-panel");
 const parkedItems = (page: Page) => page.getByTestId("parked-item");
 const composer = (page: Page) => page.getByLabel("Message");
 
-/**
- * Sends a message and waits for its reply's suggested spans too: they re-render the reply when
- * they arrive (Feature 5), which would drop a selection made before them.
- */
-async function ask(page: Page, text: string) {
-  await send(page, text);
-  await suggestionsShown(page);
-}
-
-async function suggestionsShown(page: Page) {
-  const lastAi = page.locator('[data-role="ai"][data-message-id]').last();
-  await expect(lastAi.locator(".suggest-mark").first()).toBeVisible();
-}
-
 async function openTab(page: Page, name: "Branches" | "Parked") {
   await panel(page).getByRole("tab", { name: new RegExp(`^${name}`) }).click();
 }
@@ -48,7 +34,7 @@ async function park(page: Page, phrase: string, question = "") {
 test.describe("US1 park", () => {
   test("parking keeps the user in the conversation and lists the tangent", async ({ page }) => {
     const root = await startConversation(page);
-    await ask(page, "Pods");
+    await send(page, "Pods");
     await composer(page).fill("half-typed thought");
 
     await park(page, "Containers");
@@ -64,7 +50,7 @@ test.describe("US1 park", () => {
 
   test("Escape cancels without parking", async ({ page }) => {
     await startConversation(page);
-    await ask(page, "Pods");
+    await send(page, "Pods");
     await selectInLastAiMessage(page, "Containers");
     await page.getByRole("toolbar", { name: "Highlight actions" }).getByRole("button", { name: "Park" }).click();
     await page.getByTestId("branch-question-form").getByLabel("Your question (optional)").press("Escape");
@@ -75,13 +61,12 @@ test.describe("US1 park", () => {
 
   test("Branch preloads the composer with the typed question, else the anchor", async ({ page }) => {
     const root = await startConversation(page);
-    await ask(page, "Pods");
+    await send(page, "Pods");
     await branchOn(page, "Containers", "Why?");
     await expect(composer(page)).toHaveValue("Why?");
     await expect(page.getByTestId("message")).toHaveCount(0);
 
     await page.goto(`/n/${root}`);
-    await suggestionsShown(page);
     await branchOn(page, "mentioned");
     await expect(composer(page)).toHaveValue("mentioned");
   });
@@ -90,7 +75,7 @@ test.describe("US1 park", () => {
 test.describe("US2 fire", () => {
   test("an item with a question opens a branch where it's already asked", async ({ page }) => {
     const root = await startConversation(page);
-    await ask(page, "Pods");
+    await send(page, "Pods");
     await park(page, "Containers", "How does this scale?");
     await openTab(page, "Parked");
     await parkedItems(page).first().getByRole("button", { name: "Ask in new branch" }).click();
@@ -109,7 +94,7 @@ test.describe("US2 fire", () => {
 
   test("an item without a question opens a branch with the anchor waiting in the composer", async ({ page }) => {
     const root = await startConversation(page);
-    await ask(page, "Pods");
+    await send(page, "Pods");
     await park(page, "Containers");
     await openTab(page, "Parked");
     await parkedItems(page).first().getByRole("button", { name: "Open as branch" }).click();
@@ -122,10 +107,9 @@ test.describe("US2 fire", () => {
 test.describe("US3 branches", () => {
   test("lists direct branches, follows the open node, and remembers being hidden", async ({ page }) => {
     const root = await startConversation(page);
-    await ask(page, "Pods");
+    await send(page, "Pods");
     const first = await branchOn(page, "Containers");
     await page.goto(`/n/${root}`);
-    await suggestionsShown(page);
     await branchOn(page, "mentioned");
     await page.goto(`/n/${root}`);
 
@@ -150,7 +134,7 @@ test.describe("US3 branches", () => {
 test.describe("US4 edit and discard", () => {
   test("edits one item's question and discards another", async ({ page }) => {
     await startConversation(page);
-    await ask(page, "Pods");
+    await send(page, "Pods");
     await park(page, "Containers", "Original");
     await park(page, "mentioned");
     await openTab(page, "Parked");
@@ -173,7 +157,7 @@ test.describe("US4 edit and discard", () => {
 
 test("???? still quick-branches after parking (FR-016)", async ({ page }) => {
   const root = await startConversation(page);
-  await ask(page, "What is a sidecar?");
+  await send(page, "What is a sidecar?");
   await park(page, "sidecar");
   await composer(page).pressSequentially("????");
   await page.waitForURL((url) => !url.pathname.endsWith(root) && /\/n\//.test(url.pathname));

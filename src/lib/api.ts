@@ -29,7 +29,6 @@ import {
   SendMessageResponse,
   SettingsResponse,
   StopResponse,
-  SuggestionsResponse,
   TermIndexResponse,
 } from "@/shared/schemas";
 
@@ -123,8 +122,6 @@ export const api = {
   reopenFeedback: (id: string) => request("POST", `/api/feedback/${id}/reopen`, FeedbackItemResponse, {}),
   getSettings: () => request("GET", "/api/settings", SettingsResponse),
   saveSettings: (patch: SaveSettingsBody) => request("PUT", "/api/settings", SettingsResponse, patch),
-  getSuggestions: (nodeId: string) =>
-    request("POST", `/api/nodes/${nodeId}/suggestions`, SuggestionsResponse, {}),
   refreshSummary: (nodeId: string) =>
     request("POST", `/api/nodes/${nodeId}/summary/refresh`, RefreshResponse, {}),
 };

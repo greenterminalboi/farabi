@@ -44,7 +44,7 @@ describe("Feature 2 · US1 streaming", () => {
     expect(stop.status).toBe(200);
     expect(stop.body.message.status).toBe("stopped");
     expect(stop.body.message.content.length).toBeGreaterThan(0);
-    expect("Echo: a long answer please. Containers are mentioned here.").toContain(stop.body.message.content);
+    expect("Echo: a long answer please. **Containers are mentioned here.**").toContain(stop.body.message.content);
     expect((await call("POST", `/api/messages/${res.body.aiMessage.id}/stop`, {})).status).toBe(409);
   });
 

@@ -19,7 +19,6 @@ const { drainSummaries } = await import("@/server/summaries/queue");
 const { drainGenerations } = await import("@/server/messages/generation");
 const { drainDrafts } = await import("@/server/definitions/draftQueue");
 const { resetFakeCalls } = await import("@/server/ai/fake");
-const { drainSuggestions, resetSuggestionQueue } = await import("@/server/suggestions/queue");
 
 beforeAll(async () => {
   const migrator = new Migrator({
@@ -38,10 +37,8 @@ beforeEach(async () => {
   await drainGenerations();
   await drainSummaries();
   await drainDrafts();
-  await drainSuggestions();
-  resetSuggestionQueue();
   resetFakeCalls();
-  await sql`TRUNCATE parked_tangent_events, parked_tangents, feedback_state_events, feedback_attachments, feedback_tags, feedback_items, setting_changes, span_suggestions, definition_versions, definitions, edge_label_versions, node_summaries, branch_markers, messages, nodes, trees, projects RESTART IDENTITY CASCADE`.execute(db);
+  await sql`TRUNCATE parked_tangent_events, parked_tangents, feedback_state_events, feedback_attachments, feedback_tags, feedback_items, setting_changes, definition_versions, definitions, edge_label_versions, node_summaries, branch_markers, messages, nodes, trees, projects RESTART IDENTITY CASCADE`.execute(db);
   setFakeMode({ mode: "ok" });
   // The throwaway feedback folder follows the database: empty before each test.
   await fs.rm(process.env.FEEDBACK_DIR!, { recursive: true, force: true });

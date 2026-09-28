@@ -6,6 +6,15 @@
 
 **Status**: Draft
 
+> **Reworked 2026-09-28**: suggested spans are now the reply's own **bold** text, found while
+> rendering. No AI is asked, nothing is cached, and underlines appear the moment a reply completes.
+> The AI detector, its prompt, the `/suggestions` route and the `span_suggestions` cache were
+> removed (migration `0008_drop_span_suggestions`). Everything else stands: grey dotted underline,
+> AI replies only, click to select, the Define/Branch/Park toolbar, and the on/off toggle.
+> FR-001 now means "every bold span", and the per-message cap (FR-008) no longer applies. FR-013
+> still holds, because the same text always renders the same underlines. Assumptions about AI
+> detection, analysis delay and the cache no longer apply.
+
 ## Clarifications
 
 ### Session 2026-09-27

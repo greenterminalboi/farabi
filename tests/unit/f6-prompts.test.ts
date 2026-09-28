@@ -3,7 +3,6 @@ import {
   buildDefineRequest,
   buildHeadlessReply,
   buildReplyRequest,
-  buildSuggestRequest,
   buildSummaryRequest,
   lengthGuidance,
   REPLY_SYSTEM,
@@ -48,13 +47,12 @@ describe("reply requests carry the level (Feature 6)", () => {
 });
 
 describe("nothing else carries a level (FR-007, SC-005)", () => {
-  it("summary, definition and suggestion requests never contain length guidance", () => {
+  it("summary and definition requests never contain length guidance", () => {
     const outputs = [
       JSON.stringify(buildSummaryRequest({ anchorText: null, messages: [{ role: "ai", content: "Pods group containers." }] })),
       JSON.stringify(
         buildDefineRequest({ term: "Pod", sourceMessage: { role: "ai", content: "A Pod." }, messages: [{ role: "ai", content: "A Pod." }] }),
       ),
-      JSON.stringify(buildSuggestRequest({ text: "Pods group containers." })),
     ];
     for (const out of outputs) {
       expect(out).not.toContain(CLOSING);

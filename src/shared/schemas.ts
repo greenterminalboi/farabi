@@ -162,17 +162,6 @@ export const RegenerateResponse = z.object({
 
 export const RefreshResponse = z.object({ queued: z.literal(true) });
 
-/** A suggested place to branch in a completed AI reply (Feature 5). Never stored as structure. */
-export const SuggestedSpan = z.object({ start: z.number().int(), end: z.number().int(), text: z.string() });
-export type SuggestedSpan = z.infer<typeof SuggestedSpan>;
-
-export const SuggestionsResponse = z.object({
-  /** Analyzed live, complete AI messages; [] means nothing to suggest. */
-  byMessage: z.record(z.string(), z.array(SuggestedSpan)),
-  /** Messages still being analyzed. */
-  pending: z.array(z.string()),
-});
-export type SuggestionsResponse = z.infer<typeof SuggestionsResponse>;
 export const RefreshStaleResponse = z.object({ queued: z.number().int() });
 
 export const ErrorBody = z.object({

@@ -21,7 +21,7 @@ describe("splitByMarkers", () => {
 describe("suggested spans (Feature 5)", () => {
   it("cuts at suggestion edges and flags the covered segments", () => {
     const segs = splitByMarkers(0, 20, [m("a", 0, 6)], [{ start: 8, end: 10, defId: "d" }], [
-      { start: 4, end: 12, text: "" },
+      { start: 4, end: 12 },
     ]);
     expect(segs.map((s) => [s.start, s.end, s.suggestion ? `${s.suggestion.start}-${s.suggestion.end}` : null])).toEqual([
       [0, 4, null],
@@ -35,7 +35,7 @@ describe("suggested spans (Feature 5)", () => {
 
   it("layers suggest-mark with marker and term classes, carrying the whole span's offsets", () => {
     const [, withMarker, , withTerm] = splitByMarkers(0, 20, [m("a", 0, 6)], [{ start: 8, end: 10, defId: "d" }], [
-      { start: 4, end: 12, text: "" },
+      { start: 4, end: 12 },
     ]);
     expect(segmentAttributes(withMarker)).toEqual({
       className: "marker depth-1 suggest-mark",

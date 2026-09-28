@@ -8,10 +8,8 @@ import {
   buildDefineRequest,
   buildHeadlessReply,
   buildHeadlessSummary,
-  buildSuggestRequest,
   cleanSummary,
   parseDefinition,
-  parseSpans,
 } from "./claudePrompts";
 import {
   abortError,
@@ -22,7 +20,6 @@ import {
   type DefinitionText,
   type ReplyInput,
   type ReplyOptions,
-  type SuggestSpansInput,
   type SummaryInput,
 } from "./provider";
 
@@ -177,10 +174,5 @@ export class ClaudeCodeProvider implements AIProvider {
   async define(input: DefineInput): Promise<DefinitionText> {
     const { system, prompt } = buildDefineRequest(input);
     return parseDefinition(await runHeadless(system, prompt, { effort: "low", signal: input.signal }));
-  }
-
-  async suggestSpans(input: SuggestSpansInput): Promise<string[]> {
-    const { system, prompt } = buildSuggestRequest(input);
-    return parseSpans(await runHeadless(system, prompt, { effort: "low", signal: input.signal }));
   }
 }

@@ -1,5 +1,8 @@
 import type { TermMatch } from "@/lib/terms";
-import type { Marker, SuggestedSpan } from "@/shared/schemas";
+import type { Marker } from "@/shared/schemas";
+
+/** A suggested place to branch: a bold span of an AI reply (Feature 5). */
+export type SuggestedSpan = { start: number; end: number };
 
 export type Segment = {
   start: number;
