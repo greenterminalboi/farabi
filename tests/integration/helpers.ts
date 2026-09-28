@@ -6,6 +6,7 @@ type Handler = (req: Request, ctx: { params: Promise<Record<string, string>> }) 
 const routes: Array<{ pattern: RegExp; keys: string[]; load: () => Promise<RouteModule> }> = [
   { pattern: /^\/api\/forest$/, keys: [], load: () => import("@/app/api/forest/route") },
   { pattern: /^\/api\/trees$/, keys: [], load: () => import("@/app/api/trees/route") },
+  { pattern: /^\/api\/settings$/, keys: [], load: () => import("@/app/api/settings/route") },
   {
     pattern: /^\/api\/summaries\/refresh-stale$/,
     keys: [],

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { NewConversationButton } from "@/components/common/NewConversationButton";
 import { ProjectMenu } from "@/components/common/ProjectMenu";
+import { SettingsLink } from "@/components/common/SettingsLink";
 import { ViewToggle } from "@/components/common/ViewToggle";
 import { FeedbackButton } from "@/components/feedback/FeedbackButton";
 import { FeedbackDrawer } from "@/components/feedback/FeedbackDrawer";
@@ -24,6 +25,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <ProjectMenu />
           <ViewToggle />
           <NewConversationButton />
+          <SettingsLink />
           <FeedbackButton />
         </header>
         <main className="main">

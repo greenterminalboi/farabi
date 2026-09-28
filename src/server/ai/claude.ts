@@ -23,14 +23,23 @@ import {
 
 const MODEL = process.env.CLAUDE_MODEL ?? "claude-opus-5";
 // Server-side refusal fallback: a declined request is re-run on Anthropic's recommended model.
-const FALLBACK_BETA = "server-side-fallback-2026-07-01";
+export const FALLBACK_BETA = "server-side-fallback-2026-07-01";
+// Models documented to accept `fallbacks` (Feature 6, research R2); others are sent without it.
+const FALLBACK_MODELS = new Set(["claude-opus-5", "claude-opus-5-5", "claude-fable-5-1"]);
 
 /**
  * Maps SDK failures to AIUnavailableError where the right response is "try again later"
  * (network, rate limit, overload, server errors, bad credentials). Anything else is a bug in
  * the request and is re-thrown as is.
  */
-function toProviderError(err: unknown): unknown {
+function toProviderError(err: unknown, model?: string): unknown {
+  // A reply model the user chose that the API can't serve (Feature 6, US4 AS5).
+  if (
+    model &&
+    (err instanceof Anthropic.NotFoundError || (err instanceof Anthropic.BadRequestError && /model/i.test(err.message)))
+  ) {
+    return new AIUnavailableError(`The chosen model (${model}) isn't available`);
+  }
   if (err instanceof Anthropic.APIConnectionError) return new AIUnavailableError(`Can't reach Claude: ${err.message}`);
   if (err instanceof Anthropic.RateLimitError) return new AIUnavailableError("Claude rate limit reached");
   if (err instanceof Anthropic.AuthenticationError || err instanceof Anthropic.PermissionDeniedError) {
@@ -61,6 +70,20 @@ function textOf(message: Anthropic.Beta.BetaMessage): string {
     .trim();
 }
 
+/** The streaming request body for a reply: the chosen model, with fallbacks where supported. */
+export function replyParams(input: ReplyInput) {
+  const { system, messages } = buildReplyRequest(input);
+  const model = input.model ?? MODEL;
+  return {
+    model,
+    max_tokens: 64000,
+    ...(FALLBACK_MODELS.has(model) ? { betas: [FALLBACK_BETA], fallbacks: "default" as const } : {}),
+    cache_control: { type: "ephemeral" as const },
+    system,
+    messages,
+  };
+}
+
 export class ClaudeProvider implements AIProvider {
   private client: Anthropic | undefined;
 
@@ -71,22 +94,11 @@ export class ClaudeProvider implements AIProvider {
   }
 
   async reply(input: ReplyInput, options?: ReplyOptions): Promise<string> {
-    const { system, messages } = buildReplyRequest(input);
+    const params = replyParams(input);
     let delivered = "";
     try {
       // Streamed so long answers don't hit HTTP timeouts, and so the app can show text as it comes.
-      const stream = this.getClient().beta.messages.stream(
-        {
-          model: MODEL,
-          max_tokens: 64000,
-          betas: [FALLBACK_BETA],
-          fallbacks: "default",
-          cache_control: { type: "ephemeral" },
-          system,
-          messages,
-        },
-        { signal: input.signal },
-      );
+      const stream = this.getClient().beta.messages.stream(params, { signal: input.signal });
       stream.on("text", (delta) => {
         delivered += delta;
         options?.onText?.(delta);
@@ -96,7 +108,7 @@ export class ClaudeProvider implements AIProvider {
       return text;
     } catch (err) {
       if (isAbortError(err) || input.signal?.aborted) throw err;
-      const mapped = toProviderError(err);
+      const mapped = toProviderError(err, params.model);
       if (delivered && mapped instanceof AIUnavailableError && !(mapped instanceof AIPartialReplyError)) {
         throw new AIPartialReplyError(delivered, mapped.message);
       }

@@ -62,6 +62,10 @@ export const Message = z.object({
   createdAt: z.string(),
   /** Text so far while a reply is streaming (Feature 2). */
   partialContent: z.string().nullable(),
+  /** Information pressure level an AI reply started with; null for user messages and older replies (Feature 6). */
+  pressureLevel: z.number().int().nullable(),
+  /** Model an AI reply was requested from; null when "Default" couldn't be resolved (Feature 6). */
+  replyModel: z.string().nullable(),
 });
 export type Message = z.infer<typeof Message>;
 
@@ -275,3 +279,21 @@ export const CreateProjectRequest = z.object({
     .transform((n) => n.trim().replace(/\s+/g, " "))
     .pipe(z.string().min(1, "A project needs a name").max(80, "Project names are limited to 80 characters")),
 });
+
+/** Global reply settings (Feature 6, contracts/http-api.md). */
+export const SettingsResponse = z.object({
+  informationPressure: z.number().int().min(1).max(10),
+  replyModel: z.string(),
+  models: z.array(z.object({ id: z.string(), label: z.string() })),
+});
+export type SettingsResponse = z.infer<typeof SettingsResponse>;
+
+export const SaveSettingsBody = z
+  .object({
+    informationPressure: z.number().int().min(1).max(10).optional(),
+    replyModel: z.string().optional(),
+  })
+  .refine((b) => b.informationPressure !== undefined || b.replyModel !== undefined, {
+    message: "Nothing to save",
+  });
+export type SaveSettingsBody = z.infer<typeof SaveSettingsBody>;

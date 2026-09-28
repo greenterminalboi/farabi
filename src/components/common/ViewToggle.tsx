@@ -9,9 +9,10 @@ export function ViewToggle() {
   const lastNodeId = useViewStore((s) => s.lastNodeId);
   const onMap = pathname === "/map";
   const onDefinitions = pathname === "/definitions";
+  const onChat = pathname === "/" || pathname.startsWith("/n/");
   return (
     <nav className="view-toggle" aria-label="View">
-      <Link href={lastNodeId ? `/n/${lastNodeId}` : "/"} aria-current={onMap || onDefinitions ? undefined : "page"}>
+      <Link href={lastNodeId ? `/n/${lastNodeId}` : "/"} aria-current={onChat ? "page" : undefined}>
         Chat
       </Link>
       <Link href="/map" aria-current={onMap ? "page" : undefined}>

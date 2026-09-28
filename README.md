@@ -47,6 +47,19 @@ Set `AI_PROVIDER` in `.env.local`, then restart `npm run dev`:
   (override with `CLAUDE_MODEL`).
 - `fake`: deterministic replies and summaries; the automated tests always use it.
 
+## Settings
+
+The ⚙ button in the top bar opens Settings. Both settings apply to new chat replies in every
+conversation. Summaries, definitions and suggestions aren't affected.
+
+- **Reply detail**: a 10-step slider from Brief to Exhaustive (five bands of two steps). The
+  default is 8 (Detailed). An explicit request in your message ("keep it short") still wins.
+- **Reply model**: Default (whatever `CLAUDE_MODEL` or `CLAUDE_CODE_MODEL` configures), Claude
+  Opus 5, Opus 5.5, Fable 5.1, Sonnet 5 or Haiku 4.5.
+
+Each reply is labelled with the settings it was written with, for example "Detailed · 8 · Claude
+Opus 5". Changing a setting never relabels older replies, and every change is kept.
+
 ## Projects
 
 Each project is its own map, with its own conversations and definitions. Use the 🗂 menu at the

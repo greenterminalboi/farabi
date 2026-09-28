@@ -3,7 +3,9 @@ import type { SendMessageResponse } from "@/shared/schemas";
 import { db, type Trx } from "../db/client";
 import { ConflictError, InvalidRequestError, NotFoundError } from "../errors";
 import { assertId } from "../ids";
+import { resolveReplyModel } from "../ai";
 import { toMessage } from "../mappers";
+import { getSettings } from "../settings/settings";
 import { startGeneration } from "./generation";
 import { QUICK_BRANCH, tryQuickBranch } from "./quickBranch";
 import { buildReplyInput } from "./replyInput";
@@ -13,8 +15,13 @@ export async function lockNode(trx: Trx, nodeId: string): Promise<void> {
   await sql`SELECT 1 FROM nodes WHERE id = ${nodeId} FOR UPDATE`.execute(trx);
 }
 
-/** Inserts a pending AI message at `seq` and starts generating it in the background. */
+/**
+ * Inserts a pending AI message at `seq`. It records the level and model in effect right now, so the
+ * reply keeps them whatever changes later (Feature 6, FR-009, FR-019). The only place AI messages
+ * are created.
+ */
 export async function insertPendingReply(trx: Trx, nodeId: string, seq: number) {
+  const settings = await getSettings(trx);
   return trx
     .insertInto("messages")
     .values({
@@ -24,13 +31,15 @@ export async function insertPendingReply(trx: Trx, nodeId: string, seq: number) 
       content: "",
       status: "pending",
       provenance: "ai_suggested",
+      pressure_level: settings.informationPressure,
+      reply_model: resolveReplyModel(settings.replyModel),
     })
     .returningAll()
     .executeTakeFirstOrThrow();
 }
 
 export function generate(nodeId: string, messageId: string) {
-  return startGeneration(nodeId, messageId, () => buildReplyInput(nodeId));
+  return startGeneration(nodeId, messageId, () => buildReplyInput(nodeId, { replyMessageId: messageId }));
 }
 
 /**

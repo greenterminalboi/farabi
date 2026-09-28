@@ -22,7 +22,9 @@ import {
   RefreshStaleResponse,
   RegenerateResponse,
   RetryResponse,
+  type SaveSettingsBody,
   SendMessageResponse,
+  SettingsResponse,
   StopResponse,
   SuggestionsResponse,
   TermIndexResponse,
@@ -110,6 +112,8 @@ export const api = {
     request("PUT", `/api/feedback/${id}/position`, FeedbackItemResponse, { aboveId, belowId }),
   resolveFeedback: (id: string) => request("POST", `/api/feedback/${id}/resolve`, FeedbackItemResponse, {}),
   reopenFeedback: (id: string) => request("POST", `/api/feedback/${id}/reopen`, FeedbackItemResponse, {}),
+  getSettings: () => request("GET", "/api/settings", SettingsResponse),
+  saveSettings: (patch: SaveSettingsBody) => request("PUT", "/api/settings", SettingsResponse, patch),
   getSuggestions: (nodeId: string) =>
     request("POST", `/api/nodes/${nodeId}/suggestions`, SuggestionsResponse, {}),
   refreshSummary: (nodeId: string) =>
