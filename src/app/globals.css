@@ -173,7 +173,7 @@ body { display: flex; flex-direction: column; }
 
 /* Definitions (Feature 2) */
 .term-mark { text-decoration: underline dotted var(--ai); text-decoration-thickness: 1.5px; text-underline-offset: 3px; cursor: help; }
-/* Feature 5: suggested places to branch. A dotted grey line drawn as a background image, so it
+/* Feature 5: bold text in AI replies, as places to branch. A dotted grey line drawn as a background image, so it
    layers with markers (background-color, border) and terms (text-decoration) without hiding
    either (FR-010). The quietest of the three underlines (FR-002). */
 .suggest-mark {

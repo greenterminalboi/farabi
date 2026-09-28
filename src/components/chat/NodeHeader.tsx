@@ -31,7 +31,7 @@ export function NodeHeader({
         className="btn btn-small suggestions-toggle"
         data-testid="suggestions-toggle"
         aria-pressed={showSuggestions}
-        title="Show suggested places to branch"
+        title="Underline bold text in replies as places to branch"
         onClick={onToggleSuggestions}
       >
         Suggestions

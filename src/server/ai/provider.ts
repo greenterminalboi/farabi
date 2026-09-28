@@ -42,12 +42,6 @@ export interface DefinitionText {
   usage: string;
 }
 
-export interface SuggestSpansInput {
-  /** The completed AI reply's own text, and nothing else (Feature 5, FR-001, Article III). */
-  text: string;
-  signal?: AbortSignal;
-}
-
 export interface ReplyOptions {
   /** Called with each new piece of text as it is generated (Feature 2 streaming). */
   onText?: (delta: string) => void;
@@ -63,12 +57,6 @@ export interface AIProvider {
   summarize(input: SummaryInput): Promise<string>;
   /** Drafts a short two-part definition (Feature 2, FR-029). Throws AIUnavailableError on failure. */
   define(input: DefineInput): Promise<DefinitionText>;
-  /**
-   * Up to 3 phrases copied exactly from the reply, each worth exploring on its own (Feature 5).
-   * Returns [] when nothing qualifies. Throws AIUnavailableError on failure or unparseable output.
-   * The caller validates and locates the phrases; providers don't return offsets.
-   */
-  suggestSpans(input: SuggestSpansInput): Promise<string[]>;
 }
 
 export class AIUnavailableError extends Error {}

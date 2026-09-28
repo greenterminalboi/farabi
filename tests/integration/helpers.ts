@@ -28,11 +28,6 @@ const routes: Array<{ pattern: RegExp; keys: string[]; load: () => Promise<Route
     load: () => import("@/app/api/nodes/[nodeId]/messages/route"),
   },
   {
-    pattern: /^\/api\/nodes\/([^/]+)\/suggestions$/,
-    keys: ["nodeId"],
-    load: () => import("@/app/api/nodes/[nodeId]/suggestions/route"),
-  },
-  {
     pattern: /^\/api\/nodes\/([^/]+)\/branches$/,
     keys: ["nodeId"],
     load: () => import("@/app/api/nodes/[nodeId]/branches/route"),

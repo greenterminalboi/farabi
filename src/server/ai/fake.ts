@@ -7,7 +7,6 @@ import {
   type DefinitionText,
   type ReplyInput,
   type ReplyOptions,
-  type SuggestSpansInput,
   type SummaryInput,
 } from "./provider";
 
@@ -24,14 +23,11 @@ type FakeState = {
   lastReply?: ReplyInput;
   lastSummary?: SummaryInput;
   lastDefine?: DefineInput;
-  lastSuggest?: SuggestSpansInput;
-  suggestCalls: number;
   replyInputs: ReplyInput[];
 };
 const state = globalThis as unknown as { __farabiFake?: FakeState };
-state.__farabiFake ??= { mode: { mode: "ok" }, replyInputs: [], suggestCalls: 0 };
+state.__farabiFake ??= { mode: { mode: "ok" }, replyInputs: [] };
 state.__farabiFake.replyInputs ??= [];
-state.__farabiFake.suggestCalls ??= 0;
 const fake = state.__farabiFake;
 
 const CHUNKS = 5;
@@ -45,16 +41,12 @@ export function getFakeCalls(): {
   lastReply?: ReplyInput;
   lastSummary?: SummaryInput;
   lastDefine?: DefineInput;
-  lastSuggest?: SuggestSpansInput;
-  suggestCalls: number;
   replyInputs: ReplyInput[];
 } {
   return {
     lastReply: fake.lastReply,
     lastSummary: fake.lastSummary,
     lastDefine: fake.lastDefine,
-    lastSuggest: fake.lastSuggest,
-    suggestCalls: fake.suggestCalls,
     replyInputs: fake.replyInputs,
   };
 }
@@ -64,8 +56,6 @@ export function resetFakeCalls(): void {
   fake.lastReply = undefined;
   fake.lastSummary = undefined;
   fake.lastDefine = undefined;
-  fake.lastSuggest = undefined;
-  fake.suggestCalls = 0;
 }
 
 const sleep = (ms: number, signal?: AbortSignal) =>
@@ -96,7 +86,8 @@ export class FakeAIProvider implements AIProvider {
     await behave(input.signal);
     const lastUser = [...input.messages].reverse().find((m) => m.role === "user");
     const echoed = (lastUser?.content ?? "").trim().replace(/[.!?]+$/, "");
-    const text = `Echo: ${echoed}. Containers are mentioned here.`;
+    // The second sentence is bold, so every reply has a bold span to underline (Feature 5).
+    const text = `Echo: ${echoed}. **Containers are mentioned here.**`;
     const pieces = chunk(text, CHUNKS);
     let sent = "";
     for (const [i, piece] of pieces.entries()) {
@@ -111,7 +102,7 @@ export class FakeAIProvider implements AIProvider {
   async summarize(input: SummaryInput): Promise<string> {
     fake.lastSummary = input;
     await behave(input.signal);
-    const last = input.messages.at(-1)?.content ?? input.anchorText ?? "";
+    const last = (input.messages.at(-1)?.content ?? input.anchorText ?? "").replace(/\*\*/g, "");
     const words = last.trim().split(/\s+/).filter(Boolean).slice(-6).join(" ");
     return `About: ${words.replace(/[.!?]+$/, "")}.`;
   }
@@ -123,21 +114,5 @@ export class FakeAIProvider implements AIProvider {
       general: `General meaning of ${input.term}.`,
       usage: `Here, ${input.term} refers to what the conversation discussed.`,
     };
-  }
-
-  /** Every sentence of 2–20 words except the "Echo:" one, first 3 (contracts/ai-provider.md). */
-  async suggestSpans(input: SuggestSpansInput): Promise<string[]> {
-    fake.lastSuggest = input;
-    fake.suggestCalls++;
-    await behave(input.signal);
-    return input.text
-      .split(/(?<=[.!?])\s+/)
-      .map((s) => s.trim())
-      .filter((s) => !s.startsWith("Echo:"))
-      .filter((s) => {
-        const words = s.split(/\s+/).filter(Boolean).length;
-        return words >= 2 && words <= 20;
-      })
-      .slice(0, 3);
   }
 }

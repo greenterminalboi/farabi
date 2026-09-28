@@ -104,18 +104,6 @@ export interface DefinitionVersionsTable {
   created_at: CreatedAt;
 }
 
-/** One suggested span as stored in the cache (Feature 5, data-model.md). */
-export type SuggestedSpanRow = { start: number; end: number; text: string };
-
-export interface SpanSuggestionsTable {
-  message_id: string;
-  detector_version: number;
-  /** Inserted as a JSON string; read back parsed. */
-  spans: ColumnType<SuggestedSpanRow[], string, never>;
-  provenance: ColumnType<Provenance, never, never>;
-  created_at: CreatedAt;
-}
-
 export type SettingKey = "information_pressure" | "reply_model";
 
 /** Append-only history of global settings (Feature 6); the newest row per key is in effect. */
@@ -208,7 +196,6 @@ export interface Database {
   edge_label_versions: EdgeLabelVersionsTable;
   definitions: DefinitionsTable;
   definition_versions: DefinitionVersionsTable;
-  span_suggestions: SpanSuggestionsTable;
   setting_changes: SettingChangesTable;
   parked_tangents: ParkedTangentsTable;
   parked_tangent_events: ParkedTangentEventsTable;

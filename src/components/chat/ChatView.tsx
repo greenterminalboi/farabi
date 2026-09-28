@@ -5,7 +5,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { api, ApiError } from "@/lib/api";
 import { getCachedNode, setCachedNode } from "@/lib/nodeCache";
 import { useReplyStream } from "@/lib/replyStream";
-import type { Marker, NodeView, SuggestedSpan } from "@/shared/schemas";
+import type { Marker, NodeView } from "@/shared/schemas";
 import { useDefinitionsStore } from "@/state/definitionsStore";
 import { useSettingsStore } from "@/state/settingsStore";
 import { nodeViewState, useViewStore } from "@/state/viewStore";
@@ -20,9 +20,6 @@ import { rangeForOffsets } from "./selection";
 
 const SUMMARY_POLL_MS = 4000;
 const NO_MARKERS: Marker[] = [];
-const NO_SUGGESTIONS: SuggestedSpan[] = [];
-/** Requests per round of suggestions while messages are still being analyzed (research R4). */
-const SUGGESTION_ROUNDS = 6;
 
 export function ChatView({ nodeId }: { nodeId: string }) {
   const router = useRouter();
@@ -40,17 +37,6 @@ export function ChatView({ nodeId }: { nodeId: string }) {
   const sectionRef = useRef<HTMLElement>(null);
   const showSuggestions = useSettingsStore((s) => s.showSuggestions);
   const setShowSuggestions = useSettingsStore((s) => s.setShowSuggestions);
-  // Suggested spans per message for the open node; never part of the node's data (Feature 5).
-  const [suggestions, setSuggestions] = useState<{ nodeId: string; byMessage: Record<string, SuggestedSpan[]> }>(
-    { nodeId, byMessage: {} },
-  );
-  // Messages already asked about for this node, and whether a round is in flight.
-  const suggestTracker = useRef<{ nodeId: string; asked: Set<string>; busy: boolean }>({
-    nodeId,
-    asked: new Set(),
-    busy: false,
-  });
-
   // Read the per-browser setting once mounted (research R8).
   useEffect(() => {
     void useSettingsStore.persist.rehydrate();
@@ -106,39 +92,6 @@ export function ChatView({ nodeId }: { nodeId: string }) {
     for (const m of view?.markers ?? []) map.set(m.messageId, [...(map.get(m.messageId) ?? []), m]);
     return map;
   }, [view]);
-
-  // Ask for suggestions whenever a complete AI reply appears that hasn't been asked about, and keep
-  // asking while the server is still analyzing (Feature 5, research R4). Nothing while turned off.
-  useEffect(() => {
-    // getState() too: on the first render the stored setting may have only just been rehydrated.
-    if (!view || !showSuggestions || !useSettingsStore.getState().showSuggestions) return;
-    const tracker = suggestTracker.current;
-    if (tracker.nodeId !== nodeId) suggestTracker.current = { nodeId, asked: new Set(), busy: false };
-    const t = suggestTracker.current;
-    const wanted = view.messages.filter((m) => m.role === "ai" && m.status === "complete" && !t.asked.has(m.id));
-    if (wanted.length === 0 || t.busy) return;
-    t.busy = true;
-    void (async () => {
-      try {
-        for (let round = 0; round < SUGGESTION_ROUNDS && suggestTracker.current === t; round++) {
-          const res = await api.getSuggestions(nodeId);
-          setSuggestions((prev) =>
-            prev.nodeId === nodeId
-              ? { nodeId, byMessage: { ...prev.byMessage, ...res.byMessage } }
-              : { nodeId, byMessage: res.byMessage },
-          );
-          if (res.pending.length === 0) break;
-        }
-      } catch {
-        // Suggestions are optional; the conversation works the same without them.
-      } finally {
-        for (const m of wanted) t.asked.add(m.id);
-        t.busy = false;
-      }
-    })();
-  }, [view, nodeId, showSuggestions]);
-  const suggestionsOf = (messageId: string) =>
-    showSuggestions && suggestions.nodeId === nodeId ? (suggestions.byMessage[messageId] ?? NO_SUGGESTIONS) : NO_SUGGESTIONS;
 
   const scrollToBottom = () =>
     requestAnimationFrame(() => {
@@ -269,7 +222,7 @@ export function ChatView({ nodeId }: { nodeId: string }) {
             message={m}
             markers={markersByMessage.get(m.id) ?? NO_MARKERS}
             matcher={matcher}
-            suggestions={suggestionsOf(m.id)}
+            underlineBold={showSuggestions}
             canRegenerate={view.canRegenerate?.messageId === m.id}
             streamText={m.id === pending?.id ? streamText : undefined}
             busy={busy}

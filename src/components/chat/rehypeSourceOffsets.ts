@@ -1,6 +1,6 @@
 import { findTerms, type TermMatcher } from "@/lib/terms";
-import type { Marker, SuggestedSpan } from "@/shared/schemas";
-import { segmentAttributes, splitByMarkers } from "./markerRanges";
+import type { Marker } from "@/shared/schemas";
+import { segmentAttributes, splitByMarkers, type SuggestedSpan } from "./markerRanges";
 
 // Minimal hast types (avoids a direct dependency on @types/hast).
 type Position = { start: { offset?: number }; end: { offset?: number } };
@@ -38,20 +38,24 @@ function segmentSpans(
   });
 }
 
+/** Bold in Markdown: `**text**` and `__text__` both render as <strong>. */
+const BOLD_TAGS = new Set(["strong", "b"]);
+
 /**
  * Wraps every text node whose source offsets map 1:1 onto its text in
  * `<span data-start data-end>`, split at branch-marker boundaries. Text whose source differs from
  * its rendered value (escapes, entities, inline code) is left unwrapped and can't anchor a branch.
- * Suggested spans (Feature 5) are marked the same way as markers and terms.
+ * With `underlineBold`, each such text inside bold is a suggested place to branch (Feature 5), marked
+ * the same way as markers and terms. Nothing is asked of the AI.
  */
 export function rehypeSourceOffsets(options: {
   markers: Marker[];
   matcher?: TermMatcher | null;
-  suggestions?: SuggestedSpan[];
+  underlineBold?: boolean;
 }) {
-  const { markers, matcher = null, suggestions = [] } = options;
+  const { markers, matcher = null, underlineBold = false } = options;
   return (tree: HastNode) => {
-    const visit = (node: HastNode) => {
+    const visit = (node: HastNode, inBold: boolean) => {
       if (!("children" in node) || !node.children) return;
       const next: HastNode[] = [];
       for (const child of node.children) {
@@ -60,17 +64,19 @@ export function rehypeSourceOffsets(options: {
           const s = text.position?.start.offset;
           const e = text.position?.end.offset;
           if (s !== undefined && e !== undefined && e - s === text.value.length) {
+            const suggestions: SuggestedSpan[] = inBold && underlineBold && text.value.trim() ? [{ start: s, end: e }] : [];
             next.push(...segmentSpans(text.value, s, markers, matcher, suggestions));
             continue;
           }
         } else {
-          visit(child);
+          const el = child as HastElement;
+          visit(child, inBold || (el.type === "element" && BOLD_TAGS.has(el.tagName)));
         }
         next.push(child);
       }
       node.children = next;
     };
-    visit(tree);
+    visit(tree, false);
   };
 }
 

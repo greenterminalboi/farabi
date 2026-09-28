@@ -23,13 +23,13 @@ async function clickWord(page: Page, word: string) {
   await lastAi(page).locator("span[data-start]", { hasText: word }).first().click({ position: { x: 3, y: 5 } });
 }
 
-test("a suggestion appears on a completed reply and hands off to the toolbar (US1)", async ({ page }) => {
+test("bold text in a completed reply is underlined and hands off to the toolbar (US1)", async ({ page }) => {
   await startConversation(page);
   await send(page, "Pods");
   const marks = lastAi(page).locator(".suggest-mark");
   await expect(marks.first()).toBeVisible();
   await expect(lastAi(page).locator(".suggest-mark")).toHaveText([PHRASE]);
-  // Not on the echoed sentence, and never on the user's own message (FR-007).
+  // Only the bold sentence, never the plain one, and never the user's own message (FR-007).
   await expect(page.locator('[data-role="user"] .suggest-mark')).toHaveCount(0);
 
   await clickWord(page, "mentioned");
@@ -106,7 +106,7 @@ test("suggestions coexist with terms and branch markers (US2)", async ({ page })
   await page.waitForURL(childUrl);
 });
 
-test("the Suggestions toggle hides them and stops requests (FR-012)", async ({ page }) => {
+test("the Suggestions toggle hides them (FR-012)", async ({ page }) => {
   await startConversation(page);
   await send(page, "Pods");
   await expect(lastAi(page).locator(".suggest-mark").first()).toBeVisible();
@@ -117,33 +117,25 @@ test("the Suggestions toggle hides them and stops requests (FR-012)", async ({ p
   await expect(toggle).toHaveAttribute("aria-pressed", "false");
   await expect(page.locator(".suggest-mark")).toHaveCount(0);
 
-  const requests: string[] = [];
-  page.on("request", (r) => {
-    if (r.url().includes("/suggestions")) requests.push(r.url());
-  });
   await page.reload();
   await expect(page.getByTestId("suggestions-toggle")).toHaveAttribute("aria-pressed", "false");
   await send(page, "Deployments");
-  await page.waitForTimeout(1500);
   await expect(page.locator(".suggest-mark")).toHaveCount(0);
-  expect(requests).toEqual([]);
 
   await page.getByTestId("suggestions-toggle").click();
   await expect(lastAi(page).locator(".suggest-mark").first()).toBeVisible();
 });
 
-test("an unavailable AI shows no suggestions and no error (Edge Case)", async ({ page }) => {
+test("underlines need no AI: no request, and they show even when the AI is unavailable", async ({ page }) => {
+  const requests: string[] = [];
+  page.on("request", (r) => {
+    if (r.url().includes("/suggestions")) requests.push(r.url());
+  });
   await startConversation(page);
-  // Get a completed reply without analyzing it, then make the AI unavailable and turn suggestions on.
-  await page.getByTestId("suggestions-toggle").click();
   await send(page, "Pods");
   await setAiMode(page, "fail");
-  await page.getByTestId("suggestions-toggle").click();
-  await expect(page.getByTestId("suggestions-toggle")).toHaveAttribute("aria-pressed", "true");
-  await page.waitForTimeout(1500);
-  await expect(page.locator(".suggest-mark")).toHaveCount(0);
+  await page.reload();
+  await expect(lastAi(page).locator(".suggest-mark")).toHaveText([PHRASE]);
   await expect(page.locator(".composer-error")).toHaveCount(0);
-  // Manual selection still works.
-  await selectInLastAiMessage(page, "Containers");
-  await expect(toolbar(page)).toBeVisible();
+  expect(requests).toEqual([]);
 });

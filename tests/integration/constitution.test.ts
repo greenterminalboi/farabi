@@ -1,3 +1,4 @@
+import { sql } from "kysely";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
@@ -77,25 +78,18 @@ describe("constitution guards", () => {
     }
   });
 
-  it("Feature 5, Articles I and II: suggestions are ai_suggested, insert-only and stay out of the structure", async () => {
+  it("Feature 5 (reworked): suggested underlines need no AI call and store nothing", async () => {
     const t = await call("POST", "/api/trees", {});
     await call("POST", `/api/nodes/${t.body.node.id}/messages?wait=1`, { content: "Pods" });
-    await call("POST", `/api/nodes/${t.body.node.id}/suggestions`, {});
-    const rows = await db.selectFrom("span_suggestions").select("provenance").execute();
-    expect(rows.length).toBeGreaterThan(0);
-    expect(rows.every((r) => r.provenance === "ai_suggested")).toBe(true);
-
+    const provider = await import("@/server/ai/fake");
+    expect("suggestSpans" in new provider.FakeAIProvider()).toBe(false);
+    const { rows } = await sql<{ n: number }>`
+      SELECT count(*)::int AS n FROM information_schema.tables WHERE table_name = 'span_suggestions'`.execute(db);
+    expect(rows[0].n).toBe(0);
     for (const file of files(path.join(root, "src"), /\.(ts|tsx)$/)) {
-      const src = readFileSync(file, "utf8");
       const rel = path.relative(root, file);
-      expect(src, rel).not.toMatch(/(updateTable|deleteFrom)\("span_suggestions"\)/);
-      // Only the suggestions module, the schema and migrations know the cache exists (FR-006).
-      if (/span_suggestions/.test(src)) expect(rel).toMatch(/^src\/server\/(suggestions|db)\//);
-    }
-    for (const file of files(path.join(root, "src/server/suggestions"), /\.ts$/)) {
-      expect(readFileSync(file, "utf8")).not.toMatch(
-        /insertInto\("(nodes|branch_markers|definitions|definition_versions|messages|node_summaries|edge_label_versions)"\)/,
-      );
+      if (rel.startsWith("src/server/db/migrations/")) continue;
+      expect(readFileSync(file, "utf8"), rel).not.toMatch(/span_suggestions|suggestSpans/);
     }
   });
 
@@ -113,8 +107,8 @@ describe("constitution guards", () => {
       // Only the settings module reads the settings history (Article VI, 1.0.1).
       if (/setting_changes/.test(src)) expect(rel).toMatch(/^src\/server\/(settings|db)\//);
     }
-    // Summaries, definitions and suggestions never see the level or reply model (FR-007, FR-018).
-    for (const dir of ["summaries", "definitions", "suggestions"]) {
+    // Summaries and definitions never see the level or reply model (FR-007, FR-018).
+    for (const dir of ["summaries", "definitions"]) {
       for (const file of files(path.join(root, "src/server", dir), /\.ts$/)) {
         expect(readFileSync(file, "utf8"), file).not.toMatch(/pressure|reply_model|replyModel/i);
       }
