@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { branchOn, resetDb, selectInLastAiMessage, send, startConversation } from "./helpers";
+import { branchOn, confirmQuestion, resetDb, selectInLastAiMessage, send, startConversation } from "./helpers";
 
 test.beforeEach(resetDb);
 
@@ -23,7 +23,8 @@ test("branch from a highlighted phrase", async ({ page }) => {
   // A second, overlapping branch on the same message.
   await page.goto(`/n/${root}`);
   await selectInLastAiMessage(page, "Containers are");
-  await page.getByRole("button", { name: "Branch" }).click();
+  await page.getByRole("toolbar", { name: "Highlight actions" }).getByRole("button", { name: "Branch" }).click();
+  await confirmQuestion(page);
   await page.waitForURL((url) => !url.pathname.endsWith(root));
   await page.goto(`/n/${root}`);
   // "Containers" is covered by both branches, " are" by one: two layered segments.

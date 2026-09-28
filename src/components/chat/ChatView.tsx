@@ -11,6 +11,7 @@ import { useSettingsStore } from "@/state/settingsStore";
 import { nodeViewState, useViewStore } from "@/state/viewStore";
 import { TermCard } from "@/components/definitions/TermCard";
 import { BranchAction } from "./BranchAction";
+import { BranchPanel } from "./BranchPanel";
 import { Composer } from "./Composer";
 import { InheritedContext } from "./InheritedContext";
 import { Message } from "./Message";
@@ -233,7 +234,9 @@ export function ChatView({ nodeId }: { nodeId: string }) {
   if (loadError && !view) return <div className="empty-state">{loadError}</div>;
   if (!view) return <div className="empty-state">Loading…</div>;
 
+  // The branch panel sits beside the chat in the main row (Feature 8, FR-001).
   return (
+    <>
     <section className="chat" data-node-id={nodeId} ref={sectionRef}>
       <NodeHeader
         summary={view.node.summary}
@@ -275,7 +278,13 @@ export function ChatView({ nodeId }: { nodeId: string }) {
           />
         ))}
       </div>
-      <BranchAction nodeId={nodeId} containerRef={listRef} contentOf={contentOf} onError={setError} />
+      <BranchAction
+        nodeId={nodeId}
+        containerRef={listRef}
+        contentOf={contentOf}
+        onError={setError}
+        onParked={() => void load()}
+      />
       <TermCard containerRef={sectionRef} />
       {menu && (
         <div className="marker-menu" style={{ left: menu.x, top: menu.y }} onMouseLeave={() => setMenu(null)}>
@@ -296,5 +305,7 @@ export function ChatView({ nodeId }: { nodeId: string }) {
         onSend={send}
       />
     </section>
+    <BranchPanel view={view} reload={load} />
+    </>
   );
 }

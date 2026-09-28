@@ -4,6 +4,8 @@ import {
   BranchResponse,
   CaptureResponse,
   CreateTreeResponse,
+  DiscardParkedResponse,
+  FireParkedResponse,
   DefinitionDetailResponse,
   DefinitionResponse,
   DefinitionsResponse,
@@ -18,6 +20,7 @@ import {
   NodeResponse,
   NodeView,
   OriginResponse,
+  ParkedResponse,
   RefreshResponse,
   RefreshStaleResponse,
   RegenerateResponse,
@@ -71,6 +74,12 @@ export const api = {
   getNode: (nodeId: string) => request("GET", `/api/nodes/${nodeId}`, NodeView),
   branch: (nodeId: string, anchor: Anchor) =>
     request("POST", `/api/nodes/${nodeId}/branches`, BranchResponse, anchor),
+  park: (nodeId: string, anchor: Anchor, question: string | null) =>
+    request("POST", `/api/nodes/${nodeId}/parked`, ParkedResponse, { ...anchor, question }),
+  setParkedQuestion: (id: string, question: string | null) =>
+    request("POST", `/api/parked/${id}/question`, ParkedResponse, { question }),
+  discardParked: (id: string) => request("POST", `/api/parked/${id}/discard`, DiscardParkedResponse, {}),
+  fireParked: (id: string) => request("POST", `/api/parked/${id}/fire`, FireParkedResponse, {}),
   sendMessage: (nodeId: string, content: string) =>
     request("POST", `/api/nodes/${nodeId}/messages`, SendMessageResponse, { content }),
   stop: (messageId: string) => request("POST", `/api/messages/${messageId}/stop`, StopResponse, {}),

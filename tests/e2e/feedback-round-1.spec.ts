@@ -38,12 +38,12 @@ test("your messages are bubbles that fit their text; AI replies have no bubble",
   await expect(ai.locator(".ai-tag")).toBeVisible(); // AI text stays labelled (Article I)
 });
 
-test("highlighting shows the toolbar with Define and Branch; context sits above the anchor", async ({ page }) => {
+test("highlighting shows the toolbar with Define, Branch and Park; context sits above the anchor", async ({ page }) => {
   await startConversation(page);
   await send(page, "Tell me about Pods");
   await selectInLastAiMessage(page, "Containers");
   const toolbar = page.getByRole("toolbar", { name: "Highlight actions" });
-  await expect(toolbar.getByRole("button")).toHaveText([/Define/, /Branch/]);
+  await expect(toolbar.getByRole("button")).toHaveText([/Define/, /Branch/, /Park/]);
   // Above the selection.
   const sel = await page.evaluate(() => document.getSelection()!.getRangeAt(0).getBoundingClientRect().top);
   expect((await toolbar.boundingBox())!.y + (await toolbar.boundingBox())!.height).toBeLessThanOrEqual(sel);

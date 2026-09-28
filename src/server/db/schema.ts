@@ -128,6 +128,33 @@ export interface SettingChangesTable {
   created_at: CreatedAt;
 }
 
+/** A tangent parked from a node (Feature 8); insert-only, its state lives in its events. */
+export interface ParkedTangentsTable {
+  id: Generated<string>;
+  node_id: string;
+  message_id: string;
+  start_offset: number;
+  end_offset: number;
+  anchor_text: string;
+  prefix: string;
+  suffix: string;
+  provenance: ColumnType<Provenance, never, never>;
+  created_at: CreatedAt;
+}
+
+export type ParkedEventKind = "question_set" | "discarded" | "fired";
+
+/** Append-only history of a parked tangent: question edits, then at most one discard or fire. */
+export interface ParkedTangentEventsTable {
+  id: Generated<string>;
+  tangent_id: string;
+  kind: ParkedEventKind;
+  question: string | null;
+  child_node_id: string | null;
+  provenance: ColumnType<Provenance, never, never>;
+  created_at: CreatedAt;
+}
+
 export type FeedbackView = "chat" | "map" | "definitions";
 export type FeedbackState = "open" | "addressed" | "resolved";
 
@@ -183,6 +210,8 @@ export interface Database {
   definition_versions: DefinitionVersionsTable;
   span_suggestions: SpanSuggestionsTable;
   setting_changes: SettingChangesTable;
+  parked_tangents: ParkedTangentsTable;
+  parked_tangent_events: ParkedTangentEventsTable;
   feedback_items: FeedbackItemsTable;
   feedback_tags: FeedbackTagsTable;
   feedback_attachments: FeedbackAttachmentsTable;

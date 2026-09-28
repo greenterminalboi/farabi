@@ -3,6 +3,7 @@ import { db } from "../db/client";
 import { ConflictError, NotFoundError } from "../errors";
 import { assertId } from "../ids";
 import { toMessage } from "../mappers";
+import { hasLiveParkedOn } from "../parked/state";
 import { generate, insertPendingReply, lockNode } from "./send";
 
 /**
@@ -36,6 +37,10 @@ export async function regenerateReply(
       .limit(1)
       .executeTakeFirst();
     if (branched) throw new ConflictError("has_branches", "This reply has branches, so it can't be regenerated");
+    // A live parked tangent would point at a hidden reply (Feature 8, research R6).
+    if (await hasLiveParkedOn(trx, old.id)) {
+      throw new ConflictError("has_parked", "This reply has parked tangents, so it can't be regenerated");
+    }
 
     const replacedAt = new Date();
     await trx.updateTable("messages").set({ replaced_at: replacedAt }).where("id", "=", old.id).execute();

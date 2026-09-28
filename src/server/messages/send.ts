@@ -68,47 +68,53 @@ export async function sendFromComposer(nodeId: string, content: string): Promise
   return sendMessage(nodeId, content);
 }
 
+/**
+ * Stores a user message and its pending AI reply inside `trx`; the caller starts generation after
+ * commit. Serializes on the node row and refuses while a reply is still arriving.
+ */
+export async function insertUserTurn(trx: Trx, nodeId: string, content: string) {
+  const node = await trx
+    .selectFrom("nodes")
+    .select("id")
+    .where("id", "=", nodeId)
+    .forUpdate()
+    .executeTakeFirst();
+  if (!node) throw new NotFoundError("Node not found");
+
+  const latest = await trx
+    .selectFrom("messages")
+    .select(["seq", "status"])
+    .where("node_id", "=", nodeId)
+    .where("replaced_at", "is", null)
+    .orderBy("seq", "desc")
+    .limit(1)
+    .executeTakeFirst();
+  if (latest?.status === "pending") {
+    throw new ConflictError("reply_in_progress", "Wait for the current reply to finish");
+  }
+  const seq = (latest?.seq ?? 0) + 1;
+
+  const userMessage = await trx
+    .insertInto("messages")
+    .values({
+      node_id: nodeId,
+      seq,
+      role: "user",
+      content,
+      status: "complete",
+      provenance: "user_authored",
+    })
+    .returningAll()
+    .executeTakeFirstOrThrow();
+  const pending = await insertPendingReply(trx, nodeId, seq + 1);
+  return { userMessage, pending };
+}
+
 async function sendOrdinary(
   nodeId: string,
   content: string,
 ): Promise<Extract<SendMessageResponse, { kind: "message" }>> {
-  const { userMessage, pending } = await db.transaction().execute(async (trx) => {
-    const node = await trx
-      .selectFrom("nodes")
-      .select("id")
-      .where("id", "=", nodeId)
-      .forUpdate()
-      .executeTakeFirst();
-    if (!node) throw new NotFoundError("Node not found");
-
-    const latest = await trx
-      .selectFrom("messages")
-      .select(["seq", "status"])
-      .where("node_id", "=", nodeId)
-      .where("replaced_at", "is", null)
-      .orderBy("seq", "desc")
-      .limit(1)
-      .executeTakeFirst();
-    if (latest?.status === "pending") {
-      throw new ConflictError("reply_in_progress", "Wait for the current reply to finish");
-    }
-    const seq = (latest?.seq ?? 0) + 1;
-
-    const userMessage = await trx
-      .insertInto("messages")
-      .values({
-        node_id: nodeId,
-        seq,
-        role: "user",
-        content,
-        status: "complete",
-        provenance: "user_authored",
-      })
-      .returningAll()
-      .executeTakeFirstOrThrow();
-    const pending = await insertPendingReply(trx, nodeId, seq + 1);
-    return { userMessage, pending };
-  });
+  const { userMessage, pending } = await db.transaction().execute((trx) => insertUserTurn(trx, nodeId, content));
 
   void generate(nodeId, pending.id);
   return { kind: "message", userMessage: toMessage(userMessage), aiMessage: toMessage(pending) };
