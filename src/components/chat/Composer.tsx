@@ -82,13 +82,31 @@ export function Composer({ nodeId, disabled, streaming, onStop, canQuickBranch, 
             }
           }}
         />
+        {/* Icon-only, inside the box; the aria-labels keep them named "Stop" and "Send" (Feature 007). */}
         {streaming ? (
-          <button type="button" className="btn" onClick={onStop}>
-            Stop
+          <button type="button" className="composer-icon-btn composer-stop" onClick={onStop} aria-label="Stop" title="Stop">
+            <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+              <rect x="3" y="3" width="10" height="10" rx="2" fill="currentColor" />
+            </svg>
           </button>
         ) : (
-          <button type="submit" className="btn btn-primary" disabled={sending || disabled || !draft.trim()}>
-            Send
+          <button
+            type="submit"
+            className="composer-icon-btn composer-send"
+            disabled={sending || disabled || !draft.trim()}
+            aria-label="Send"
+            title="Send"
+          >
+            <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+              <path
+                d="M8 13V3M3.5 7.5 8 3l4.5 4.5"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
           </button>
         )}
       </form>
