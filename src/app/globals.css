@@ -484,3 +484,30 @@ body { display: flex; flex-direction: column; }
 .input-panel a { color: var(--accent); }
 .kind-settings h2 { margin-bottom: 4px; }
 .kind-setting { display: flex; flex-direction: column; gap: 4px; margin: 10px 0; }
+
+/* v0.2 canvas (Feature 10). The text layer sits over the PixiJS canvas and shares its camera
+   through one transform on .text-world; items are positioned in world units (research R7). */
+.canvas-host { position: absolute; inset: 0; overflow: hidden; }
+.canvas-host > canvas { position: absolute; inset: 0; }
+.text-layer { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+.text-world { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+.element-text {
+  position: absolute; box-sizing: border-box; overflow: hidden; padding: 16px 18px;
+  font-size: 15px; line-height: 1.55; color: var(--text);
+  pointer-events: auto; cursor: text; user-select: text;
+  contain: layout paint style;
+}
+.element-text > * { margin: 0 0 0.6em; }
+.element-text h1, .element-text h2, .element-text h3,
+.element-text h4, .element-text h5, .element-text h6 { font-size: 1.05em; font-weight: 700; margin: 0.4em 0; }
+.element-text .rt-li { position: relative; padding-left: calc(1.2em * var(--depth, 1)); margin: 0 0 0.3em; }
+.element-text .rt-li::before { content: "•"; position: absolute; left: calc(1.2em * var(--depth, 1) - 1em); }
+.element-text .rt-ol::before { content: attr(data-n); }
+.element-text pre { white-space: pre-wrap; font-size: 0.9em; }
+.element-text blockquote { border-left: 3px solid var(--border); padding-left: 0.8em; }
+.element-text hr { border: 0; border-top: 1px solid var(--border); }
+.element-text .rt-strong { font-weight: 700; }
+.element-text .rt-em { font-style: italic; }
+.element-text .rt-code { font-family: ui-monospace, monospace; font-size: 0.9em; }
+/* Where text was cut to fit, a mark says so; nothing is drawn in place of it (FR-030, FR-032). */
+.element-text [data-clipped]::after { content: " …"; color: var(--muted); }

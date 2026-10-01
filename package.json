@@ -14,7 +14,9 @@
     "db:migrate": "tsx scripts/migrate.ts",
     "seed:large": "tsx scripts/seed-large.ts",
     "feedback:addressed": "tsx scripts/feedback-addressed.ts",
-    "feedback:export": "tsx scripts/feedback-export.ts"
+    "feedback:export": "tsx scripts/feedback-export.ts",
+    "v1:convert": "tsx scripts/v1-convert.ts",
+    "v1:verify": "tsx scripts/v1-verify.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.128.0",
@@ -30,6 +32,8 @@
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "react-markdown": "^10.1.0",
+    "remark-parse": "^11.0.0",
+    "unified": "^11.0.5",
     "zod": "^4.6.5",
     "zustand": "^5.0.15"
   },

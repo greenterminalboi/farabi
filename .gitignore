@@ -19,3 +19,6 @@ playwright-report/
 # Feature 3 feedback data (screenshots, notes); regenerated FEEDBACK.md
 /feedback/
 /.feedback-test/
+
+# v0.2 migration backups (pg_dump before 0010)
+/db/backups/

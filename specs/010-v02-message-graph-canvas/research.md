@@ -264,8 +264,8 @@ mounted text, which gives FR-033 for free.
 ReactMarkdown. Each immutable text is parsed once into a `RichText`: blocks (paragraph, heading,
 list item, code, quote) of runs (text, strong, emphasis, code) carrying their source offsets.
 
-- **Parsing**: the same unified, remark-parse and remark-rehype pipeline that react-markdown uses,
-  promoted from transitive to direct dependencies (no new packages).
+- **Parsing**: the same unified and remark-parse parser that react-markdown uses, reading mdast
+  directly, promoted from transitive to direct dependencies (no new packages).
 - **Caching**: results are cached by element id, since the text never changes (FR-008). A streaming
   answer is re-parsed at most every 100 ms.
 - **Building**: the module builds and recycles DOM directly, splitting runs at marker, term and
@@ -492,6 +492,52 @@ R7 to R9 text layer.
 
 **Rationale**: The spec's own assumption makes this an early milestone. Everything else depends on
 it being true.
+
+### M0 results (2026-10-01, owner's machine, production build, GPU Chromium, 1280×720, 60 Hz)
+
+**Verdict: PASS.** Three consecutive runs of `tests/e2e/f10-m0-spike.spec.ts` passed on 5,000
+synthetic answers (mean about 1,700 characters, up to 8,000, with markdown).
+
+| Measure | Target | Run 1 | Run 2 | Run 3 |
+|---------|--------|-------|-------|-------|
+| Text layer ready, from receiving items | < 1 s | 298 ms | 340 ms | 270 ms |
+| Page ready, from navigation (includes generating synthetic data) | | 996 ms | 1,059 ms | 837 ms |
+| Pan p95, all 5,000 in view | ≤ 16.7 ms frame (60 Hz) | 16.8 (301/300 frames) | 16.8 (297) | 16.7 (301) |
+| Pan p95 at 0.35 / 1.0 zoom | | 16.7 / 16.8 | 16.7 / 16.7 | 16.7 / 16.7 |
+| Zoom-in steps p95, 0.02 → 4 | | 16.7 (300) | 16.8 (300) | 16.8 (301) |
+| Zoom-out steps p95 | | 16.8 (295) | 16.7 (298) | 16.8 (299) |
+| Selection at the furthest zoom (0.02, glyphs ≈ 0.3 px) | toolbar-ready selection | "Servic" | "Servic" | "Servic" |
+| Mounted at the furthest zoom | every element | 5,000, 22,193 chars | same | same |
+| Off-screen mounted after rest, zoomed in | 0 | 0 | 0 | 0 |
+
+A p95 of 16.7–16.8 ms is one refresh interval: no dropped frames at the 95th percentile.
+
+**What it took**:
+
+| Change | Before | After |
+|--------|--------|-------|
+| **Budget**: the total and floor dropped from 120,000 and 24 to **30,000 and 6**. Paint cost follows mounted characters. 30k still fills a zoomed-in screen (about 10k characters at scale 1), and every element keeps at least 6 characters of real text. | far-zoom pan p95 33 ms (106k characters mounted) | 16.8 ms |
+| **Preview path**: elements with a budget of 120 characters or less read the first line with markdown syntax skipped and offsets kept (`previewRichText`), with no parser. | open 3.1 s | 0.42 s |
+| **First fill** runs 48 ms work slices instead of 6 ms (`FIRST_FILL_WORK_MS`). | | |
+| **Resizes wait for rest**: mounted items keep their text while the camera moves, and resize 100 ms after it rests. Items coming into view still mount immediately. | zoom-in p95 33 ms | 16.7 ms |
+
+**Ruled out**:
+
+- **`will-change: transform` on the text world.** It composited a world-sized layer that never
+  finished its first render (more than 60 s).
+- **Measuring with Playwright tracing on.** Its snapshots cost frames, so the spec sets
+  `trace: "off"`.
+- **Timing the very first gesture after load.** It also pays JIT and GPU start-up, so the spec
+  warms up with a 1 s pan first. Steady-state repeats in one session all held p95 ≤ 16.8 ms.
+
+**Carried into the real text layer**:
+
+- the constants in `src/canvas/text/budget.ts`
+- `richTextPrefix` and `previewRichText` in `src/canvas/text/richText.ts`
+- the scheduling in `src/canvas/text/TextLayer.ts`
+- forwarding wheel events from text to the canvas
+- the input mapping from research R11: plain wheel pans with `drag({ wheel: true })` and
+  `wheel({ wheelZoom: false, trackpadPinch: true })`, and Ctrl/Cmd + wheel zooms
 
 ## R18. Routing
 

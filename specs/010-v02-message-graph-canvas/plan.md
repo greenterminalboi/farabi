@@ -63,8 +63,8 @@ carried-over features, then functions.
 **Primary Dependencies**: Next 16 App Router, React 19, zustand 5, Kysely and pg, zod 4, PixiJS 8
 with pixi-viewport, graphology.
 
-- `unified`, `remark-parse` and `remark-rehype` go from transitive (through react-markdown) to
-  direct dependencies, for `RichText` parsing.
+- `unified` and `remark-parse` go from transitive (through react-markdown) to direct
+  dependencies, for `RichText` parsing.
 - `d3-hierarchy` is no longer used by the canvas layout, which moves to an in-house tidy tree.
 - No new packages.
 

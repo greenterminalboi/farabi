@@ -22,6 +22,12 @@ const PRELOAD_TIMEOUT_MS = 2000;
  * the app loads, so the first visit to the map doesn't pay WebGL start-up (SC-006).
  */
 export function MapHost() {
+  // The v0.2 canvas spike measures frame times; a second WebGL scene and polling would skew them.
+  if (usePathname().startsWith("/dev/")) return null;
+  return <MapHostInner />;
+}
+
+function MapHostInner() {
   const pathname = usePathname();
   const router = useRouter();
   const visible = pathname === "/map";

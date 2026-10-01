@@ -28,15 +28,15 @@ touches different files and has no unfinished dependencies.
 
 ## Phase 1: Setup
 
-- [ ] T001 Update `package.json`:
-  - Add direct dependencies at the installed versions: `"unified": "^11.0.5"`,
-    `"remark-parse": "^11.0.0"`, `"remark-rehype": "^11.1.2"`. No new packages (plan Technical
-    Context).
+- [X] T001 Update `package.json`:
+  - Add direct dependencies at the installed versions: `"unified": "^11.0.5"` and
+    `"remark-parse": "^11.0.0"`. No new packages (plan Technical Context). `remark-rehype` turned
+    out to be unnecessary, because the parser reads mdast directly.
   - Add scripts `"v1:convert": "tsx scripts/v1-convert.ts"` and
     `"v1:verify": "tsx scripts/v1-verify.ts"`.
   - Run `npm install` so `package-lock.json` records them as direct.
-- [ ] T002 [P] Add `/db/backups/` to `.gitignore` (research R3).
-- [ ] T003 [P] Create the folders `src/canvas/{layout,renderer,text,overlays}/`,
+- [X] T002 [P] Add `/db/backups/` to `.gitignore` (research R3).
+- [X] T003 [P] Create the folders `src/canvas/{layout,renderer,text,overlays}/`,
   `src/server/graph/`, `src/server/answers/` and `src/server/db/v1/`, each with a one-line
   `README.md` naming what lives there (plan Structure Decision).
 
@@ -49,8 +49,8 @@ uses. **No story work starts until this phase is done, and M0 (T004–T011) must
 
 ### Gate M0: scale proof (research R7–R9, R17; quickstart §0)
 
-- [ ] T004 [P] Implement `src/canvas/text/richText.ts`:
-  - `parseRichText(source: string): RichText` with the unified + remark-parse + remark-rehype
+- [X] T004 [P] Implement `src/canvas/text/richText.ts`:
+  - `parseRichText(source: string): RichText` with the unified + remark-parse
     pipeline.
   - **Output**: `blocks: Array<{ tag: "p"|"h1"…"h6"|"li"|"pre"|"blockquote", depth, runs: Array<{ start, end, marks: Set<"strong"|"em"|"code"> }> }>`.
   - **Offsets**: each run's `start` and `end` are raw offsets in `source`. Only text whose source
@@ -58,25 +58,25 @@ uses. **No story work starts until this phase is done, and M0 (T004–T011) must
   - **Cache**: `richTextFor(id, source)` memoizes by `id + source.length`.
   - `clip(rich, budget)` returns the block and run prefix whose character total ≤ budget. It cuts
     the last run at a word boundary and reports `clipped: boolean`.
-- [ ] T005 [P] Implement `src/canvas/text/budget.ts`:
-  - `allocate(items: Array<{ id, screenArea, fullChars, pinned }>, total = 120_000, floor = 24): Map<id, chars>`.
+- [X] T005 [P] Implement `src/canvas/text/budget.ts`:
+  - `allocate(items: Array<{ id, screenArea, fullChars, pinned }>, total, floor): Map<id, chars>`, with defaults of 30,000 and 6 as measured in M0 (research R17).
   - **Rules**:
     - shares are proportional to `screenArea`
     - every visible item gets at least `min(floor, fullChars)`
     - pinned items always get `fullChars`
     - no item gets more than `fullChars`
     - the sum never exceeds `total` plus the pinned characters
-- [ ] T006 [P] Unit tests in `tests/unit/f10-richtext.test.ts`:
+- [X] T006 [P] Unit tests in `tests/unit/f10-richtext.test.ts`:
   - paragraphs, headings, lists, bold, emphasis, inline code and escapes
   - every run's `source.slice(start, end)` equals its rendered text
   - `clip` respects the budget and cuts at word boundaries
-- [ ] T007 [P] Unit tests in `tests/unit/f10-budget.test.ts`:
+- [X] T007 [P] Unit tests in `tests/unit/f10-budget.test.ts`:
   - proportionality
   - the 24-character floor
   - pinned items get their full text
   - the total is capped
   - 5,000 items allocate in < 2 ms
-- [ ] T008 Implement `src/canvas/text/TextLayer.ts` (research R7, R8; canvas-ui.md "Mounting and
+- [X] T008 Implement `src/canvas/text/TextLayer.ts` (research R7, R8; canvas-ui.md "Mounting and
   clipping"):
   - **Container**: a `div[data-testid=text-layer]` over the canvas with `pointer-events: none`.
     `setTransform(scale, tx, ty)` writes one `matrix()` per frame.
@@ -91,7 +91,7 @@ uses. **No story work starts until this phase is done, and M0 (T004–T011) must
   - **Pinning**: `pin(id, reason)` and `unpin(id, reason)`, for selection, composer or stream.
   - **Test hooks** (`NEXT_PUBLIC_FARABI_TEST_HOOKS` only): `window.__farabiTextStats()` returns
     `{ mounted, chars, pinned, offscreenMounted }`.
-- [ ] T009 Create the spike page `src/app/dev/canvas-spike/page.tsx`. It renders only when
+- [X] T009 Create the spike page `src/app/dev/canvas-spike/page.tsx`. It renders only when
   `FARABI_TEST_HOOKS=1`, and otherwise `notFound()`.
   - It builds `?n=` (default 5,000) synthetic elements in columns. Text lengths follow the
     real-data distribution (mean 1,700, max 8,000 characters, markdown with bold and lists).
@@ -100,14 +100,14 @@ uses. **No story work starts until this phase is done, and M0 (T004–T011) must
     same frame.
   - It exposes `__farabiFrameStats(ms)`, which samples `requestAnimationFrame` deltas and returns
     `{ p50, p95, max }`.
-- [ ] T010 E2E `tests/e2e/f10-m0-spike.spec.ts` (quickstart §0):
+- [X] T010 E2E `tests/e2e/f10-m0-spike.spec.ts` (quickstart §0):
   1. Load `/dev/canvas-spike?n=5000` and measure time to first full render (< 1 s).
   2. Pan continuously for 5 s: p95 < 16.7 ms.
   3. Step-zoom from 0.02 to 4: p95 < 20 ms.
   4. At zoom 0.02, drag-select a visible word inside one item and assert
      `getSelection().toString()` is non-empty.
   5. After idle, `offscreenMounted === 0`.
-- [ ] T011 **Gate**:
+- [X] T011 **Gate**:
   1. Run T010 on the owner's machine (`npx playwright test tests/e2e/f10-m0-spike.spec.ts`).
   2. Record p50, p95 and max for pan and zoom, plus open time and mounted characters, under R17 in
      `specs/010-v02-message-graph-canvas/research.md`.
