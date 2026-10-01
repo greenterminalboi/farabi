@@ -3,6 +3,7 @@ import {
   AIPartialReplyError,
   AIUnavailableError,
   type AIProvider,
+  type CompletionInput,
   type DefineInput,
   type DefinitionText,
   type ReplyInput,
@@ -24,10 +25,16 @@ type FakeState = {
   lastSummary?: SummaryInput;
   lastDefine?: DefineInput;
   replyInputs: ReplyInput[];
+  lastComplete?: CompletionInput;
+  completeInputs: CompletionInput[];
+  /** Numbers each completion, so regenerations differ (Feature 9). */
+  completeCount: number;
 };
 const state = globalThis as unknown as { __farabiFake?: FakeState };
-state.__farabiFake ??= { mode: { mode: "ok" }, replyInputs: [] };
+state.__farabiFake ??= { mode: { mode: "ok" }, replyInputs: [], completeInputs: [], completeCount: 0 };
 state.__farabiFake.replyInputs ??= [];
+state.__farabiFake.completeInputs ??= [];
+state.__farabiFake.completeCount ??= 0;
 const fake = state.__farabiFake;
 
 const CHUNKS = 5;
@@ -42,12 +49,16 @@ export function getFakeCalls(): {
   lastSummary?: SummaryInput;
   lastDefine?: DefineInput;
   replyInputs: ReplyInput[];
+  lastComplete?: CompletionInput;
+  completeInputs: CompletionInput[];
 } {
   return {
     lastReply: fake.lastReply,
     lastSummary: fake.lastSummary,
     lastDefine: fake.lastDefine,
     replyInputs: fake.replyInputs,
+    lastComplete: fake.lastComplete,
+    completeInputs: fake.completeInputs,
   };
 }
 
@@ -56,6 +67,8 @@ export function resetFakeCalls(): void {
   fake.lastReply = undefined;
   fake.lastSummary = undefined;
   fake.lastDefine = undefined;
+  fake.completeInputs = [];
+  fake.lastComplete = undefined;
 }
 
 const sleep = (ms: number, signal?: AbortSignal) =>
@@ -114,5 +127,13 @@ export class FakeAIProvider implements AIProvider {
       general: `General meaning of ${input.term}.`,
       usage: `Here, ${input.term} refers to what the conversation discussed.`,
     };
+  }
+
+  async complete(input: CompletionInput): Promise<string> {
+    fake.lastComplete = input;
+    fake.completeInputs.push(input);
+    await behave(input.signal);
+    if (fake.mode.mode === "stall") throw new AIUnavailableError("Fake provider stalled");
+    return `Fake ${input.tag} #${++fake.completeCount}`;
   }
 }

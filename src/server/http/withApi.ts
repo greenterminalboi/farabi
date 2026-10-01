@@ -2,6 +2,7 @@ import { ZodError, type ZodType } from "zod";
 import {
   AIServiceUnavailable,
   ConflictError,
+  FunctionUnavailableError,
   InvalidRequestError,
   InvalidSelectionError,
   NotFoundError,
@@ -52,7 +53,8 @@ export function withApi<C>(handler: Handler<C>): Handler<C> {
       if (err instanceof InvalidRequestError) return errorResponse(422, err.code, err.message);
       if (err instanceof InvalidSelectionError) return errorResponse(422, err.code, err.message);
       if (err instanceof NotFoundError) return errorResponse(404, err.code, err.message);
-      if (err instanceof ConflictError) return errorResponse(409, err.code, err.message);
+      if (err instanceof ConflictError) return errorResponse(409, err.code, err.message, err.extra);
+      if (err instanceof FunctionUnavailableError) return errorResponse(503, err.code, err.message);
       if (err instanceof AIServiceUnavailable)
         return errorResponse(503, err.code, err.message, err.stored);
       console.error(err);

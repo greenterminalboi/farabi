@@ -4,6 +4,8 @@ export type Provenance = "ai_suggested" | "user_confirmed" | "user_authored";
 export type MessageRole = "user" | "ai";
 export type MessageStatus = "pending" | "complete" | "failed" | "incomplete" | "stopped";
 export type MarkerKind = "selection" | "whole_message";
+export type NodeOrigin = "root" | "branch" | "quick_branch" | "parked" | "function";
+export type SourcePart = "summary" | "conversation" | "anchor";
 
 type CreatedAt = ColumnType<Date, never, never>;
 
@@ -31,6 +33,13 @@ export interface NodesTable {
   provenance: Provenance;
   manual_x: number | null;
   manual_y: number | null;
+  /** A registered node kind (Feature 9); "conversation" for every node before it. */
+  kind: string;
+  origin: NodeOrigin;
+  function_id: ColumnType<string | null, string | null | undefined, never>;
+  function_version: ColumnType<number | null, number | null | undefined, never>;
+  /** Keys declared by the kind (FR-035). Inserted as a JSON string; read back parsed. */
+  properties: ColumnType<Record<string, unknown>, string | undefined, never>;
   created_at: CreatedAt;
 }
 
@@ -143,6 +152,55 @@ export interface ParkedTangentEventsTable {
   created_at: CreatedAt;
 }
 
+/** The directed link from a function's input node to its output node (Feature 9); insert-only. */
+export interface PipesTable {
+  node_id: string;
+  input_node_id: string;
+  output_node_id: string;
+  reads: SourcePart;
+  function_id: string;
+  function_version: number;
+  created_at: CreatedAt;
+}
+
+/** One generated text for a function output (Feature 9); insert-only, always ai_suggested. */
+export interface FunctionOutputVersionsTable {
+  id: Generated<string>;
+  output_node_id: string;
+  text: string;
+  /** Version of the input part that was read; for a summary, its node_summaries id. */
+  source_version: string;
+  function_version: number;
+  /** Resolved settings used. Inserted as a JSON string; read back parsed. */
+  settings: ColumnType<Record<string, string>, string, never>;
+  provenance: ColumnType<Provenance, never, never>;
+  created_at: CreatedAt;
+}
+
+export type OutputEventKind = "confirmed" | "rejected";
+
+/** The user's review of a function output (Feature 9); insert-only, the newest event wins. */
+export interface FunctionOutputEventsTable {
+  id: Generated<string>;
+  output_node_id: string;
+  kind: OutputEventKind;
+  version_id: string | null;
+  provenance: Provenance;
+  created_at: CreatedAt;
+}
+
+/** History of kind settings (Feature 9): kind-level when node_id is null, else a node override. */
+export interface KindSettingChangesTable {
+  id: Generated<string>;
+  kind: string;
+  key: string;
+  node_id: string | null;
+  /** Inserted as a JSON string (or null to clear); read back parsed. */
+  value: ColumnType<unknown, string | null, never>;
+  provenance: ColumnType<Provenance, never, never>;
+  created_at: CreatedAt;
+}
+
 export type FeedbackView = "chat" | "map" | "definitions";
 export type FeedbackState = "open" | "addressed" | "resolved";
 
@@ -199,6 +257,10 @@ export interface Database {
   setting_changes: SettingChangesTable;
   parked_tangents: ParkedTangentsTable;
   parked_tangent_events: ParkedTangentEventsTable;
+  pipes: PipesTable;
+  function_output_versions: FunctionOutputVersionsTable;
+  function_output_events: FunctionOutputEventsTable;
+  kind_setting_changes: KindSettingChangesTable;
   feedback_items: FeedbackItemsTable;
   feedback_tags: FeedbackTagsTable;
   feedback_attachments: FeedbackAttachmentsTable;

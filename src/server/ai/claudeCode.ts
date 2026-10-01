@@ -16,6 +16,7 @@ import {
   AIPartialReplyError,
   AIUnavailableError,
   type AIProvider,
+  type CompletionInput,
   type DefineInput,
   type DefinitionText,
   type ReplyInput,
@@ -174,5 +175,11 @@ export class ClaudeCodeProvider implements AIProvider {
   async define(input: DefineInput): Promise<DefinitionText> {
     const { system, prompt } = buildDefineRequest(input);
     return parseDefinition(await runHeadless(system, prompt, { effort: "low", signal: input.signal }));
+  }
+
+  async complete(input: CompletionInput): Promise<string> {
+    const text = (await runHeadless(input.system, input.prompt, { effort: "low", signal: input.signal })).trim();
+    if (!text) throw new AIUnavailableError(`Claude Code returned an empty ${input.tag}`);
+    return text;
   }
 }

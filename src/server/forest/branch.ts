@@ -4,6 +4,7 @@ import { db, type Trx } from "../db/client";
 import type { MessagesTable, NodesTable } from "../db/schema";
 import { ConflictError, InvalidSelectionError, NotFoundError } from "../errors";
 import { assertId } from "../ids";
+import { assertConversation } from "../nodes/kinds";
 import { toMapNode, toMarker } from "../mappers";
 import { placeholderFor } from "../summaries/placeholder";
 
@@ -20,6 +21,7 @@ export async function validateAnchor(trx: Trx, parentNodeId: string, anchor: Anc
     .where("id", "=", parentNodeId)
     .executeTakeFirst();
   if (!parent) throw new NotFoundError("Node not found");
+  assertConversation(parent);
 
   const message = await trx
     .selectFrom("messages")
@@ -50,10 +52,11 @@ export async function insertBranch(
   parent: Selectable<NodesTable>,
   message: Selectable<MessagesTable>,
   { start, end, text }: AnchorSpan,
+  origin: "branch" | "parked" = "branch",
 ) {
   const child = await trx
     .insertInto("nodes")
-    .values({ tree_id: parent.tree_id, parent_id: parent.id, provenance: "user_authored" })
+    .values({ tree_id: parent.tree_id, parent_id: parent.id, provenance: "user_authored", kind: "conversation", origin })
     .returningAll()
     .executeTakeFirstOrThrow();
   const marker = await trx

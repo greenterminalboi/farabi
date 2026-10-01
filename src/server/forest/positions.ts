@@ -2,7 +2,8 @@ import type { MapNode } from "@/shared/schemas";
 import { db } from "../db/client";
 import { ConflictError, NotFoundError } from "../errors";
 import { assertId } from "../ids";
-import { toMapNode, toSummary } from "../mappers";
+import { outputStates, toOutputSummary } from "../functions/state";
+import { NO_SUMMARY, toMapNode, toSummary } from "../mappers";
 import { getIncomingMarker, latestSummary } from "./nodeView";
 
 /**
@@ -13,7 +14,9 @@ export async function setNodePosition(nodeId: string, x: number, y: number): Pro
   assertId(nodeId, "Node");
   const node = await db.selectFrom("nodes").selectAll().where("id", "=", nodeId).executeTakeFirst();
   if (!node) throw new NotFoundError("Node not found");
-  if (node.parent_id === null) {
+  // A pipe follows its two ends; a function output moves on its own (Feature 9, FR-039).
+  if (node.kind === "pipe") throw new ConflictError("wrong_kind", "A pipe has no position of its own", { kind: node.kind });
+  if (node.kind === "conversation" && node.parent_id === null) {
     throw new ConflictError("root_node", "A root is moved by moving its tree");
   }
   const updated = await db
@@ -22,6 +25,10 @@ export async function setNodePosition(nodeId: string, x: number, y: number): Pro
     .where("id", "=", nodeId)
     .returningAll()
     .executeTakeFirstOrThrow();
+  if (updated.kind !== "conversation") {
+    const state = (await outputStates([nodeId])).get(nodeId);
+    return toMapNode(updated, null, NO_SUMMARY, null, 0, state ? toOutputSummary(state) : null);
+  }
   const [incoming, summary] = await Promise.all([getIncomingMarker(nodeId), latestSummary(nodeId)]);
   const anchorText = incoming?.anchor_text ?? null;
   return toMapNode(updated, anchorText, toSummary(summary, anchorText));

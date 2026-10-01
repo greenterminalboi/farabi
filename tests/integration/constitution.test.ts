@@ -147,4 +147,54 @@ describe("constitution guards", () => {
       }
     }
   });
+
+  it("Feature 9, Articles I, II and VI: function outputs are AI-suggested, append-only and user-started", async () => {
+    const t = await call("POST", "/api/trees", {});
+    const nodeId = t.body.node.id;
+    await call("POST", `/api/nodes/${nodeId}/messages?wait=1`, { content: "Pods" });
+    await drainSummaries();
+    const a = (await call("POST", `/api/nodes/${nodeId}/functions/analogy/run`)).body.output.id;
+    const b = (await call("POST", `/api/nodes/${nodeId}/functions/analogy/run`)).body.output.id;
+    const { version } = (await call("POST", `/api/nodes/${a}/output/regenerate`)).body;
+    await call("POST", `/api/nodes/${a}/output/confirm`, { versionId: version.id });
+    await call("POST", `/api/nodes/${b}/output/reject`);
+    await call("PUT", "/api/kind-settings", { kind: "analogy", key: "reach", value: "far" });
+
+    const versions = await db.selectFrom("function_output_versions").select("provenance").execute();
+    expect(versions.length).toBe(3);
+    expect(versions.every((v) => v.provenance === "ai_suggested")).toBe(true);
+    const made = await db.selectFrom("nodes").select(["kind", "provenance"]).where("kind", "<>", "conversation").execute();
+    expect(made.length).toBe(4);
+    expect(made.every((n) => n.provenance === "ai_suggested")).toBe(true);
+    const events = await db.selectFrom("function_output_events").select(["kind", "provenance"]).execute();
+    expect(events.map((e) => [e.kind, e.provenance]).sort()).toEqual([
+      ["confirmed", "user_confirmed"],
+      ["rejected", "user_authored"],
+    ]);
+    // An output can never become a child (Article II, FR-017).
+    await expect(
+      sql`INSERT INTO nodes (tree_id, parent_id, provenance, kind, origin, function_id, function_version)
+          VALUES (${t.body.tree.id}, ${nodeId}, 'ai_suggested', 'analogy', 'function', 'analogy', 1)`.execute(db),
+    ).rejects.toThrow(/nodes_only_conversations_have_parents/);
+
+    const conversationInserts = ["src/server/forest/trees.ts", "src/server/forest/branch.ts", "src/server/messages/quickBranch.ts"];
+    for (const file of files(path.join(root, "src"), /\.(ts|tsx)$/)) {
+      const src = readFileSync(file, "utf8");
+      const rel = path.relative(root, file);
+      // Output history, pipes and kind settings are never rewritten (FR-037).
+      expect(src, rel).not.toMatch(
+        /(updateTable|deleteFrom)\("(pipes|function_output_versions|function_output_events|kind_setting_changes|node_summaries)"\)/,
+      );
+      // Only the runner spends tokens on functions (FR-024), and only it makes non-conversation nodes.
+      if (/\.complete\(/.test(src)) expect(rel).toMatch(/^src\/server\/(ai|functions)\//);
+      if (/insertInto\("nodes"\)/.test(src)) {
+        expect([...conversationInserts, "src/server/functions/runner.ts"], rel).toContain(rel);
+        if (rel !== "src/server/functions/runner.ts") expect(src, rel).toMatch(/kind: "conversation"/);
+      }
+      // Saving a setting can never start a run (FR-032, SC-008).
+      if (rel.startsWith("src/server/settings/")) expect(src, rel).not.toMatch(/from "\.\.\/functions/);
+      // Only the settings module reads the kind-settings history (Article VI).
+      if (/kind_setting_changes/.test(src)) expect(rel).toMatch(/^src\/server\/(settings|db)\//);
+    }
+  });
 });

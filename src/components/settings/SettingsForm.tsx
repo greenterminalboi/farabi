@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { api } from "@/lib/api";
 import { bandOf, MAX_PRESSURE, MIN_PRESSURE, PRESSURE_BANDS } from "@/shared/pressure";
 import type { SaveSettingsBody, SettingsResponse } from "@/shared/schemas";
+import { KindSettingsSections } from "./KindSettingsSections";
 
 type Status = { kind: "saved" } | { kind: "error" } | null;
 
@@ -126,6 +127,8 @@ export function SettingsForm() {
           Couldn&apos;t save. Your previous setting is still in effect.
         </p>
       )}
+
+      <KindSettingsSections />
     </section>
   );
 }

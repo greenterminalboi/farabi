@@ -3,6 +3,7 @@ import type { Definition } from "@/shared/schemas";
 import { db } from "../db/client";
 import { ConflictError, InvalidSelectionError, NotFoundError } from "../errors";
 import { assertId } from "../ids";
+import { assertConversationNode } from "../nodes/kinds";
 import { enqueueDraft } from "./draftQueue";
 import { getDefinition } from "./list";
 
@@ -21,6 +22,7 @@ export async function captureDefinition(input: {
 }): Promise<{ definition: Definition; created: boolean }> {
   assertId(input.nodeId, "Node");
   assertId(input.messageId, "Message");
+  await assertConversationNode(input.nodeId);
   const message = await db.selectFrom("messages").selectAll().where("id", "=", input.messageId).executeTakeFirst();
   if (!message || message.node_id !== input.nodeId) {
     throw new InvalidSelectionError("The selection must be inside a message of this conversation");

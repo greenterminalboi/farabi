@@ -42,6 +42,15 @@ export interface DefinitionText {
   usage: string;
 }
 
+/** A single short completion for a node function (Feature 9, contracts/declarations.md). */
+export interface CompletionInput {
+  /** Which declaration asked (the function id); used by the fake provider and in logs. */
+  tag: string;
+  system: string;
+  prompt: string;
+  signal?: AbortSignal;
+}
+
 export interface ReplyOptions {
   /** Called with each new piece of text as it is generated (Feature 2 streaming). */
   onText?: (delta: string) => void;
@@ -57,6 +66,8 @@ export interface AIProvider {
   summarize(input: SummaryInput): Promise<string>;
   /** Drafts a short two-part definition (Feature 2, FR-029). Throws AIUnavailableError on failure. */
   define(input: DefineInput): Promise<DefinitionText>;
+  /** One short, low-effort completion. Throws AIUnavailableError on failure or empty output. */
+  complete(input: CompletionInput): Promise<string>;
 }
 
 export class AIUnavailableError extends Error {}

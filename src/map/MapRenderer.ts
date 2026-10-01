@@ -2,7 +2,8 @@
 // methods; nothing here re-renders through React.
 import { Application, BitmapText, Container, type FederatedPointerEvent, Graphics, Rectangle } from "pixi.js";
 import { Viewport } from "pixi-viewport";
-import type { ForestResponse, Summary } from "@/shared/schemas";
+import { findKind } from "@/shared/kinds";
+import type { ForestResponse, MapNode, MapPipe, OutputSummary, Review, Summary } from "@/shared/schemas";
 import { buildForestGraph, type ForestGraph, stackLayers } from "./forestGraph";
 import { type ForestLayout, layoutForest, type LayoutCache } from "./layout/forestLayout";
 import { NODE_HEIGHT, NODE_WIDTH } from "./layout/treeLayout";
@@ -10,15 +11,19 @@ import { NODE_HEIGHT, NODE_WIDTH } from "./layout/treeLayout";
 type Palette = {
   bg: number; edge: number; rootFill: number; rootText: number; branchFill: number;
   branchStroke: number; text: number; muted: number; ai: number; focus: number; edgeLabel: number;
+  /** Fill of function-output boxes: AI material never looks user-authored (Feature 9). */
+  aiFill: number;
 };
 
 const LIGHT: Palette = {
   bg: 0xf7f7f5, edge: 0xb8b8b0, rootFill: 0x3b5bdb, rootText: 0xffffff, branchFill: 0xffffff,
   branchStroke: 0x9aa5c9, text: 0x1d1d1f, muted: 0x6b6b70, ai: 0x7048e8, focus: 0xfab005, edgeLabel: 0x1d1d1f,
+  aiFill: 0xf1ecfe,
 };
 const DARK: Palette = {
   bg: 0x161618, edge: 0xffffff, rootFill: 0x5c7cfa, rootText: 0xffffff, branchFill: 0x1f1f22,
   branchStroke: 0x5a6390, text: 0xececec, muted: 0x9a9aa0, ai: 0x9775fa, focus: 0xfab005, edgeLabel: 0xffffff,
+  aiFill: 0x2a2340,
 };
 
 type NodeSprite = {
@@ -32,15 +37,31 @@ type NodeSprite = {
   height: number;
   /** Messages in the conversation; deep ones are drawn as a stack. */
   messageCount: number;
+  /** Set for function outputs (Feature 9). */
+  output: OutputSummary | null;
+  /** "Stale · ↻ Regenerate" pill on outputs made from an older input (FR-023). */
+  pill: Container;
+  pillBg: Graphics;
+  pillText: BitmapText;
+  /** Dot shown while a newer draft waits beside a confirmed text (FR-026). */
+  draftDot: Graphics;
 };
+
+export type RegenerateState = "idle" | "working" | "failed";
 
 export type MapDebug = {
   nodes: Array<{
     id: string; treeId: string; x: number; y: number; isRoot: boolean; labelKind: Summary["kind"]; label: string;
     /** Extra cards drawn behind a deep conversation. */
     stack: number;
+    kind: string;
+    review: Review | null;
+    stale: boolean;
+    pendingDraft: boolean;
   }>;
   edges: Array<{ from: string; to: string; label: string | null }>;
+  /** Visible pipes (Feature 9). */
+  pipes: Array<{ id: string; from: string; to: string; state: Review }>;
   treeBoxes: Record<string, { minX: number; minY: number; maxX: number; maxY: number }>;
 };
 
@@ -53,6 +74,10 @@ declare global {
     __farabiMapEdgePoint?: (childId: string) => { x: number; y: number } | null;
     /** Test hook: the node under a page point, as PixiJS hit-testing sees it. */
     __farabiMapHitTest?: (x: number, y: number) => string | null;
+    /** Test hook: page coordinates of the middle of a pipe (Feature 9). */
+    __farabiMapPipePoint?: (pipeId: string) => { x: number; y: number } | null;
+    /** Test hook: page coordinates of an output's stale pill (Feature 9). */
+    __farabiMapBadgePoint?: (nodeId: string) => { x: number; y: number } | null;
   }
 }
 
@@ -68,6 +93,8 @@ const LABEL_MAX_CHARS = 40;
 const LABEL_FONT_SIZE = 14;
 /** Space kept between a node's text and its box edge. */
 const BOX_PADDING = 10;
+/** Extra room at the bottom of a stale output's box for its pill (Feature 9). */
+const PILL_ROOM = 10;
 /** How close (screen px) a click must be to an edge to select it. */
 const EDGE_HIT_PX = 8;
 
@@ -83,6 +110,21 @@ function edgeCurve(a: Point, b: Point, parentHeight = NODE_HEIGHT): [Point, Poin
   const midY = (p0.y + p3.y) / 2;
   return [p0, { x: a.x, y: midY }, { x: b.x, y: midY }, p3];
 }
+
+/**
+ * A pipe from input a to output b (Feature 9): a horizontal curve from the right side of a's box to
+ * the left side of b's, so it can't be mistaken for a vertical parent-child edge (FR-016).
+ */
+function pipeCurve(a: Point, b: Point, aHeight: number, bHeight: number): [Point, Point, Point, Point] {
+  const leftToRight = b.x >= a.x;
+  const side = leftToRight ? 1 : -1;
+  const p0 = { x: a.x + (side * NODE_WIDTH) / 2, y: a.y - NODE_HEIGHT / 2 + aHeight / 2 };
+  const p3 = { x: b.x - (side * NODE_WIDTH) / 2, y: b.y - NODE_HEIGHT / 2 + bHeight / 2 };
+  const dx = Math.max(40, Math.abs(p3.x - p0.x) / 2) * side;
+  return [p0, { x: p0.x + dx, y: p0.y }, { x: p3.x - dx, y: p3.y }, p3];
+}
+
+const PIPE_SAMPLES = 32;
 
 function curvePoint([p0, p1, p2, p3]: [Point, Point, Point, Point], t: number): Point {
   const u = 1 - t;
@@ -128,6 +170,7 @@ export class MapRenderer {
   private app: Application | null = null;
   private viewport: Viewport | null = null;
   private edgeLayer = new Graphics();
+  private pipeLayer = new Graphics();
   private labelLayer = new Container();
   private edgeLabels = new Map<string, { group: Container; bg: Graphics; text: BitmapText }>();
   /** Current box height per node; boxes grow to fit their text. */
@@ -149,6 +192,13 @@ export class MapRenderer {
   private drag: DragState | null = null;
   private focused: string | null = null;
   private centered = false;
+  /** Everything from the server; `forest` is what is drawn (rejected outputs hidden by default). */
+  private source: ForestResponse | null = null;
+  private showRejected = false;
+  private pipeClickHandler: ((pipeId: string, screen: Point) => void) | null = null;
+  private selectHandler: ((nodeId: string | null, rect: DOMRect | null) => void) | null = null;
+  private regenerateHandler: ((nodeId: string) => void) | null = null;
+  private regenerating = new Map<string, RegenerateState>();
 
   async mount(el: HTMLElement): Promise<void> {
     this.palette = window.matchMedia("(prefers-color-scheme: dark)").matches ? DARK : LIGHT;
@@ -177,7 +227,9 @@ export class MapRenderer {
       forceHitArea: new Rectangle(-1e7, -1e7, 2e7, 2e7),
     });
     viewport.drag().pinch().wheel().decelerate().clampZoom({ minScale: 0.1, maxScale: 3 });
-    viewport.addChild(this.edgeLayer, this.labelLayer, this.nodeLayer);
+    viewport.addChild(this.edgeLayer, this.pipeLayer, this.labelLayer, this.nodeLayer);
+    // Keep an overlay beside the selected node in place while the view pans or zooms.
+    viewport.on("moved", () => this.emitSelection());
     viewport.on("zoomed", () => this.updateLabelVisibility());
     // A click on the background near an edge selects that edge (FR-023). Node presses stop
     // propagation, so this only fires for clicks that miss every node.
@@ -294,9 +346,68 @@ export class MapRenderer {
    * to move because they outgrew their region (to persist).
    */
   setForest(forest: ForestResponse, changedTreeIds: Set<string>): ForestLayout["relocations"] {
-    this.forest = forest;
-    this.graph = buildForestGraph(forest);
+    this.source = forest;
+    this.forest = this.visible(forest);
+    this.graph = buildForestGraph(this.forest);
     return this.render(changedTreeIds);
+  }
+
+  /** Rejected outputs and their pipes are kept but hidden unless asked for (Feature 9, FR-027). */
+  private visible(forest: ForestResponse): ForestResponse {
+    if (this.showRejected) return forest;
+    return {
+      ...forest,
+      nodes: forest.nodes.filter((n) => n.output?.review !== "rejected"),
+      pipes: forest.pipes.filter((p) => p.state !== "rejected"),
+    };
+  }
+
+  setShowRejected(show: boolean): ForestLayout["relocations"] {
+    if (show === this.showRejected) return [];
+    this.showRejected = show;
+    if (!this.source) return [];
+    const trees = new Set(this.source.nodes.filter((n) => n.output?.review === "rejected").map((n) => n.treeId));
+    return this.setForest(this.source, trees);
+  }
+
+  /** A pipe was clicked; `screen` is the click point in page coordinates (Feature 9, FR-017). */
+  onPipeClick(cb: (pipeId: string, screen: Point) => void): void {
+    this.pipeClickHandler = cb;
+  }
+
+  /**
+   * The selected node changed or moved on screen, with its box in page coordinates; null when
+   * nothing is selected.
+   */
+  onNodeSelect(cb: (nodeId: string | null, rect: DOMRect | null) => void): void {
+    this.selectHandler = cb;
+  }
+
+  /** An output's stale pill was clicked (Feature 9, FR-023). */
+  onRegenerate(cb: (nodeId: string) => void): void {
+    this.regenerateHandler = cb;
+  }
+
+  setRegenerating(nodeId: string, state: RegenerateState): void {
+    this.regenerating.set(nodeId, state);
+    const sprite = this.sprites.get(nodeId);
+    if (sprite) this.drawPill(sprite);
+  }
+
+  /** Page-coordinate box of a node, for placing an overlay beside it. */
+  nodeRect(nodeId: string): DOMRect | null {
+    const p = this.layout?.positions.get(nodeId);
+    if (!p || !this.viewport || !this.app) return null;
+    const topLeft = this.viewport.toScreen(p.x - NODE_WIDTH / 2, p.y - NODE_HEIGHT / 2);
+    const bottomRight = this.viewport.toScreen(p.x + NODE_WIDTH / 2, p.y - NODE_HEIGHT / 2 + this.heightOf(nodeId));
+    const canvas = this.app.canvas.getBoundingClientRect();
+    return new DOMRect(canvas.left + topLeft.x, canvas.top + topLeft.y, bottomRight.x - topLeft.x, bottomRight.y - topLeft.y);
+  }
+
+  private emitSelection(): void {
+    if (!this.selectHandler) return;
+    const id = this.focused && this.layout?.positions.has(this.focused) ? this.focused : null;
+    this.selectHandler(id, id ? this.nodeRect(id) : null);
   }
 
   /**
@@ -306,10 +417,12 @@ export class MapRenderer {
   updateSummaries(changes: Array<{ id: string; summary: Summary }>): ForestLayout["relocations"] {
     if (!this.forest || !this.graph) return [];
     const byId = new Map(changes.map((c) => [c.id, c.summary]));
-    this.forest = {
-      ...this.forest,
-      nodes: this.forest.nodes.map((n) => (byId.has(n.id) ? { ...n, summary: byId.get(n.id)! } : n)),
-    };
+    const apply = (f: ForestResponse): ForestResponse => ({
+      ...f,
+      nodes: f.nodes.map((n) => (byId.has(n.id) ? { ...n, summary: byId.get(n.id)! } : n)),
+    });
+    this.forest = apply(this.forest);
+    if (this.source) this.source = apply(this.source);
     for (const { id, summary } of changes) {
       if (this.graph.hasNode(id)) this.graph.setNodeAttribute(id, "summary", summary);
     }
@@ -324,6 +437,8 @@ export class MapRenderer {
     delete window.__farabiMapScreenPoint;
     delete window.__farabiMapHitTest;
     delete window.__farabiMapEdgePoint;
+    delete window.__farabiMapPipePoint;
+    delete window.__farabiMapBadgePoint;
   }
 
   private render(changedTreeIds: Set<string>): ForestLayout["relocations"] {
@@ -374,6 +489,7 @@ export class MapRenderer {
       }
     }
     this.updateLabelVisibility();
+    this.drawPipes();
   }
 
   private drawEdgeLabel(childId: string, label: string, at: Point): void {
@@ -429,10 +545,90 @@ export class MapRenderer {
   }
 
   private handleBackgroundClick(world: Point, screen: Point): void {
-    const childId = this.edgeAt(world);
-    if (!childId || !this.app) return;
+    if (!this.app) return;
     const rect = this.app.canvas.getBoundingClientRect();
-    this.edgeClickHandler?.(childId, { x: rect.left + screen.x, y: rect.top + screen.y });
+    const page = { x: rect.left + screen.x, y: rect.top + screen.y };
+    const pipeId = this.pipeAt(world);
+    if (pipeId) {
+      this.pipeClickHandler?.(pipeId, page);
+      return;
+    }
+    const childId = this.edgeAt(world);
+    if (childId) {
+      this.edgeClickHandler?.(childId, page);
+      return;
+    }
+    // A click on empty canvas clears the selection.
+    if (this.focused) {
+      this.focusOnly(null);
+      this.emitSelection();
+    }
+  }
+
+  /** Endpoints of a visible pipe, as a curve; null if either end isn't laid out. */
+  private pipeCurveFor(pipe: MapPipe): [Point, Point, Point, Point] | null {
+    const a = this.layout?.positions.get(pipe.inputNodeId);
+    const b = this.layout?.positions.get(pipe.outputNodeId);
+    if (!a || !b) return null;
+    return pipeCurve(a, b, this.heightOf(pipe.inputNodeId), this.heightOf(pipe.outputNodeId));
+  }
+
+  /** The pipe closest to a world point, if within EDGE_HIT_PX on screen. */
+  private pipeAt(world: Point): string | null {
+    if (!this.forest || !this.viewport) return null;
+    const limit = EDGE_HIT_PX / this.viewport.scale.x;
+    let best: { id: string; d: number } | null = null;
+    for (const pipe of this.forest.pipes) {
+      const curve = this.pipeCurveFor(pipe);
+      if (!curve) continue;
+      let prev = curve[0];
+      for (let i = 1; i <= PIPE_SAMPLES; i++) {
+        const next = curvePoint(curve, i / PIPE_SAMPLES);
+        const d = distanceToSegment(world, prev, next);
+        if (d <= limit && (!best || d < best.d)) best = { id: pipe.id, d };
+        prev = next;
+      }
+    }
+    return best?.id ?? null;
+  }
+
+  /**
+   * Pipes are drawn in the AI colour with an arrow at the output: dashed and faint while proposed,
+   * solid once confirmed (FR-016).
+   */
+  private drawPipes(): void {
+    const g = this.pipeLayer;
+    g.clear();
+    if (!this.forest) return;
+    for (const pipe of this.forest.pipes) {
+      const curve = this.pipeCurveFor(pipe);
+      if (!curve) continue;
+      const confirmed = pipe.state === "confirmed";
+      const style = { width: confirmed ? 2.5 : 2, color: this.palette.ai, alpha: confirmed ? 1 : pipe.state === "rejected" ? 0.3 : 0.6 };
+      if (confirmed) {
+        g.moveTo(curve[0].x, curve[0].y)
+          .bezierCurveTo(curve[1].x, curve[1].y, curve[2].x, curve[2].y, curve[3].x, curve[3].y)
+          .stroke(style);
+      } else {
+        // Graphics has no dashes: stroke every other sampled segment.
+        let prev = curve[0];
+        for (let i = 1; i <= PIPE_SAMPLES; i++) {
+          const next = curvePoint(curve, i / PIPE_SAMPLES);
+          if (i % 2 === 1) g.moveTo(prev.x, prev.y).lineTo(next.x, next.y).stroke(style);
+          prev = next;
+        }
+      }
+      // Arrowhead at the output end, along the curve's final direction (FR-015).
+      const tip = curve[3];
+      const back = curvePoint(curve, 0.94);
+      const angle = Math.atan2(tip.y - back.y, tip.x - back.x);
+      const size = 9;
+      g.poly([
+        tip.x, tip.y,
+        tip.x - size * Math.cos(angle - 0.45), tip.y - size * Math.sin(angle - 0.45),
+        tip.x - size * Math.cos(angle + 0.45), tip.y - size * Math.sin(angle + 0.45),
+      ]).fill({ color: this.palette.ai, alpha: style.alpha });
+    }
   }
 
   /**
@@ -453,7 +649,8 @@ export class MapRenderer {
       }
       const before = this.nodeHeights.get(node.id);
       sprite.messageCount = node.messageCount;
-      this.applyLabel(sprite, node.summary);
+      sprite.output = node.output;
+      this.applyLabel(sprite, node);
       if (before !== undefined && before !== sprite.height) changedTrees.add(node.treeId);
     }
     for (const [id, sprite] of this.sprites) {
@@ -507,13 +704,37 @@ export class MapRenderer {
     });
     label.anchor.set(0.5, 0);
     label.position.set(NODE_WIDTH / 2, 22);
-    container.addChild(box, tag, label);
+
+    // Stale pill (Feature 9, FR-023): its own click regenerates, so it never selects or drags.
+    const pill = new Container();
+    pill.eventMode = "static";
+    pill.cursor = "pointer";
+    pill.visible = false;
+    const pillBg = new Graphics();
+    const pillText = new BitmapText({
+      text: "",
+      style: { fontFamily: MAP_FONT, fontSize: 10, fontWeight: "700", fill: this.palette.rootText },
+    });
+    pillText.position.set(8, 3);
+    pill.addChild(pillBg, pillText);
+    pill.on("pointerdown", (e) => e.stopPropagation());
+    pill.on("pointertap", (e) => {
+      e.stopPropagation();
+      if (this.regenerating.get(id) !== "working") this.regenerateHandler?.(id);
+    });
+    const draftDot = new Graphics().circle(0, 0, 5).fill({ color: this.palette.focus });
+    draftDot.position.set(12, 12);
+    draftDot.visible = false;
+    container.addChild(box, tag, label, draftDot, pill);
 
     container.on("pointerdown", (e) => this.startDrag(id, e));
     container.on("globalpointermove", (e) => this.moveDrag(id, e));
     container.on("pointerup", (e) => this.endDrag(id, e));
     container.on("pointerupoutside", (e) => this.endDrag(id, e));
-    return { id, container, box, label, tag, isRoot, height: NODE_HEIGHT, messageCount: 0 };
+    return {
+      id, container, box, label, tag, isRoot, height: NODE_HEIGHT, messageCount: 0,
+      output: null, pill, pillBg, pillText, draftDot,
+    };
   }
 
   private startDrag(id: string, e: FederatedPointerEvent): void {
@@ -569,6 +790,7 @@ export class MapRenderer {
         } else {
           this.lastClick = { id, time: now };
           this.focusOnly(id); // a single click selects
+          this.emitSelection();
         }
       }
       return;
@@ -606,10 +828,12 @@ export class MapRenderer {
       this.cache.get(tree.id)?.positions.set(drag.nodeId, rel);
       this.nodeMovedHandler?.(drag.nodeId, rel.x, rel.y);
     }
+    this.emitSelection();
     this.publishDebug();
   }
 
   private drawBox(sprite: NodeSprite, focused: boolean): void {
+    if (sprite.output) return this.drawOutputBox(sprite, focused);
     const { box, isRoot } = sprite;
     box.clear();
     const radius = isRoot ? 22 : 14;
@@ -629,7 +853,70 @@ export class MapRenderer {
     });
   }
 
-  private applyLabel(sprite: NodeSprite, summary: Summary): void {
+  /**
+   * Function outputs are AI-tinted cards: dashed while proposed, solid once confirmed, and faint when
+   * a rejected one is shown (Feature 9, FR-016, SC-010).
+   */
+  private drawOutputBox(sprite: NodeSprite, focused: boolean): void {
+    const { box, output } = sprite;
+    const radius = 10;
+    box.clear();
+    box.roundRect(0, 0, NODE_WIDTH, sprite.height, radius).fill({ color: this.palette.aiFill });
+    if (focused) {
+      box.roundRect(0, 0, NODE_WIDTH, sprite.height, radius).stroke({ width: 3, color: this.palette.focus });
+    } else if (output?.review === "confirmed") {
+      box.roundRect(0, 0, NODE_WIDTH, sprite.height, radius).stroke({ width: 1.5, color: this.palette.ai });
+    } else {
+      // Dashes along the straight sides; the rounded corners are left open.
+      const style = { width: 1.5, color: this.palette.ai };
+      const dash = 6;
+      for (let x = radius; x < NODE_WIDTH - radius; x += dash * 2) {
+        const end = Math.min(x + dash, NODE_WIDTH - radius);
+        box.moveTo(x, 0).lineTo(end, 0).stroke(style);
+        box.moveTo(x, sprite.height).lineTo(end, sprite.height).stroke(style);
+      }
+      for (let y = radius; y < sprite.height - radius; y += dash * 2) {
+        const end = Math.min(y + dash, sprite.height - radius);
+        box.moveTo(0, y).lineTo(0, end).stroke(style);
+        box.moveTo(NODE_WIDTH, y).lineTo(NODE_WIDTH, end).stroke(style);
+      }
+    }
+    sprite.container.alpha = output?.review === "rejected" ? 0.4 : 1;
+    this.drawPill(sprite);
+  }
+
+  private drawPill(sprite: NodeSprite): void {
+    const output = sprite.output;
+    const state = this.regenerating.get(sprite.id) ?? "idle";
+    sprite.draftDot.visible = !!output?.pendingDraft;
+    sprite.pill.visible = !!output && output.review !== "rejected" && (output.stale || state !== "idle");
+    if (!sprite.pill.visible) return;
+    sprite.pillText.text =
+      state === "working" ? "Regenerating…" : state === "failed" ? "Failed · Retry" : "Stale · ↻ Regenerate";
+    const w = sprite.pillText.width + 16;
+    const h = sprite.pillText.height + 6;
+    sprite.pillBg.clear().roundRect(0, 0, w, h, h / 2).fill({ color: state === "failed" ? 0xc92a2a : this.palette.ai });
+    // Straddles the bottom edge, clear of the tag and the text (room is kept in applyLabel).
+    sprite.pill.position.set(NODE_WIDTH - w - 8, sprite.height - h / 2);
+  }
+
+  private applyLabel(sprite: NodeSprite, node: MapNode): void {
+    if (node.output) {
+      // An output's label is its own text, always tagged as AI material (FR-018, Article III).
+      sprite.tag.text = `AI · ${findKind(node.kind)?.label ?? node.kind}`;
+      sprite.tag.visible = true;
+      sprite.tag.style.fill = this.palette.ai;
+      sprite.label.text = node.output.displayedText;
+      sprite.label.position.y = 22;
+      sprite.label.style.fontStyle = "normal";
+      sprite.label.style.fill = this.palette.text;
+      const pillRoom = node.output.stale ? PILL_ROOM : 0;
+      sprite.height = Math.max(NODE_HEIGHT, Math.ceil(sprite.label.position.y + sprite.label.height + BOX_PADDING + pillRoom));
+      this.nodeHeights.set(sprite.id, sprite.height);
+      return;
+    }
+    const summary = node.summary;
+    sprite.tag.text = "AI";
     const isAi = summary.kind === "summary";
     // The whole label is shown; the box grows to fit it.
     sprite.label.text = summary.text;
@@ -662,9 +949,16 @@ export class MapRenderer {
         y: layout.positions.get(n.id)?.y ?? NaN,
         isRoot: n.isRoot,
         labelKind: n.summary.kind,
-        label: n.summary.text,
+        label: n.output ? n.output.displayedText : n.summary.text,
         stack: stackLayers(n.messageCount),
+        kind: n.kind,
+        review: n.output?.review ?? null,
+        stale: n.output?.stale ?? false,
+        pendingDraft: n.output?.pendingDraft ?? false,
       })),
+      pipes: this.forest.pipes
+        .filter((p) => layout.positions.has(p.inputNodeId) && layout.positions.has(p.outputNodeId))
+        .map((p) => ({ id: p.id, from: p.inputNodeId, to: p.outputNodeId, state: p.state })),
       edges: this.graph.mapEdges((_e, _a, from, to) => ({
         from,
         to,
@@ -696,6 +990,29 @@ export class MapRenderer {
       const screen = this.viewport.toScreen(mid.x, mid.y);
       const rect = this.app.canvas.getBoundingClientRect();
       return { x: rect.left + screen.x, y: rect.top + screen.y };
+    };
+    window.__farabiMapPipePoint = (pipeId) => {
+      const pipe = this.forest?.pipes.find((p) => p.id === pipeId);
+      const curve = pipe ? this.pipeCurveFor(pipe) : null;
+      if (!curve || !this.viewport || !this.app) return null;
+      const mid = curvePoint(curve, 0.5);
+      this.viewport.plugins.remove("animate");
+      this.viewport.moveCenter(mid.x, mid.y);
+      this.app.render();
+      const screen = this.viewport.toScreen(mid.x, mid.y);
+      const rect = this.app.canvas.getBoundingClientRect();
+      return { x: rect.left + screen.x, y: rect.top + screen.y };
+    };
+    window.__farabiMapBadgePoint = (nodeId) => {
+      const sprite = this.sprites.get(nodeId);
+      const p = this.layout?.positions.get(nodeId);
+      if (!sprite?.pill.visible || !p || !this.viewport || !this.app) return null;
+      this.viewport.plugins.remove("animate");
+      this.viewport.moveCenter(p.x, p.y);
+      this.app.render();
+      const bounds = sprite.pill.getBounds();
+      const rect = this.app.canvas.getBoundingClientRect();
+      return { x: rect.left + bounds.x + bounds.width / 2, y: rect.top + bounds.y + bounds.height / 2 };
     };
     window.__farabiMapHitTest = (x, y) => {
       if (!this.app) return null;

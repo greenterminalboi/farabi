@@ -10,6 +10,9 @@ type SettingsStore = {
   /** Branch panel beside the chat is open (Feature 8, research R7). Open by default. */
   branchPanelOpen: boolean;
   setBranchPanelOpen: (open: boolean) => void;
+  /** Draw rejected function outputs on the map, faded (Feature 9, FR-027). Off by default. */
+  showRejected: boolean;
+  setShowRejected: (show: boolean) => void;
 };
 
 export const useSettingsStore = create<SettingsStore>()(
@@ -19,11 +22,17 @@ export const useSettingsStore = create<SettingsStore>()(
       setShowSuggestions: (showSuggestions) => set({ showSuggestions }),
       branchPanelOpen: true,
       setBranchPanelOpen: (branchPanelOpen) => set({ branchPanelOpen }),
+      showRejected: false,
+      setShowRejected: (showRejected) => set({ showRejected }),
     }),
     {
       name: "farabi.settings",
       storage: createJSONStorage(() => localStorage),
-      partialize: (s) => ({ showSuggestions: s.showSuggestions, branchPanelOpen: s.branchPanelOpen }),
+      partialize: (s) => ({
+        showSuggestions: s.showSuggestions,
+        branchPanelOpen: s.branchPanelOpen,
+        showRejected: s.showRejected,
+      }),
       skipHydration: true,
     },
   ),

@@ -1,16 +1,32 @@
 import type { Selectable } from "kysely";
-import type { MapNode, MapTree, Marker, Message, ParkedTangent, Summary } from "@/shared/schemas";
+import type {
+  MapNode,
+  MapPipe,
+  MapTree,
+  Marker,
+  Message,
+  OutputSummary,
+  OutputVersion,
+  ParkedTangent,
+  Review,
+  Summary,
+} from "@/shared/schemas";
 import type {
   BranchMarkersTable,
+  FunctionOutputVersionsTable,
   MessagesTable,
   NodeSummariesTable,
   NodesTable,
   ParkedTangentsTable,
+  PipesTable,
   TreesTable,
 } from "./db/schema";
 import { placeholderFor } from "./summaries/placeholder";
 
 const iso = (d: Date) => d.toISOString();
+
+/** Function outputs have no summary of their own; their label is their text (Feature 9, FR-018). */
+export const NO_SUMMARY: Summary = { kind: "placeholder", text: "" };
 
 export function toMessage(m: Selectable<MessagesTable>): Message {
   return {
@@ -85,17 +101,56 @@ export function toMapNode(
   summary: Summary,
   edgeLabel: string | null = null,
   messageCount = 0,
+  output: OutputSummary | null = null,
 ): MapNode {
   return {
     id: n.id,
     treeId: n.tree_id,
     parentId: n.parent_id,
-    isRoot: n.parent_id === null,
+    // Outputs and pipes have no parent either, but only a conversation can be a root (Feature 9).
+    isRoot: n.kind === "conversation" && n.parent_id === null,
     anchorText,
     summary,
     createdAt: iso(n.created_at),
     manual: n.manual_x !== null && n.manual_y !== null ? { x: n.manual_x, y: n.manual_y } : null,
     edgeLabel,
     messageCount,
+    kind: n.kind,
+    origin: n.origin,
+    output,
+  };
+}
+
+/** A pipe node and its pipes row (Feature 9, FR-014). Its state is its output's review. */
+export function toMapPipe(
+  node: Pick<Selectable<NodesTable>, "id" | "tree_id" | "created_at">,
+  pipe: Selectable<PipesTable>,
+  functionName: string,
+  state: Review,
+): MapPipe {
+  return {
+    id: node.id,
+    treeId: node.tree_id,
+    inputNodeId: pipe.input_node_id,
+    outputNodeId: pipe.output_node_id,
+    reads: pipe.reads,
+    functionId: pipe.function_id,
+    functionName,
+    functionVersion: pipe.function_version,
+    state,
+    createdAt: iso(node.created_at),
+  };
+}
+
+export function toOutputVersion(v: Selectable<FunctionOutputVersionsTable>, confirmedId: string | null): OutputVersion {
+  return {
+    id: v.id,
+    text: v.text,
+    sourceVersion: v.source_version,
+    functionVersion: v.function_version,
+    settings: v.settings,
+    provenance: "ai_suggested",
+    confirmed: v.id === confirmedId,
+    createdAt: iso(v.created_at),
   };
 }
