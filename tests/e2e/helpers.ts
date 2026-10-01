@@ -7,7 +7,7 @@ const TEST_DATABASE_URL =
 export async function resetDb(): Promise<void> {
   const client = new pg.Client({ connectionString: TEST_DATABASE_URL });
   await client.connect();
-  await client.query("TRUNCATE parked_tangent_events, parked_tangents, feedback_state_events, feedback_attachments, feedback_tags, feedback_items, setting_changes, node_summaries, branch_markers, messages, nodes, trees, projects RESTART IDENTITY CASCADE");
+  await client.query("TRUNCATE kind_setting_changes, function_output_events, function_output_versions, pipes, parked_tangent_events, parked_tangents, feedback_state_events, feedback_attachments, feedback_tags, feedback_items, setting_changes, node_summaries, branch_markers, messages, nodes, trees, projects RESTART IDENTITY CASCADE");
   await client.end();
 }
 
@@ -97,8 +97,12 @@ export async function branchOn(page: Page, phrase: string, question = ""): Promi
 }
 
 export type MapDebug = {
-  nodes: Array<{ id: string; treeId: string; x: number; y: number; isRoot: boolean; labelKind: string; label: string }>;
+  nodes: Array<{
+    id: string; treeId: string; x: number; y: number; isRoot: boolean; labelKind: string; label: string;
+    kind: string; review: string | null; stale: boolean; pendingDraft: boolean;
+  }>;
   edges: Array<{ from: string; to: string; label?: string | null }>;
+  pipes: Array<{ id: string; from: string; to: string; state: string }>;
   treeBoxes: Record<string, { minX: number; minY: number; maxX: number; maxY: number }>;
 };
 

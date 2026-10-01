@@ -192,6 +192,7 @@ export function ChatView({ nodeId }: { nodeId: string }) {
     <>
     <section className="chat" data-node-id={nodeId} ref={sectionRef}>
       <NodeHeader
+        nodeId={nodeId}
         summary={view.node.summary}
         showSuggestions={showSuggestions}
         onToggleSuggestions={() => setShowSuggestions(!showSuggestions)}

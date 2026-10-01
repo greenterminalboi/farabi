@@ -3,6 +3,7 @@ import type { SendMessageResponse } from "@/shared/schemas";
 import { db, type Trx } from "../db/client";
 import { ConflictError, InvalidRequestError, NotFoundError } from "../errors";
 import { assertId } from "../ids";
+import { assertConversation } from "../nodes/kinds";
 import { resolveReplyModel } from "../ai";
 import { toMessage } from "../mappers";
 import { getSettings } from "../settings/settings";
@@ -75,11 +76,12 @@ export async function sendFromComposer(nodeId: string, content: string): Promise
 export async function insertUserTurn(trx: Trx, nodeId: string, content: string) {
   const node = await trx
     .selectFrom("nodes")
-    .select("id")
+    .select(["id", "kind"])
     .where("id", "=", nodeId)
     .forUpdate()
     .executeTakeFirst();
   if (!node) throw new NotFoundError("Node not found");
+  assertConversation(node);
 
   const latest = await trx
     .selectFrom("messages")

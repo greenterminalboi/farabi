@@ -3,6 +3,7 @@ import { db } from "../db/client";
 import { toMapNode, toMarker } from "../mappers";
 import { placeholderFor } from "../summaries/placeholder";
 import { sendMessage } from "./send";
+import { assertConversation } from "../nodes/kinds";
 
 export const QUICK_BRANCH = "????";
 
@@ -17,6 +18,7 @@ export async function tryQuickBranch(
   const created = await db.transaction().execute(async (trx) => {
     const parent = await trx.selectFrom("nodes").selectAll().where("id", "=", nodeId).forUpdate().executeTakeFirst();
     if (!parent) return null;
+    assertConversation(parent);
     const anchor = await trx
       .selectFrom("messages")
       .selectAll()
@@ -38,7 +40,7 @@ export async function tryQuickBranch(
 
     const child = await trx
       .insertInto("nodes")
-      .values({ tree_id: parent.tree_id, parent_id: parent.id, provenance: "user_authored" })
+      .values({ tree_id: parent.tree_id, parent_id: parent.id, provenance: "user_authored", kind: "conversation", origin: "quick_branch" })
       .returningAll()
       .executeTakeFirstOrThrow();
     const marker = await trx

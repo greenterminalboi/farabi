@@ -3,6 +3,7 @@ import type { Anchor, NodeView } from "@/shared/schemas";
 import { db } from "../db/client";
 import { NotFoundError } from "../errors";
 import { assertId } from "../ids";
+import { assertConversation } from "../nodes/kinds";
 import { toMapNode, toMarker, toMessage, toParkedTangent, toSummary } from "../mappers";
 import { finalizeOrphan } from "../messages/generation";
 import { liveParked } from "../parked/state";
@@ -86,6 +87,8 @@ export async function getNodeView(nodeId: string): Promise<NodeView> {
   assertId(nodeId, "Node");
   const node = await db.selectFrom("nodes").selectAll().where("id", "=", nodeId).executeTakeFirst();
   if (!node) throw new NotFoundError("Node not found");
+  // Other kinds open their own view (Feature 9, FR-004).
+  assertConversation(node);
 
   const [incoming, summary, messages, markers, inheritedContext, children, parked] = await Promise.all([
     getIncomingMarker(nodeId),

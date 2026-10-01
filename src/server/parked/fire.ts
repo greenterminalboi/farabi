@@ -24,7 +24,7 @@ export async function fireParked(id: string): Promise<FireParkedResponse> {
       const question = await currentQuestion(trx, id);
       const anchor = { messageId: t.message_id, start: t.start_offset, end: t.end_offset, text: t.anchor_text };
       const { parent, message } = await validateAnchor(trx, t.node_id, anchor);
-      const { child, marker } = await insertBranch(trx, parent, message, anchor);
+      const { child, marker } = await insertBranch(trx, parent, message, anchor, "parked");
       const turn = question === null ? null : await insertUserTurn(trx, child.id, question);
       await trx.insertInto("parked_tangent_events").values({ tangent_id: id, kind: "fired", child_node_id: child.id }).execute();
       return { t, child, marker, turn };

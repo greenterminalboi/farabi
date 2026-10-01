@@ -6,6 +6,14 @@ import {
   CreateTreeResponse,
   DiscardParkedResponse,
   FireParkedResponse,
+  FunctionsResponse,
+  KindSettingsResponse,
+  NodeSettingsResponse,
+  OutputResponse,
+  OutputViewResponse,
+  PipeViewResponse,
+  RegenerateOutputResponse,
+  RunFunctionResponse,
   DefinitionDetailResponse,
   DefinitionResponse,
   DefinitionsResponse,
@@ -124,4 +132,20 @@ export const api = {
   saveSettings: (patch: SaveSettingsBody) => request("PUT", "/api/settings", SettingsResponse, patch),
   refreshSummary: (nodeId: string) =>
     request("POST", `/api/nodes/${nodeId}/summary/refresh`, RefreshResponse, {}),
+  // Feature 9: node functions, outputs and kind settings
+  listFunctions: (nodeId: string) => request("GET", `/api/nodes/${nodeId}/functions`, FunctionsResponse),
+  runFunction: (nodeId: string, functionId: string) =>
+    request("POST", `/api/nodes/${nodeId}/functions/${functionId}/run`, RunFunctionResponse, {}),
+  getOutputView: (nodeId: string) => request("GET", `/api/nodes/${nodeId}/output`, OutputViewResponse),
+  regenerateOutput: (nodeId: string) =>
+    request("POST", `/api/nodes/${nodeId}/output/regenerate`, RegenerateOutputResponse, {}),
+  confirmOutput: (nodeId: string, versionId: string) =>
+    request("POST", `/api/nodes/${nodeId}/output/confirm`, OutputResponse, { versionId }),
+  rejectOutput: (nodeId: string) => request("POST", `/api/nodes/${nodeId}/output/reject`, OutputResponse, {}),
+  getPipeView: (nodeId: string) => request("GET", `/api/nodes/${nodeId}/pipe`, PipeViewResponse),
+  getKindSettings: () => request("GET", "/api/kind-settings", KindSettingsResponse),
+  saveKindSetting: (kind: string, key: string, value: string | null) =>
+    request("PUT", "/api/kind-settings", KindSettingsResponse, { kind, key, value }),
+  saveNodeSetting: (nodeId: string, key: string, value: string | null) =>
+    request("PUT", `/api/nodes/${nodeId}/settings`, NodeSettingsResponse, { key, value }),
 };

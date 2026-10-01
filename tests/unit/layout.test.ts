@@ -17,6 +17,9 @@ function node(id: string, treeId: string, parentId: string | null): MapNode {
     manual: null,
     edgeLabel: null,
     messageCount: 0,
+    kind: "conversation",
+    origin: parentId ? "branch" : "root",
+    output: null,
   };
 }
 
@@ -27,7 +30,7 @@ function forest(nodes: MapNode[], origins: Record<string, number>): ForestRespon
     origin: { x, y: 0 },
     userPlaced: false,
   }));
-  return { trees, nodes };
+  return { trees, nodes, pipes: [] };
 }
 
 describe("layoutTree", () => {

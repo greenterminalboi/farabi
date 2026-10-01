@@ -11,6 +11,7 @@ import {
   AIUnavailableError,
   isAbortError,
   type AIProvider,
+  type CompletionInput,
   type DefineInput,
   type DefinitionText,
   type ReplyInput,
@@ -153,6 +154,28 @@ export class ClaudeProvider implements AIProvider {
         { signal: input.signal },
       );
       return parseDefinition(textOf(message));
+    } catch (err) {
+      throw toProviderError(err);
+    }
+  }
+
+  async complete(input: CompletionInput): Promise<string> {
+    try {
+      const message = await this.getClient().beta.messages.create(
+        {
+          model: MODEL,
+          max_tokens: 4000,
+          betas: [FALLBACK_BETA],
+          fallbacks: "default",
+          output_config: { effort: "low" },
+          system: input.system,
+          messages: [{ role: "user", content: input.prompt }],
+        },
+        { signal: input.signal },
+      );
+      const text = textOf(message).trim();
+      if (!text) throw new AIUnavailableError(`Claude returned an empty ${input.tag}`);
+      return text;
     } catch (err) {
       throw toProviderError(err);
     }

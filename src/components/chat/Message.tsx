@@ -22,6 +22,11 @@ type Props = {
   busy: boolean;
   onRetry: (messageId: string) => void;
   onRegenerate: (messageId: string) => void;
+  /**
+   * Shown for reading only, e.g. beside a function output (Feature 9, FR-005): no anchor for
+   * Branch, Define or Park, no markers, terms, underlines or actions.
+   */
+  readOnly?: boolean;
 };
 
 /** User text is shown verbatim, so every character maps straight to its stored offset. */
@@ -84,6 +89,8 @@ const ENDED_LABEL: Partial<Record<MessageT["status"], string>> = {
   stopped: "Stopped.",
 };
 
+const NO_MARKERS: Marker[] = [];
+
 function MessageView({
   message,
   markers,
@@ -94,9 +101,16 @@ function MessageView({
   busy,
   onRetry,
   onRegenerate,
+  readOnly = false,
 }: Props) {
   const isAi = message.role === "ai";
-  const branchable = message.status === "complete";
+  const branchable = message.status === "complete" && !readOnly;
+  if (readOnly) {
+    markers = NO_MARKERS;
+    matcher = null;
+    underlineBold = false;
+    canRegenerate = false;
+  }
   return (
     <article
       className={`message ${message.status === "failed" ? "failed" : ""}`}
@@ -140,6 +154,23 @@ function MessageView({
           {message.content && <MarkdownText content={message.content} markers={markers} />}
           <div className="error" data-testid="ended-early">
             {ENDED_LABEL[message.status]}
+            {!readOnly && (
+              <button
+                type="button"
+                className="btn btn-small"
+                disabled={busy}
+                onClick={() => onRetry(message.id)}
+              >
+                Retry
+              </button>
+            )}
+          </div>
+        </>
+      )}
+      {message.status === "failed" && (
+        <div className="error">
+          Couldn&apos;t get a reply.
+          {!readOnly && (
             <button
               type="button"
               className="btn btn-small"
@@ -148,20 +179,7 @@ function MessageView({
             >
               Retry
             </button>
-          </div>
-        </>
-      )}
-      {message.status === "failed" && (
-        <div className="error">
-          Couldn&apos;t get a reply.
-          <button
-            type="button"
-            className="btn btn-small"
-            disabled={busy}
-            onClick={() => onRetry(message.id)}
-          >
-            Retry
-          </button>
+          )}
         </div>
       )}
       {message.status === "complete" &&

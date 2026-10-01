@@ -29,7 +29,7 @@ export async function createRootTree(projectId: string): Promise<CreateTreeRespo
       .executeTakeFirstOrThrow();
     const node = await trx
       .insertInto("nodes")
-      .values({ id: nodeId, tree_id: treeId, parent_id: null, provenance: "user_authored" })
+      .values({ id: nodeId, tree_id: treeId, parent_id: null, provenance: "user_authored", kind: "conversation", origin: "root" })
       .returningAll()
       .executeTakeFirstOrThrow();
 

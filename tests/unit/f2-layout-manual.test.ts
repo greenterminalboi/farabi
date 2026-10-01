@@ -17,12 +17,16 @@ function node(id: string, treeId: string, parentId: string | null, manual: MapNo
     manual,
     edgeLabel: null,
     messageCount: 0,
+    kind: "conversation",
+    origin: parentId ? "branch" : "root",
+    output: null,
   };
 }
 
 function forest(nodes: MapNode[], trees: Array<{ id: string; x: number; userPlaced?: boolean }>): ForestResponse {
   return {
     nodes,
+    pipes: [],
     trees: trees.map((t) => ({
       id: t.id,
       rootNodeId: nodes.find((n) => n.treeId === t.id && n.parentId === null)!.id,

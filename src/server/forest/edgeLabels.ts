@@ -4,6 +4,7 @@ import { db } from "../db/client";
 import { ConflictError, InvalidRequestError, NotFoundError } from "../errors";
 import { assertId } from "../ids";
 import { toMapNode, toSummary } from "../mappers";
+import { isConversationChild } from "../nodes/kinds";
 import { getIncomingMarker, latestSummary } from "./nodeView";
 
 const MAX_LABEL = 200;
@@ -16,7 +17,8 @@ export async function setEdgeLabel(childNodeId: string, text: string | null): Pr
   assertId(childNodeId, "Node");
   const node = await db.selectFrom("nodes").selectAll().where("id", "=", childNodeId).executeTakeFirst();
   if (!node) throw new NotFoundError("Node not found");
-  if (node.parent_id === null) throw new ConflictError("root_node", "A root has no edge to label");
+  // Roots, function outputs and pipes have no incoming parent-child edge (Feature 9).
+  if (!isConversationChild(node)) throw new ConflictError("root_node", "A root has no edge to label");
   const label = text?.trim().replace(/\s+/g, " ") || null;
   if (label && label.length > MAX_LABEL) throw new InvalidRequestError(`Labels are limited to ${MAX_LABEL} characters`);
   await db

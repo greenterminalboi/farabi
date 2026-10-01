@@ -2,10 +2,14 @@
 
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { FunctionMenu } from "@/components/kinds/FunctionMenu";
+import { PipeCard } from "@/components/kinds/PipeCard";
 import { api } from "@/lib/api";
 import { diffForest } from "@/map/forestGraph";
 import type { MapRenderer } from "@/map/MapRenderer";
-import type { ForestResponse } from "@/shared/schemas";
+import { findKind } from "@/shared/kinds";
+import type { ForestResponse, MapPipe } from "@/shared/schemas";
+import { useSettingsStore } from "@/state/settingsStore";
 import { useViewStore } from "@/state/viewStore";
 import { EdgeLabelEditor } from "./EdgeLabelEditor";
 
@@ -27,6 +31,22 @@ export function MapHost() {
   const [ready, setReady] = useState(false);
   const [editing, setEditing] = useState<{ childId: string; x: number; y: number; initial: string } | null>(null);
   const lastNodeId = useViewStore((s) => s.lastNodeId);
+  // Feature 9: the selected node (for its Functions button), an open pipe card, and a menu.
+  const [selected, setSelected] = useState<{ id: string; kind: string; rect: DOMRect } | null>(null);
+  const [menuFor, setMenuFor] = useState<string | null>(null);
+  const [pipeCard, setPipeCard] = useState<{
+    pipe: MapPipe;
+    outputLabel: string;
+    versionCount: number;
+    stale: boolean;
+    x: number;
+    y: number;
+  } | null>(null);
+  const showRejected = useSettingsStore((s) => s.showRejected);
+  const setShowRejected = useSettingsStore((s) => s.setShowRejected);
+  useEffect(() => {
+    void useSettingsStore.persist.rehydrate();
+  }, []);
 
   const refreshRef = useRef(async () => {
     const renderer = rendererRef.current;
@@ -87,6 +107,36 @@ export function MapHost() {
             const current = forestRef.current?.nodes.find((n) => n.id === childId);
             setEditing({ childId, x: screen.x, y: screen.y, initial: current?.edgeLabel ?? "" });
           });
+          renderer.onNodeSelect((id, rect) => {
+            const node = id ? forestRef.current?.nodes.find((n) => n.id === id) : undefined;
+            setSelected(node && rect ? { id: node.id, kind: node.kind, rect } : null);
+            if (!id) setMenuFor(null);
+            setPipeCard(null);
+          });
+          renderer.onPipeClick((pipeId, screen) => {
+            const current = forestRef.current;
+            const pipe = current?.pipes.find((p) => p.id === pipeId);
+            if (!pipe) return;
+            const output = current?.nodes.find((n) => n.id === pipe.outputNodeId);
+            setPipeCard({
+              pipe,
+              outputLabel: findKind(output?.kind ?? "")?.label ?? "output",
+              versionCount: output?.output?.versionCount ?? 0,
+              stale: output?.output?.stale ?? false,
+              ...screen,
+            });
+          });
+          // Regenerating happens only when the user clicks the stale pill (FR-024).
+          renderer.onRegenerate((nodeId) => {
+            renderer.setRegenerating(nodeId, "working");
+            api.regenerateOutput(nodeId).then(
+              async () => {
+                await refreshRef.current();
+                renderer.setRegenerating(nodeId, "idle");
+              },
+              () => renderer.setRegenerating(nodeId, "failed"),
+            );
+          });
           renderer.onTreeMoved((treeId, x, y) => {
             const current = forestRef.current;
             if (current) {
@@ -115,6 +165,19 @@ export function MapHost() {
   }, [visible, router]);
 
   useEffect(() => () => rendererRef.current?.destroy(), []);
+
+  useEffect(() => {
+    if (!pipeCard) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setPipeCard(null);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [pipeCard]);
+
+  // Rejected outputs stay hidden unless asked for (FR-027).
+  useEffect(() => {
+    if (!ready) return;
+    for (const r of rendererRef.current?.setShowRejected(showRejected) ?? []) void api.setTreeOrigin(r.treeId, r.x, r.y);
+  }, [ready, showRejected]);
 
   // While visible: refresh on show, highlight the last conversation, and keep labels live.
   useEffect(() => {
@@ -155,6 +218,57 @@ export function MapHost() {
   return (
     <>
       <div ref={elRef} className="map-host" hidden={!visible} data-testid="map" />
+      {visible && selected?.kind === "conversation" && (
+        <span
+          className="map-functions"
+          data-function-menu-anchor
+          style={{ left: selected.rect.left, top: selected.rect.bottom + 6 }}
+        >
+          <button
+            type="button"
+            className="btn btn-small"
+            data-testid="map-functions-button"
+            aria-expanded={menuFor === selected.id}
+            onClick={() => setMenuFor(menuFor === selected.id ? null : selected.id)}
+          >
+            Functions
+          </button>
+          {menuFor === selected.id && (
+            <FunctionMenu
+              key={selected.id}
+              nodeId={selected.id}
+              showOpenLink={false}
+              onClose={() => setMenuFor(null)}
+              onDone={() => {
+                setMenuFor(null);
+                // Show the new output at once rather than on the next poll (SC-002).
+                void refreshRef.current();
+              }}
+            />
+          )}
+        </span>
+      )}
+      {visible && pipeCard && (
+        <PipeCard
+          pipe={pipeCard.pipe}
+          outputLabel={pipeCard.outputLabel}
+          versionCount={pipeCard.versionCount}
+          stale={pipeCard.stale}
+          style={{ position: "fixed", left: pipeCard.x + 8, top: pipeCard.y + 8 }}
+          onClose={() => setPipeCard(null)}
+        />
+      )}
+      {visible && (
+        <button
+          type="button"
+          className="btn btn-small map-show-rejected"
+          data-testid="map-show-rejected"
+          aria-pressed={showRejected}
+          onClick={() => setShowRejected(!showRejected)}
+        >
+          {showRejected ? "Hide rejected" : "Show rejected"}
+        </button>
+      )}
       {visible && editing && (
         <EdgeLabelEditor
           x={editing.x}

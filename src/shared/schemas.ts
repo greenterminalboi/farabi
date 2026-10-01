@@ -27,6 +27,32 @@ export const Anchor = z.object({
 });
 export type Anchor = z.infer<typeof Anchor>;
 
+// Feature 9: node kinds and functions (specs/009-node-function-foundation/contracts/http-api.md)
+
+export const NodeOrigin = z.enum(["root", "branch", "quick_branch", "parked", "function"]);
+export type NodeOrigin = z.infer<typeof NodeOrigin>;
+export const Review = z.enum(["proposed", "confirmed", "rejected"]);
+export type Review = z.infer<typeof Review>;
+export const SourcePart = z.enum(["summary", "conversation", "anchor"]);
+export type SourcePart = z.infer<typeof SourcePart>;
+
+/** What the map and views need about a function output (Feature 9, research R5). */
+export const OutputSummary = z.object({
+  functionId: z.string(),
+  pipeId: z.string(),
+  inputNodeId: z.string(),
+  /** The confirmed version if confirmed, otherwise the latest. */
+  displayedText: z.string(),
+  provenance: z.enum(["ai_suggested", "user_confirmed"]),
+  review: Review,
+  /** The latest version was made from an older version of the input (no AI call, FR-022). */
+  stale: z.boolean(),
+  /** Confirmed, with a newer ai_suggested version waiting for review (FR-026). */
+  pendingDraft: z.boolean(),
+  versionCount: z.number().int(),
+});
+export type OutputSummary = z.infer<typeof OutputSummary>;
+
 export const MapNode = z.object({
   id: z.string(),
   treeId: z.string(),
@@ -41,8 +67,29 @@ export const MapNode = z.object({
   edgeLabel: z.string().nullable(),
   /** Live messages in the conversation; the map draws deep ones as a stack. */
   messageCount: z.number().int(),
+  /** A registered node kind (Feature 9). */
+  kind: z.string(),
+  origin: NodeOrigin,
+  /** Set for function outputs; null for conversation-backed kinds. */
+  output: OutputSummary.nullable(),
 });
 export type MapNode = z.infer<typeof MapNode>;
+
+/** A pipe: the directed link from a function's input node to its output node (FR-014). */
+export const MapPipe = z.object({
+  id: z.string(),
+  treeId: z.string(),
+  inputNodeId: z.string(),
+  outputNodeId: z.string(),
+  reads: SourcePart,
+  functionId: z.string(),
+  functionName: z.string(),
+  functionVersion: z.number().int(),
+  /** The output's review state. */
+  state: Review,
+  createdAt: z.string(),
+});
+export type MapPipe = z.infer<typeof MapPipe>;
 
 export const MapTree = z.object({
   id: z.string(),
@@ -82,7 +129,7 @@ export type Marker = z.infer<typeof Marker>;
 
 // Endpoint payloads
 
-export const ForestResponse = z.object({ trees: z.array(MapTree), nodes: z.array(MapNode) });
+export const ForestResponse = z.object({ trees: z.array(MapTree), nodes: z.array(MapNode), pipes: z.array(MapPipe) });
 export type ForestResponse = z.infer<typeof ForestResponse>;
 
 export const CreateTreeResponse = z.object({ tree: MapTree, node: MapNode });
@@ -312,3 +359,77 @@ export const SaveSettingsBody = z
     message: "Nothing to save",
   });
 export type SaveSettingsBody = z.infer<typeof SaveSettingsBody>;
+
+// Feature 9: functions, outputs and kind settings (contracts/http-api.md)
+
+export const OutputVersion = z.object({
+  id: z.string(),
+  text: z.string(),
+  sourceVersion: z.string(),
+  functionVersion: z.number().int(),
+  settings: z.record(z.string(), z.string()),
+  provenance: z.literal("ai_suggested"),
+  /** Named by the newest confirm event. */
+  confirmed: z.boolean(),
+  createdAt: z.string(),
+});
+export type OutputVersion = z.infer<typeof OutputVersion>;
+
+export const ResolvedSetting = z.object({
+  key: z.string(),
+  value: z.string(),
+  source: z.enum(["override", "kind", "default"]),
+  /** The kind-level value, if one is set. */
+  kindValue: z.string().nullable(),
+  /** When the value in effect at its scope was set; null for the default. */
+  changedAt: z.string().nullable(),
+});
+export type ResolvedSetting = z.infer<typeof ResolvedSetting>;
+
+export const FunctionsResponse = z.object({
+  functions: z.array(
+    z.object({
+      id: z.string(),
+      name: z.string(),
+      version: z.number().int(),
+      outputKind: z.string(),
+      available: z.boolean(),
+      reason: z.string().nullable(),
+    }),
+  ),
+});
+export type FunctionsResponse = z.infer<typeof FunctionsResponse>;
+
+export const RunFunctionResponse = z.object({ output: MapNode, pipe: MapPipe });
+export type RunFunctionResponse = z.infer<typeof RunFunctionResponse>;
+
+export const OutputViewResponse = z.object({
+  node: MapNode,
+  pipe: MapPipe,
+  /** Newest first; every version is kept (FR-025). */
+  versions: z.array(OutputVersion),
+  input: z.object({ node: MapNode, messages: z.array(Message) }),
+  settings: z.array(ResolvedSetting),
+});
+export type OutputViewResponse = z.infer<typeof OutputViewResponse>;
+
+export const RegenerateOutputResponse = z.object({ output: MapNode, version: OutputVersion });
+export const ConfirmOutputRequest = z.object({ versionId: z.string().uuid() });
+export const OutputResponse = z.object({ output: MapNode });
+
+export const PipeViewResponse = z.object({
+  pipe: MapPipe,
+  input: MapNode,
+  output: MapNode,
+  versionCount: z.number().int(),
+  stale: z.boolean(),
+});
+export type PipeViewResponse = z.infer<typeof PipeViewResponse>;
+
+export const KindSettingsResponse = z.object({
+  kinds: z.array(z.object({ kind: z.string(), settings: z.array(ResolvedSetting) })),
+});
+export type KindSettingsResponse = z.infer<typeof KindSettingsResponse>;
+export const SaveKindSettingBody = z.object({ kind: z.string(), key: z.string(), value: z.string().nullable() });
+export const SaveNodeSettingBody = z.object({ key: z.string(), value: z.string().nullable() });
+export const NodeSettingsResponse = z.object({ settings: z.array(ResolvedSetting) });

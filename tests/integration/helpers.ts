@@ -7,6 +7,47 @@ const routes: Array<{ pattern: RegExp; keys: string[]; load: () => Promise<Route
   { pattern: /^\/api\/forest$/, keys: [], load: () => import("@/app/api/forest/route") },
   { pattern: /^\/api\/trees$/, keys: [], load: () => import("@/app/api/trees/route") },
   { pattern: /^\/api\/settings$/, keys: [], load: () => import("@/app/api/settings/route") },
+  { pattern: /^\/api\/kind-settings$/, keys: [], load: () => import("@/app/api/kind-settings/route") },
+  {
+    pattern: /^\/api\/nodes\/([^/]+)\/settings$/,
+    keys: ["nodeId"],
+    load: () => import("@/app/api/nodes/[nodeId]/settings/route"),
+  },
+  {
+    pattern: /^\/api\/nodes\/([^/]+)\/output\/confirm$/,
+    keys: ["nodeId"],
+    load: () => import("@/app/api/nodes/[nodeId]/output/confirm/route"),
+  },
+  {
+    pattern: /^\/api\/nodes\/([^/]+)\/output\/reject$/,
+    keys: ["nodeId"],
+    load: () => import("@/app/api/nodes/[nodeId]/output/reject/route"),
+  },
+  {
+    pattern: /^\/api\/nodes\/([^/]+)\/output\/regenerate$/,
+    keys: ["nodeId"],
+    load: () => import("@/app/api/nodes/[nodeId]/output/regenerate/route"),
+  },
+  {
+    pattern: /^\/api\/nodes\/([^/]+)\/output$/,
+    keys: ["nodeId"],
+    load: () => import("@/app/api/nodes/[nodeId]/output/route"),
+  },
+  {
+    pattern: /^\/api\/nodes\/([^/]+)\/pipe$/,
+    keys: ["nodeId"],
+    load: () => import("@/app/api/nodes/[nodeId]/pipe/route"),
+  },
+  {
+    pattern: /^\/api\/nodes\/([^/]+)\/functions$/,
+    keys: ["nodeId"],
+    load: () => import("@/app/api/nodes/[nodeId]/functions/route"),
+  },
+  {
+    pattern: /^\/api\/nodes\/([^/]+)\/functions\/([^/]+)\/run$/,
+    keys: ["nodeId", "functionId"],
+    load: () => import("@/app/api/nodes/[nodeId]/functions/[functionId]/run/route"),
+  },
   {
     pattern: /^\/api\/summaries\/refresh-stale$/,
     keys: [],

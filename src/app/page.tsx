@@ -13,6 +13,7 @@ export default async function Home() {
     .innerJoin("trees", "trees.id", "nodes.tree_id")
     .select("nodes.id")
     .where("trees.project_id", "=", projectId)
+    .where("nodes.kind", "=", "conversation")
     .orderBy("nodes.created_at", "desc")
     .limit(1)
     .executeTakeFirst();

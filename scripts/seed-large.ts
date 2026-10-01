@@ -1,5 +1,6 @@
 // Seeds 20 trees with 500 nodes total for the scale check (quickstart scenario 8).
 // `--feedback N` also seeds N feedback items, about a third with a screenshot (Feature 3, SC-008).
+// `--outputs N` also seeds N Analogy outputs with their pipes (Feature 9, SC-009).
 import { crc32, deflateSync } from "node:zlib";
 import { createDb } from "../src/server/db/client";
 import { writeAttachmentFiles } from "../src/server/feedback/attachments";
@@ -26,7 +27,10 @@ const all: SeedNode[] = [];
 
 async function addNode(treeId: string, parent: SeedNode | null, depth: number): Promise<SeedNode> {
   const id = crypto.randomUUID();
-  await db.insertInto("nodes").values({ id, tree_id: treeId, parent_id: parent?.id ?? null, provenance: "user_authored" }).execute();
+  await db.insertInto("nodes").values({
+    id, tree_id: treeId, parent_id: parent?.id ?? null, provenance: "user_authored",
+    kind: "conversation", origin: parent ? "branch" : "root",
+  }).execute();
   const topic = `topic ${all.length}`;
   const turns = [
     { role: "user" as const, content: `Question about ${topic}` },
@@ -67,7 +71,7 @@ for (let t = 0; t < TREES; t++) {
   const rootId = crypto.randomUUID();
   await db.transaction().execute(async (trx) => {
     await trx.insertInto("trees").values({ id: treeId, project_id: project.id, root_node_id: rootId, layout_origin_x: t * 2000, layout_origin_y: 0 }).execute();
-    await trx.insertInto("nodes").values({ id: rootId, tree_id: treeId, parent_id: null, provenance: "user_authored" }).execute();
+    await trx.insertInto("nodes").values({ id: rootId, tree_id: treeId, parent_id: null, provenance: "user_authored", kind: "conversation", origin: "root" }).execute();
   });
   const turns = [
     { role: "user" as const, content: `Root question ${t}` },
@@ -184,5 +188,30 @@ for (let i = 0; i < FEEDBACK; i++) {
 }
 if (FEEDBACK > 0) await regenerateFeedbackFile(db);
 
-console.log(`Seeded ${TREES} trees, ${all.length} nodes, ${defs.length} definitions, ${FEEDBACK} feedback items.`);
+// Feature 9: function outputs beside the first N nodes, each with a pipe and one version.
+const outputsArg = process.argv.indexOf("--outputs");
+const OUTPUTS = outputsArg >= 0 ? Number(process.argv[outputsArg + 1]) : 0;
+for (const source of all.slice(0, OUTPUTS)) {
+  const summary = await db
+    .selectFrom("node_summaries")
+    .select("id")
+    .where("node_id", "=", source.id)
+    .orderBy("created_at", "desc")
+    .executeTakeFirst();
+  const fn = { tree_id: source.treeId, parent_id: null, provenance: "ai_suggested" as const, origin: "function" as const, function_id: "analogy", function_version: 1 };
+  await db.transaction().execute(async (trx) => {
+    const output = await trx.insertInto("nodes").values({ ...fn, kind: "analogy" }).returning("id").executeTakeFirstOrThrow();
+    const pipe = await trx.insertInto("nodes").values({ ...fn, kind: "pipe" }).returning("id").executeTakeFirstOrThrow();
+    await trx.insertInto("pipes").values({
+      node_id: pipe.id, input_node_id: source.id, output_node_id: output.id, reads: "summary", function_id: "analogy", function_version: 1,
+    }).execute();
+    await trx.insertInto("function_output_versions").values({
+      output_node_id: output.id, text: "Like a library card catalogue for this topic.",
+      source_version: summary?.id ?? crypto.randomUUID(), function_version: 1,
+      settings: JSON.stringify({ reach: "everyday", length: "short" }),
+    }).execute();
+  });
+}
+
+console.log(`Seeded ${TREES} trees, ${all.length} nodes, ${defs.length} definitions, ${FEEDBACK} feedback items, ${OUTPUTS} outputs.`);
 await db.destroy();
