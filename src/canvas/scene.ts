@@ -60,7 +60,7 @@ const STATUS_LABEL: Record<string, string> = {
 };
 
 /** Frame labels and buttons for an element (contracts/canvas-ui.md "Elements as drawn"). */
-export function chromeOf(el: Element, state: EdgeState | null): {
+export function chromeOf(el: Element, state: EdgeState | null, attempt: { n: number; of: number } | null = null): {
   label: string;
   header?: ChromePart[];
   footer?: ChromePart[];
@@ -77,7 +77,8 @@ export function chromeOf(el: Element, state: EdgeState | null): {
       if (el.status && el.status !== "complete") {
         header.push({ text: STATUS_LABEL[el.status], className: `status status-${el.status}`, testid: el.status === "pending" ? "streaming" : undefined });
       }
-      if (el.origin === "retry" || el.origin === "regenerate") header.push({ text: el.origin === "retry" ? "retry" : "regenerated", className: "status" });
+      // Attempts are siblings side by side (FR-041): each says which one it is.
+      if (attempt && attempt.of > 1) header.push({ text: `attempt ${attempt.n} of ${attempt.of}`, className: "status attempt", testid: "attempt" });
       // The settings this reply was written with (Feature 6, FR-057).
       if (el.pressureLevel != null) {
         header.push({
@@ -171,7 +172,12 @@ export function buildScene(input: SceneInput): BuiltScene {
       review: el.review ?? null,
     });
 
-    const chrome = chromeOf(el, state);
+    let attempt: { n: number; of: number } | null = null;
+    if (el.kind === "answer" && el.parentId) {
+      const tries = children(graph, el.parentId).filter((c) => c.kind === "answer");
+      attempt = { n: tries.findIndex((c) => c.id === el.id) + 1, of: tries.length };
+    }
+    const chrome = chromeOf(el, state, attempt);
     const source = textOf(shown);
     const footer = chrome.footer?.length ? " with-footer" : "";
     const stateClass = state ? ` state-${state}` : el.status ? ` status-${el.status}` : "";
@@ -184,6 +190,7 @@ export function buildScene(input: SceneInput): BuiltScene {
       el.review,
       el.functionName,
       el.pressureLevel,
+      attempt ? `${attempt.n}/${attempt.of}` : "",
       className,
       chrome.footer?.length ?? 0,
       decorationKey(decorations, input.terms.version),

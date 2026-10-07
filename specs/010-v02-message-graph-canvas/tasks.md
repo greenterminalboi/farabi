@@ -844,7 +844,7 @@ its branch remain unedited (quickstart §3.6).
   - regenerate with a complete attempt → a sibling, allowed when that answer has a branch, and the
     branch's parent is still the original (FR-041, FR-042, SC-011)
   - regenerate with no complete attempt → 409 `not_regenerable`
-- [ ] T087 [P] [US7] E2E `tests/e2e/f10-us7-attempts.spec.ts` (story 7, scenarios 1–3).
+- [X] T087 [P] [US7] E2E `tests/e2e/f10-us7-attempts.spec.ts` (story 7, scenarios 1–3).
 
 ### Implementation
 
@@ -855,7 +855,7 @@ its branch remain unedited (quickstart §3.6).
 
   Each inserts a pending answer with `origin` `retry` or `regenerate` under the same edge, and
   never touches earlier attempts. Generation starts after commit.
-- [ ] T089 [US7] UI in `src/canvas/renderer/CanvasRenderer.ts` and `src/canvas/CanvasHost.tsx`:
+- [X] T089 [US7] UI in `src/canvas/renderer/CanvasRenderer.ts` and `src/canvas/CanvasHost.tsx`:
   - Retry on incomplete, stopped and failed frames, and Regenerate in a complete answer's frame
     header
   - after the call, focus the new attempt and call `camera.follow`
