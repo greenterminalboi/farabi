@@ -3,6 +3,7 @@
 import { findKind } from "@/shared/kinds";
 import type { CanvasResponse, Review, Tree } from "@/shared/schemas";
 import { finalizeOrphan, isGenerating } from "../answers/generation";
+import { drillCards } from "../drill/card";
 import { db } from "../db/client";
 import type { ProjectCamerasTable, TreesTable } from "../db/schema";
 import { NotFoundError } from "../errors";
@@ -34,7 +35,7 @@ export async function getCanvas(projectId: string): Promise<CanvasResponse> {
     .executeTakeFirst();
   if (!project) throw new NotFoundError("Project not found");
 
-  const [trees, rows, notes, reviews, camera] = await Promise.all([
+  const [trees, rows, notes, reviews, camera, cards] = await Promise.all([
     db.selectFrom("trees").selectAll().where("project_id", "=", projectId).orderBy("created_at").orderBy("id").execute(),
     db
       .selectFrom("nodes")
@@ -64,6 +65,7 @@ export async function getCanvas(projectId: string): Promise<CanvasResponse> {
       .orderBy("output_reviews.id", "desc")
       .execute(),
     db.selectFrom("project_cameras").selectAll().where("project_id", "=", projectId).executeTakeFirst(),
+    drillCards(projectId),
   ]);
 
   // A pending answer with no live generator is an orphan of a restart (Feature 2).
@@ -123,7 +125,8 @@ export async function getCanvas(projectId: string): Promise<CanvasResponse> {
       .map((el) => {
         const out = canvasElement(el);
         const from = drawnFrom(el);
-        return from === null ? out : { ...out, drawnFrom: from };
+        const card = cards.get(el.id);
+        return { ...out, ...(from === null ? {} : { drawnFrom: from }), ...(card ? { card } : {}) };
       }),
     camera: camera ? toCamera(camera) : null,
   };

@@ -15,7 +15,7 @@ describe("Feature 10 · kind and function registries", () => {
     expect(getKind("analogy")).toMatchObject({ shape: "node", display: "output", acceptsInputKinds: ["answer"] });
     expect(findKind("conversation")).toBeUndefined();
     expect(findKind("pipe")).toBeUndefined();
-    expect(kindsWithSettings().map((k) => k.id)).toEqual(["analogy"]);
+    expect(kindsWithSettings().map((k) => k.id)).toEqual(["analogy", "drill"]);
     expect(getFunction("analogy")).toMatchObject({ version: 2, accepts: ["answer"], reads: "text", outputKind: "analogy" });
     expect(listFunctionsFor("answer").map((f) => f.id)).toContain("analogy");
     expect(listFunctionsFor("analogy")).toEqual([]);

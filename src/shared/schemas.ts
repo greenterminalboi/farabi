@@ -373,3 +373,145 @@ export const SaveKindSettingBody = z.object({
 });
 export const SaveEdgeSettingBody = z.object({ key: z.string(), value: z.string().nullable() });
 export const SettingResponse = z.object({ setting: ResolvedSetting });
+
+// Feature 12: Drill Kaizen (specs/012-drill-kaizen/contracts/http-api.md)
+
+export const DrillVerdict = z.enum(["solved", "partly_solved", "not_solved"]);
+export type DrillVerdict = z.infer<typeof DrillVerdict>;
+export const DrillResult = z.enum(["solved", "partly_solved", "not_solved", "unattempted"]);
+export type DrillResult = z.infer<typeof DrillResult>;
+export const RungState = z.enum(["locked", "open", "solid"]);
+export type RungState = z.infer<typeof RungState>;
+export const LevelCause = z.enum(["start", "auto", "recompute", "manual"]);
+
+export const Rung = z.object({
+  id: z.string(),
+  name: z.string(),
+  provenance: Provenance,
+  removed: z.boolean(),
+  state: RungState,
+  level: z.number().int(),
+  /** Every recorded change, oldest first; roundNumber is null for start and manual changes. */
+  history: z.array(
+    z.object({ roundNumber: z.number().int().nullable(), level: z.number().int(), state: RungState, cause: LevelCause, changeId: z.string() }),
+  ),
+});
+export type Rung = z.infer<typeof Rung>;
+
+/** What the canvas card shows (FR-024). */
+export const DrillSummary = z.object({
+  drillId: z.string(),
+  nodeId: z.string(),
+  domain: z.string(),
+  started: z.boolean(),
+  complete: z.boolean(),
+  /** The newest open rung; `number` is its place among the rungs that aren't removed. */
+  newestOpen: z.object({ rungId: z.string(), number: z.number().int(), name: z.string(), level: z.number().int() }).nullable(),
+  parentDrill: z.object({ drillId: z.string(), domain: z.string() }).nullable(),
+});
+export type DrillSummary = z.infer<typeof DrillSummary>;
+
+export const DrillAttempt = z.object({
+  attempt: Element,
+  verdict: Element.extend({ verdict: DrillVerdict, hinted: z.boolean() }).nullable(),
+  /** The user's newest override of this attempt's verdict; it counts (FR-017). */
+  override: z.object({ verdict: DrillVerdict, at: z.string() }).nullable(),
+});
+export type DrillAttempt = z.infer<typeof DrillAttempt>;
+
+export const DrillProblem = z.object({
+  element: Element,
+  roundId: z.string(),
+  rungIds: z.array(z.string()),
+  level: z.number().int(),
+  position: z.number().int(),
+  result: DrillResult,
+  flagged: z.boolean(),
+  skipped: z.boolean(),
+  /** The flagged problem this one replaces (FR-014). */
+  replaces: z.string().nullable(),
+  /** Shown only once a hint event exists. */
+  hint: Element.nullable(),
+  /** Shown only once revealed. */
+  solution: Element.nullable(),
+  attempts: z.array(DrillAttempt),
+  followUps: z.array(z.object({ edgeId: z.string(), text: z.string().nullable(), createdAt: z.string() })),
+});
+export type DrillProblem = z.infer<typeof DrillProblem>;
+
+export const DrillNoteEntry = z.object({
+  changeId: z.string(),
+  rungId: z.string(),
+  from: z.number().int(),
+  to: z.number().int(),
+  fromState: RungState,
+  toState: RungState,
+  evidence: z.array(z.string()),
+  cause: LevelCause,
+});
+
+export const DrillRound = z.object({
+  roundId: z.string(),
+  number: z.number().int(),
+  ended: z.object({ by: z.enum(["all_answered", "user"]), at: z.string() }).nullable(),
+  /** Why the round is short, when it is. */
+  shortNote: z.string().nullable(),
+  lessons: z.array(Element),
+  problems: z.array(DrillProblem),
+  note: z.array(DrillNoteEntry),
+  currentProblemId: z.string().nullable(),
+});
+export type DrillRound = z.infer<typeof DrillRound>;
+
+export const Drill = DrillSummary.extend({
+  projectId: z.string(),
+  domainProvenance: Provenance,
+  startEdgeId: z.string(),
+  sourceNodeId: z.string().nullable(),
+  ladder: z.object({ versionId: z.string(), provenance: Provenance, rungs: z.array(Rung) }),
+  settings: z.object({ round_size: z.string(), open_level: z.string(), solid_level: z.string() }),
+  rounds: z.array(DrillRound),
+  attachments: z.array(z.object({ nodeId: z.string(), excerpt: z.string(), attachedAt: z.string() })),
+  offer: z
+    .object({
+      offerId: z.string(),
+      candidates: z.array(z.object({ nodeId: z.string(), domain: z.string(), excerpt: z.string() })),
+      dismissed: z.boolean(),
+      picked: z.array(z.string()),
+    })
+    .nullable(),
+});
+export type Drill = z.infer<typeof Drill>;
+
+export const DrillResponse = z.object({ drill: Drill });
+export type DrillResponse = z.infer<typeof DrillResponse>;
+export const DrillsResponse = z.object({ drills: z.array(DrillSummary) });
+export type DrillsResponse = z.infer<typeof DrillsResponse>;
+/** Returned by actions that generate a round afterwards; the round's failure doesn't undo them. */
+export const DrillStepResponse = z.object({
+  drill: Drill,
+  nextRoundError: z.object({ code: z.string(), message: z.string() }).optional(),
+  /** Attempts: every problem of the open round now has a result, so the client ends it. */
+  roundEnded: z.boolean().optional(),
+});
+export type DrillStepResponse = z.infer<typeof DrillStepResponse>;
+
+export const CreateDrillBody = z.object({
+  projectId: z.string().uuid(),
+  domain: z.string(),
+  sourceNodeId: z.string().uuid().optional(),
+  offerId: z.string().uuid().optional(),
+});
+export const SaveLadderBody = z.object({
+  rungs: z.array(z.object({ id: z.string().uuid().optional(), name: z.string(), removed: z.boolean().optional() })),
+});
+export const AttemptBody = z.object({ text: z.string() });
+export const ProblemEventBody = z.object({
+  type: z.enum(["hint", "reveal", "skip", "flag"]),
+  reason: z.string().max(500).optional(),
+});
+export const OverrideBody = z.object({ verdict: DrillVerdict });
+export const SetLevelBody = z
+  .object({ level: z.number().int().min(1).max(10).optional(), state: RungState.optional() })
+  .refine((b) => b.level !== undefined || b.state !== undefined, { message: "Give a level or a state" });
+export const AttachmentBody = z.object({ nodeId: z.string().uuid(), action: z.enum(["attach", "detach"]) });

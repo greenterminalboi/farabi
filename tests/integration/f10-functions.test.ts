@@ -156,7 +156,8 @@ describe("Feature 10 · function settings (FR-053)", () => {
     expect(saved.body.setting).toMatchObject({ key: "length", value: "one_line", source: "kind" });
     expect(getFakeCalls().completeInputs.length).toBe(before);
     const list = await call("GET", "/api/kind-settings");
-    expect(list.body.kinds).toEqual([
+    // Feature 12's drill kind also declares settings; this checks analogy's.
+    expect(list.body.kinds.filter((k: { kind: string }) => k.kind === "analogy")).toEqual([
       {
         kind: "analogy",
         label: "Analogy",
