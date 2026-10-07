@@ -786,7 +786,7 @@ connection changed (quickstart §3.5).
 
 ### Tests (write first)
 
-- [ ] T080 [P] [US6] Integration tests in `tests/integration/f10-arrange.test.ts`, adapting
+- [X] T080 [P] [US6] Integration tests in `tests/integration/f10-arrange.test.ts`, adapting
   `tests/integration/f2-us3-positions.test.ts` and `f2-us5-edge-labels.test.ts`:
   - a position update changes only `manual_x/y`
   - the origin edge → 409 `origin_edge`
@@ -795,7 +795,7 @@ connection changed (quickstart §3.5).
   - a note longer than 200 characters → 400
   - a note on an answer → 409 `not_an_edge`
   - no update can change `parent_id` (guard)
-- [ ] T081 [P] [US6] E2E `tests/e2e/f10-us6-arrange.spec.ts` (story 6, scenarios 1–5):
+- [X] T081 [P] [US6] E2E `tests/e2e/f10-us6-arrange.spec.ts` (story 6, scenarios 1–5):
   - frame drag moves one element, and Alt-drag or the origin handle moves the tree
   - reload keeps positions
   - adding an answer in another tree leaves these unchanged
@@ -815,13 +815,13 @@ connection changed (quickstart §3.5).
   - `length 1..200` else 400
   - insert an `edge_notes` row `user_authored`
   - not an edge → 409 `not_an_edge` (FR-040)
-- [ ] T084 [US6] Dragging in `src/canvas/renderer/CanvasRenderer.ts` and
+- [X] T084 [US6] Dragging in `src/canvas/renderer/CanvasRenderer.ts` and
   `src/canvas/CanvasHost.tsx`:
   - frame drag moves the element live and writes once on release
   - Alt-drag, or dragging the origin handle, moves the tree
   - relayout keeps other trees fixed
   - store and render optimistically, and roll back with an error on failure
-- [ ] T085 [US6] Create `src/canvas/overlays/NoteEditor.tsx` from `src/components/map/EdgeLabelEditor.tsx`.
+- [X] T085 [US6] Create `src/canvas/overlays/NoteEditor.tsx` from `src/components/map/EdgeLabelEditor.tsx`.
   It opens from a note chip on a question edge's connector. The renderer draws the chip as a frame
   only, and the note text is a text-layer item for the edge note (FR-030).
 

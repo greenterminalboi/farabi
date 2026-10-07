@@ -473,3 +473,10 @@ body { display: flex; flex-direction: column; }
 .canvas-host > canvas.minimap[hidden] { display: none; }
 .minimap-toggle { position: absolute; right: 16px; bottom: 150px; z-index: 21; padding: 0 6px; line-height: 18px; }
 .minimap-toggle.hidden-map { bottom: 12px; }
+/* Edge notes (FR-040): a chip above the edge's bubble; "+ note" only on the focused edge. */
+.element-text.note-chip { padding: 0; overflow: visible; background: transparent; }
+.element-text.note-chip .element-header { position: static; height: 22px; padding: 0; }
+.element-text.note-chip .element-body { display: none; }
+.element-text.note-chip .chrome-btn { font-style: italic; max-width: 100%; overflow: hidden; text-overflow: ellipsis; border-radius: 999px; }
+.element-text.note-chip.empty .chrome-btn { color: var(--muted); border-style: dashed; }
+.note-editor { position: fixed; z-index: 35; }

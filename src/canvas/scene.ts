@@ -143,7 +143,8 @@ export function buildScene(input: SceneInput): BuiltScene {
   const { graph, layout } = input;
   const draw: DrawElement[] = [];
   const items: TextItem[] = [];
-  for (const el of input.elements) {
+  const elements = [...input.elements]; // walked twice: elements, then their notes
+  for (const el of elements) {
     if (!input.visible(el)) continue;
     const pos = input.dragOverride.get(el.id) ?? layout.positions.get(el.id);
     if (!pos) continue;
@@ -204,5 +205,32 @@ export function buildScene(input: SceneInput): BuiltScene {
       placeholder: chrome.placeholder,
     });
   }
+  // Edge notes (FR-040): a chip above each noted question edge, and "+ note" on the focused one.
+  for (const el of elements) {
+    if (el.kind !== "question" || !input.visible(el)) continue;
+    const focused = el.id === input.focusId;
+    if (!el.note && !focused) continue;
+    const pos = input.dragOverride.get(el.id) ?? layout.positions.get(el.id);
+    if (!pos) continue;
+    const label = el.note ?? "+ note";
+    items.push({
+      id: noteItemId(el.id),
+      x: pos.x + 8,
+      y: pos.y - NOTE_CHIP.h - 4,
+      width: NOTE_CHIP.w,
+      height: NOTE_CHIP.h,
+      className: `note-chip${el.note ? "" : " empty"}`,
+      source: "",
+      markdown: false,
+      version: versionOf(noteItemId(el.id), `${label}|${focused}`),
+      label: el.note ? `Note: ${el.note}` : "Add a note",
+      header: [{ action: "edit-note", label, title: el.note ? "Edit or clear this note" : "Add a short note to this edge" }],
+    });
+  }
   return { draw, items };
 }
+
+export const NOTE_CHIP = { w: 240, h: 22 };
+const NOTE_PREFIX = "note:";
+export const noteItemId = (edgeId: string) => `${NOTE_PREFIX}${edgeId}`;
+export const edgeOfNoteItem = (itemId: string) => (itemId.startsWith(NOTE_PREFIX) ? itemId.slice(NOTE_PREFIX.length) : null);

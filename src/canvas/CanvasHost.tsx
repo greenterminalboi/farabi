@@ -17,7 +17,7 @@ import { type ForestLayout, layoutForest, type LayoutCache } from "./layout/fore
 import { heightOf, measuredTextHeight, recordMeasured } from "./layout/heights";
 import { PADDING } from "./geometry";
 import { CanvasRenderer } from "./renderer/CanvasRenderer";
-import { buildScene } from "./scene";
+import { buildScene, edgeOfNoteItem } from "./scene";
 import { isVisible, useCanvasStore } from "./store";
 import { TextLayer } from "./text/TextLayer";
 import { rangeForOffsets } from "./text/selection";
@@ -27,6 +27,8 @@ import { EmptyState } from "./overlays/EmptyState";
 import { SelectionToolbar } from "./overlays/SelectionToolbar";
 import { SidePanel } from "./overlays/SidePanel";
 import { MinimapToggle } from "./overlays/MinimapToggle";
+import { NoteEditor } from "./overlays/NoteEditor";
+import { Toasts } from "./overlays/Toasts";
 import { TextInteractions } from "./overlays/TextInteractions";
 import { TermCard } from "@/components/definitions/TermCard";
 
@@ -340,19 +342,37 @@ export function CanvasHost({ projectId, focus, span }: Props) {
         }
         if (d.tree) {
           const origin = { x: d.origin.x + delta.x, y: d.origin.y + delta.y };
-          useCanvasStore.setState((s) => ({ trees: s.trees.map((t) => (t.id === el.treeId ? { ...t, origin, userPlaced: true } : t)) }));
-          cache.delete(el.treeId);
-          schedule([el.treeId]);
-          void api.setTreeOrigin(el.treeId, origin.x, origin.y, true).catch(() => {});
+          const before = useCanvasStore.getState().trees.find((t) => t.id === el.treeId);
+          const setTree = (t: { origin: { x: number; y: number }; userPlaced: boolean }) => {
+            useCanvasStore.setState((s) => ({ trees: s.trees.map((x) => (x.id === el.treeId ? { ...x, ...t } : x)) }));
+            cache.delete(el.treeId);
+            schedule([el.treeId]);
+          };
+          setTree({ origin, userPlaced: true });
+          // Shown at once; put back if the server refuses (T084).
+          void api.setTreeOrigin(el.treeId, origin.x, origin.y, true).catch((err) => {
+            if (before) setTree(before);
+            dragFailed(err);
+          });
         } else {
           const p = d.at.get(id);
           const t = useCanvasStore.getState().trees.find((x) => x.id === el.treeId);
           if (!p || !t) return;
           const manual = { x: p.x + delta.x - t.origin.x, y: p.y + delta.y - t.origin.y };
           useCanvasStore.getState().merge([{ ...el, manual }]);
-          void api.setPosition(id, manual.x, manual.y).catch(() => {});
+          void api.setPosition(id, manual.x, manual.y).catch((err) => {
+            useCanvasStore.getState().merge([el]);
+            dragFailed(err);
+          });
         }
       };
+
+      const dragFailed = (err: unknown) =>
+        window.dispatchEvent(
+          new CustomEvent("farabi:element-error", {
+            detail: { action: "move", message: `Couldn't save the move: ${err instanceof Error ? err.message : String(err)}` },
+          }),
+        );
 
       const engineApi: CanvasEngine = {
         renderer,
@@ -399,6 +419,11 @@ export function CanvasHost({ projectId, focus, span }: Props) {
         const item = button?.closest<HTMLElement>(".element-text");
         if (!button || !item) return;
         e.stopPropagation();
+        const noted = edgeOfNoteItem(item.dataset.nodeId!);
+        if (noted) {
+          window.dispatchEvent(new CustomEvent("farabi:edit-note", { detail: { edgeId: noted } }));
+          return;
+        }
         void runAction(button.dataset.action!, item.dataset.nodeId!);
       };
       layer.root.addEventListener("click", onAction);
@@ -511,6 +536,8 @@ export function CanvasHost({ projectId, focus, span }: Props) {
           <SelectionToolbar />
           <TextInteractions />
           <MinimapToggle />
+          <NoteEditor />
+          <Toasts />
           <TermCard containerRef={rootRef} />
         </>
       ) : null,

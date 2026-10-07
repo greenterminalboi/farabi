@@ -81,10 +81,10 @@ export async function elementsOf(page: Page, kind: DebugElement["kind"]): Promis
 }
 
 /**
- * Clicks an element's frame (not its text), which focuses it without moving the camera. Like a
- * user, it first brings the element into view when it is off screen or covered by an overlay.
+ * A screen point on an element's frame (not its text) that a press would really land on. Like a
+ * user, it first brings the element into view when it is off screen or under an overlay.
  */
-export async function focusElement(page: Page, id: string) {
+export async function framePoint(page: Page, id: string): Promise<{ x: number; y: number }> {
   const clickable = (pt: { x: number; y: number } | null) =>
     page.evaluate(
       ({ id, pt }) => {
@@ -103,6 +103,12 @@ export async function focusElement(page: Page, id: string) {
     pt = await page.evaluate((id) => window.__farabiScreenPoint!(id, "frame"), id);
   }
   if (!pt) throw new Error(`element ${id} is not on the canvas`);
+  return pt;
+}
+
+/** Clicks an element's frame, which focuses it without moving the camera. */
+export async function focusElement(page: Page, id: string) {
+  const pt = await framePoint(page, id);
   await page.mouse.click(pt.x, pt.y);
   await expect.poll(async () => (await canvasDebug(page)).elements.find((e) => e.id === id)?.focused).toBe(true);
 }
