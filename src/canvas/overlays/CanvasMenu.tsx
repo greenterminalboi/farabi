@@ -1,9 +1,14 @@
 "use client";
 
+import { useState } from "react";
+import { NewDrillOverlay } from "@/drill/CanvasOverlays";
 import { useSettingsStore } from "@/state/settingsStore";
 import { useCanvasStore } from "../store";
 
-/** The canvas menu: start a new tree, and per-browser display settings (FR-010, FR-050, FR-056). */
+/**
+ * The canvas menu: start a new tree or a drill (Feature 12), and per-browser display settings
+ * (FR-010, FR-050, FR-056).
+ */
 export function CanvasMenu() {
   const composingNewTree = useCanvasStore((s) => s.composingNewTree);
   const setComposingNewTree = useCanvasStore((s) => s.setComposingNewTree);
@@ -11,6 +16,7 @@ export function CanvasMenu() {
   const showSuggestions = useSettingsStore((s) => s.showSuggestions);
   const setShowSuggestions = useSettingsStore((s) => s.setShowSuggestions);
   const setShowRejected = useSettingsStore((s) => s.setShowRejected);
+  const [newDrill, setNewDrill] = useState(false);
   return (
     <div className="canvas-menu" data-overlay>
       <button
@@ -24,6 +30,10 @@ export function CanvasMenu() {
       >
         New tree
       </button>
+      <button type="button" className="btn btn-small" data-testid="new-drill" aria-pressed={newDrill} onClick={() => setNewDrill(!newDrill)}>
+        New drill
+      </button>
+      {newDrill && <NewDrillOverlay onClose={() => setNewDrill(false)} />}
       <label className="canvas-menu-toggle" title="Underline bold text in answers as places to branch">
         <input type="checkbox" checked={showSuggestions} onChange={(e) => setShowSuggestions(e.target.checked)} />
         Suggestions

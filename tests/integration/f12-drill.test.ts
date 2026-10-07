@@ -549,3 +549,21 @@ describe("Feature 12 · FR-027 and Article II", () => {
     expect((await call("GET", `/api/drills/${drill.drillId}`)).status).toBe(404);
   });
 });
+
+describe("Feature 12 · performance (plan Performance Goals)", () => {
+  it("loads a 30-round drill in under 500 ms", async () => {
+    let { drill } = await started("Python dictionaries");
+    for (let i = 0; i < 30; i++) drill = (await playRound(drill, (p) => (p.position % 3 ? "✓" : "~"))).drill;
+    const { loadDrill } = await import("@/server/drill/load");
+    await loadDrill(drill.drillId); // warm
+    const times: number[] = [];
+    for (let i = 0; i < 5; i++) {
+      const t0 = performance.now();
+      await loadDrill(drill.drillId);
+      times.push(performance.now() - t0);
+    }
+    const elements = await count("nodes");
+    console.log(`30-round drill: ${elements} elements, load ${times.map((t) => t.toFixed(0)).join("/")} ms`);
+    expect(Math.min(...times)).toBeLessThan(500);
+  }, 120_000);
+});

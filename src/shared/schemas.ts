@@ -456,7 +456,8 @@ export const DrillRound = z.object({
   ended: z.object({ by: z.enum(["all_answered", "user"]), at: z.string() }).nullable(),
   /** Why the round is short, when it is. */
   shortNote: z.string().nullable(),
-  lessons: z.array(Element),
+  /** Lessons on rungs that opened for this round (FR-006). */
+  lessons: z.array(Element.extend({ rungId: z.string() })),
   problems: z.array(DrillProblem),
   note: z.array(DrillNoteEntry),
   currentProblemId: z.string().nullable(),

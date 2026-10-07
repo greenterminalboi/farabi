@@ -63,17 +63,23 @@ export async function loadSnapshot(q: Q, drill: Pick<DrillRow, "node_id">): Prom
     : [];
   verdicts.sort(byTime);
   const verdictIds = verdicts.map((v) => v.id);
-  const [overrides, verdictFollowUps] = await Promise.all([
+  const [overrides, laterFollowUps] = await Promise.all([
     verdictIds.length ? q.selectFrom("drill_verdict_overrides").selectAll().where("verdict_id", "in", verdictIds).execute() : [],
-    verdictIds.length ? q.selectFrom("nodes").selectAll().where("parent_id", "in", verdictIds).where("kind", "=", "question").execute() : [],
+    attemptIds.length
+      ? q.selectFrom("nodes").selectAll().where("parent_id", "in", [...verdictIds, ...attemptIds]).where("kind", "=", "question").execute()
+      : [],
   ]);
 
   const verdictOf = new Map<string, Row>();
   for (const v of verdicts) if (!verdictOf.has(v.parent_id!)) verdictOf.set(v.parent_id!, v);
-  const followUps = [...attempts.filter((a) => a.kind === "question"), ...verdictFollowUps].sort(byTime);
+  const followUps = [...attempts.filter((a) => a.kind === "question"), ...laterFollowUps].sort(byTime);
   const verdictParent = new Map(verdicts.map((v) => [v.id, v.parent_id!]));
   const attemptParent = new Map(attemptRows.map((a) => [a.id, a.parent_id!]));
-  const problemOfFollowUp = (f: Row) => (verdictParent.has(f.parent_id!) ? attemptParent.get(verdictParent.get(f.parent_id!)!) : f.parent_id);
+  // A follow-up or branch belongs to its problem: from the problem, one of its attempts or verdicts.
+  const problemOfFollowUp = (f: Row) => {
+    const attempt = verdictParent.get(f.parent_id!) ?? f.parent_id!;
+    return attemptParent.get(attempt) ?? f.parent_id;
+  };
 
   const snaps = new Map<string, ProblemSnap>();
   for (const p of problems) {
@@ -213,7 +219,7 @@ function toRound(r: RoundSnap, changes: ChangeRow[]): DrillRound {
     number: r.number,
     ended: r.end ? { by: r.end.ended_by, at: r.end.created_at.toISOString() } : null,
     shortNote: props<{ note?: string }>(r.row).note ?? null,
-    lessons: r.lessons.map((l) => toElement(l)),
+    lessons: r.lessons.map((l) => ({ ...toElement(l), rungId: props<{ rungId: string }>(l).rungId })),
     problems,
     note: note.map((c) => ({
       changeId: c.id,

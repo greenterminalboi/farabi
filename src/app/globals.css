@@ -487,3 +487,81 @@ body { display: flex; flex-direction: column; }
 /* Function menus over the canvas are placed in page coordinates (story 8). */
 .canvas-function-menu, .edge-settings { position: fixed; z-index: 35; width: 220px; right: auto; }
 .edge-settings { width: 260px; background: var(--surface); }
+
+/* Feature 12: the drill screen (contracts/drill-ui.md). */
+.drill-screen { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+.drill-loading { align-items: center; justify-content: center; }
+.drill-header { padding: 10px 16px; border-bottom: 1px solid var(--border); background: var(--surface); }
+.drill-domain { font-size: 1.2em; margin: 0; }
+.drill-body { flex: 1; min-height: 0; display: flex; }
+.drill-ladder { width: 320px; flex: none; padding: 12px 16px; border-right: 1px solid var(--border); overflow-y: auto; }
+.drill-ladder-head { display: flex; align-items: center; gap: 8px; }
+.drill-ladder-head h2 { font-size: 1em; margin: 0; margin-right: auto; }
+.drill-rungs { list-style: none; padding: 0; margin: 10px 0; display: flex; flex-direction: column; gap: 6px; }
+.drill-rung { border: 1px solid var(--border); border-radius: 8px; padding: 6px 8px; background: var(--surface); }
+.drill-rung.state-open { border-color: var(--accent); }
+.drill-rung.state-solid { border-color: #2f9e44; }
+.drill-rung.removed { opacity: 0.5; }
+.drill-rung-view { display: flex; flex-direction: column; gap: 4px; }
+.drill-rung-name { font-weight: 600; }
+.drill-rung-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 0.85em; color: var(--muted); }
+.drill-rung-meta select { font-size: 0.9em; }
+.drill-rung-edit { display: flex; gap: 4px; }
+.drill-rung-edit input { flex: 1; min-width: 0; font: inherit; padding: 2px 6px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text); }
+.drill-state { text-transform: uppercase; font-size: 0.75em; letter-spacing: 0.04em; }
+.drill-state.state-open { color: var(--accent); }
+.drill-state.state-solid { color: #2f9e44; }
+.drill-spark { color: var(--accent); vertical-align: middle; }
+.drill-start { width: 100%; margin-top: 8px; }
+.drill-main { flex: 1; min-width: 0; overflow-y: auto; padding: 16px 24px 80px; display: flex; flex-direction: column; gap: 14px; max-width: 900px; }
+.drill-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.drill-label { font-weight: 600; font-size: 0.9em; }
+.drill-muted { color: var(--muted); font-size: 0.9em; }
+.drill-error { color: var(--danger); }
+.drill-input { flex: 1; min-width: 200px; font: inherit; padding: 6px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text); }
+.drill-panel { border: 1px solid var(--border); border-radius: 10px; padding: 12px; background: var(--surface); display: flex; flex-direction: column; gap: 8px; }
+.drill-header .drill-panel { margin-top: 10px; max-width: 640px; }
+.drill-text { padding: 0; }
+.drill-text .element-body { white-space: pre-wrap; }
+.drill-problem, .drill-lesson { border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; background: var(--surface); display: flex; flex-direction: column; gap: 10px; }
+.drill-lesson { border-color: var(--ai); }
+.drill-problem-text { font-size: 1.05em; }
+.drill-hint, .drill-solution { border-left: 3px solid var(--ai); padding-left: 10px; }
+.drill-attempts { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 10px; }
+.drill-attempt-text { background: var(--accent-soft); border-radius: 10px; padding: 8px 12px; }
+.drill-verdict { margin-top: 6px; display: flex; flex-direction: column; gap: 6px; }
+.drill-verdict.missing { flex-direction: row; align-items: center; }
+.drill-badge { font-size: 0.8em; padding: 1px 8px; border-radius: 10px; border: 1px solid var(--border); }
+.drill-badge.v-solved { color: #2f9e44; border-color: #2f9e44; }
+.drill-badge.v-partly_solved { color: #e67700; border-color: #e67700; }
+.drill-badge.v-not_solved { color: var(--danger); border-color: var(--danger); }
+.drill-badge.overridden { text-decoration: line-through; opacity: 0.7; }
+.drill-badge.flagged { color: var(--muted); }
+.drill-answer textarea { width: 100%; font: inherit; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); color: var(--text); resize: vertical; }
+.drill-answer { display: flex; flex-direction: column; gap: 8px; }
+.drill-followups { border-top: 1px solid var(--border); padding-top: 10px; display: flex; flex-direction: column; gap: 6px; }
+.drill-links { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.drill-links a { color: var(--accent); }
+.drill-excerpt { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.drill-strip { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.drill-chip { font: inherit; font-size: 0.85em; padding: 2px 10px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface); color: var(--text); cursor: pointer; }
+.drill-chip.current { border-color: var(--accent); background: var(--accent-soft); }
+.drill-chip.v-solved { color: #2f9e44; }
+.drill-chip.v-partly_solved { color: #e67700; }
+.drill-chip.v-not_solved { color: var(--danger); }
+.drill-chip.flagged, .drill-chip.skipped { opacity: 0.6; }
+.drill-note ul { margin: 4px 0 0; padding-left: 18px; }
+.drill-failed h3, .drill-complete h3 { font-size: 1em; margin: 0 0 6px; }
+.drill-failed ul { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 6px; }
+.drill-complete { border: 1px solid #2f9e44; border-radius: 12px; padding: 12px 16px; background: var(--surface); display: flex; flex-direction: column; gap: 8px; }
+.drill-offers { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
+.drill-offer { border: 1px dashed var(--ai); border-radius: 10px; padding: 10px; display: flex; flex-direction: column; gap: 6px; }
+.drill-offer p { margin: 0; }
+.drill-create { display: flex; flex-direction: column; gap: 8px; min-width: 320px; }
+.drill-create input { font: inherit; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text); }
+.drill-overlay { position: absolute; top: 48px; left: 12px; z-index: 30; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px; box-shadow: 0 6px 24px rgba(0, 0, 0, 0.15); }
+.drill-back { position: absolute; top: 12px; right: 12px; z-index: 30; text-decoration: none; }
+.drill-attach-banner {
+  position: absolute; top: 12px; left: 50%; transform: translateX(-50%); z-index: 30; display: flex; align-items: center; gap: 10px;
+  background: var(--surface); border: 1px solid var(--accent); border-radius: 10px; padding: 8px 12px; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+}
