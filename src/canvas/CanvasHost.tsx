@@ -20,6 +20,7 @@ import { CanvasRenderer } from "./renderer/CanvasRenderer";
 import { buildScene } from "./scene";
 import { isVisible, useCanvasStore } from "./store";
 import { TextLayer } from "./text/TextLayer";
+import { rangeForOffsets } from "./text/selection";
 import { Composer } from "./overlays/Composer";
 import { CanvasMenu } from "./overlays/CanvasMenu";
 import { EmptyState } from "./overlays/EmptyState";
@@ -43,9 +44,26 @@ const REFETCH_MS = 10_000;
 const STREAM_LAYOUT_MS = 100;
 const CAMERA_IDLE_MS = 500;
 
-type Props = { projectId: string; focus?: string | null };
+type Props = { projectId: string; focus?: string | null; span?: string | null };
 
-export function CanvasHost({ projectId, focus }: Props) {
+/** Selects `start-end` of an element's text once it is mounted (a definition's source link). */
+function selectSpanWhenMounted(layer: TextLayer, id: string, span: string): void {
+  const [start, end] = span.split("-").map(Number);
+  if (!Number.isInteger(start) || !Number.isInteger(end) || end <= start) return;
+  let tries = 0;
+  const attempt = () => {
+    const item = layer.element(id);
+    const range = item ? rangeForOffsets(item, start, end) : null;
+    if (range) {
+      const sel = document.getSelection();
+      sel?.removeAllRanges();
+      sel?.addRange(range);
+    } else if (tries++ < 60) setTimeout(attempt, 100);
+  };
+  attempt();
+}
+
+export function CanvasHost({ projectId, focus, span }: Props) {
   const rootRef = useRef<HTMLDivElement>(null);
   const hostRef = useRef<HTMLDivElement>(null);
   const [engine, setEngine] = useState<CanvasEngine | null>(null);
@@ -419,7 +437,10 @@ export function CanvasHost({ projectId, focus }: Props) {
             const latest = [...useCanvasStore.getState().elements.values()]
               .filter((e) => renderer.element(e.id) && e.origin !== "run")
               .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))[0];
-            if (focus && renderer.element(focus)) engineApi.walkTo(focus);
+            if (focus && renderer.element(focus)) {
+              engineApi.walkTo(focus);
+              if (span) selectSpanWhenMounted(layer, focus, span);
+            }
             else {
               if (latest && !useCanvasStore.getState().focusId) useCanvasStore.getState().focus(latest.id);
               const box = latest ? renderer.element(latest.id)?.box : undefined;
@@ -472,7 +493,7 @@ export function CanvasHost({ projectId, focus }: Props) {
       cleanup();
       setEngine(null);
     };
-  }, [projectId, focus]);
+  }, [projectId, focus, span]);
 
   const overlays = useMemo(
     () =>

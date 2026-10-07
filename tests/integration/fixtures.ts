@@ -28,6 +28,7 @@ export const TRUNCATE_TABLES = [
   "parked_tangents",
   "project_cameras",
   "v1_conversion",
+  "v1_checksums",
   "feedback_state_events",
   "feedback_attachments",
   "feedback_tags",

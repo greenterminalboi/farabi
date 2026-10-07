@@ -1,5 +1,5 @@
 import { type Kysely, sql } from "kysely";
-import { convertV1, printReport } from "../v1/convert";
+import { backfillAfterConversion, convertV1, printReport, recordChecksums } from "../v1/convert";
 
 // Feature 10: the message graph (data-model.md, contracts/migration.md). The v1 tables move,
 // untouched, into a frozen `v1` schema (research R2); every graph element is a row of the new
@@ -47,12 +47,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
       digest text NOT NULL,
       taken_at timestamptz NOT NULL DEFAULT now()
     )`.execute(db);
-  for (const [table, pk] of V1_TABLES) {
-    await sql`
-      INSERT INTO v1_checksums (table_name, row_count, digest)
-      SELECT ${table}, count(*), md5(coalesce(string_agg(row_to_json(t)::text, '' ORDER BY t.${sql.ref(pk)}), ''))
-      FROM ${sql.table(`v1.${table}`)} t`.execute(db);
-  }
+  await recordChecksums(db, V1_TABLES);
 
   // 3. New tables.
   await sql`
@@ -344,13 +339,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
   const report = await convertV1(db);
 
   // 8. Backfills, then freeze the new feedback columns too.
-  await sql`
-    UPDATE definitions SET source_id = source_message_id
-    WHERE source_id IS NULL AND source_message_id IN (SELECT id FROM nodes)`.execute(db);
-  await sql`
-    UPDATE feedback_items f SET element_id = c.v2_id, project_id = n.project_id
-    FROM v1_conversion c JOIN nodes n ON n.id = c.v2_id
-    WHERE c.v1_table = 'nodes' AND c.v1_id = f.node_id AND f.element_id IS NULL`.execute(db);
+  await backfillAfterConversion(db);
   await sql`
     CREATE OR REPLACE FUNCTION feedback_items_rank_only() RETURNS trigger LANGUAGE plpgsql AS $$
     BEGIN

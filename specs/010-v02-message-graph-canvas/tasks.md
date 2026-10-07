@@ -637,7 +637,7 @@ passes every invariant, and a rerun inserts 0 rows (quickstart §1).
 
 ### Tests (write first)
 
-- [ ] T065 [P] [US4] Integration test `tests/integration/v1-convert.test.ts`:
+- [X] T065 [P] [US4] Integration test `tests/integration/v1-convert.test.ts`:
   - Seed the fixture listed in contracts/migration.md "Fixture coverage" through `seedV1`.
   - Run `convertV1` in a transaction.
   - Assert every row of the conversion rules table: parent, origin, anchor, `requery_of`, status,
@@ -647,7 +647,7 @@ passes every invariant, and a rerun inserts 0 rows (quickstart §1).
 
 ### Implementation
 
-- [ ] T066 [US4] Implement `convertV1` in `src/server/db/v1/convert.ts` following
+- [X] T066 [US4] Implement `convertV1` in `src/server/db/v1/convert.ts` following
   contracts/migration.md "Conversion rules". All inserts use `ON CONFLICT DO NOTHING`, and every
   rule appends to `v1_conversion`.
   1. **Trees**: copy each tree with the same id, project, origin and `user_placed`.
@@ -667,7 +667,7 @@ passes every invariant, and a rerun inserts 0 rows (quickstart §1).
   3. **Empty branch conversations** → unsent edges with the v1 node id.
 
   Derived ids are `md5('<table>:<id>:<n>')::uuid`.
-- [ ] T067 [US4] Extend `convertV1` with the remaining rules (contracts/migration.md):
+- [X] T067 [US4] Extend `convertV1` with the remaining rules (contracts/migration.md):
   - **Edge labels** → `edge_notes` on the conversation's first edge, in order.
   - **Parked tangents** → `parked_tangents` on the element with the tangent's `message_id`, plus
     their events (`fired` → that conversation's first edge).
@@ -678,7 +678,7 @@ passes every invariant, and a rerun inserts 0 rows (quickstart §1).
   - **Conversation hand placements** → ledger only (`detail.manual`, `v2_id` NULL; research R4,
     open decision). 009 output placements → `manual_x/y`.
   - **Report**: return a `ConversionReport` of counts per rule.
-- [ ] T068 [US4] Backfills in `src/server/db/migrations/0010_message_graph.ts` after `convertV1`:
+- [X] T068 [US4] Backfills in `src/server/db/migrations/0010_message_graph.ts` after `convertV1`:
   - `UPDATE definitions SET source_id = source_message_id WHERE source_id IS NULL`
   - `feedback_items.element_id` = the first edge of `node_id`'s conversation through the ledger,
     and `project_id` from its tree
@@ -686,11 +686,11 @@ passes every invariant, and a rerun inserts 0 rows (quickstart §1).
   - print the report with `console.log`
 
   Remove the "not implemented" throw from T013.
-- [ ] T069 [US4] Create `src/server/db/v1/verify.ts` with the five invariants of
+- [X] T069 [US4] Create `src/server/db/v1/verify.ts` with the five invariants of
   contracts/migration.md, each returning `{ name, ok, details }`. Add `scripts/v1-verify.ts`, which
   prints them and exits 1 on failure, and `scripts/v1-convert.ts`, which reruns `convertV1` in a
   transaction and prints "N new rows".
-- [ ] T070 [US4] Backup step in `scripts/migrate.ts`. When `0010_message_graph` is pending and
+- [X] T070 [US4] Backup step in `scripts/migrate.ts`. When `0010_message_graph` is pending and
   `public.messages` exists with rows:
   1. Run `docker compose exec -T db pg_dump -Fc -U farabi farabi` into
      `db/backups/<ISO time>-pre-0010.dump`.
@@ -702,10 +702,10 @@ passes every invariant, and a rerun inserts 0 rows (quickstart §1).
   `v1_conversion`: a v1 conversation id → its first edge, and an element id → itself. Then
   `redirect("/?focus=<id>")`. Unknown → `notFound()`. Rewrite `src/app/map/page.tsx` to
   `redirect("/")` (research R18). Reading `v1_conversion` is allowed. It isn't the `v1` schema.
-- [ ] T072 [US4] Focus from the URL in `src/canvas/CanvasHost.tsx`: on load with `?focus=` (and
+- [X] T072 [US4] Focus from the URL in `src/canvas/CanvasHost.tsx`: on load with `?focus=` (and
   optional `&span=start-end`), focus that element, walk the camera there, and select the span once
   mounted (FR-055 link target).
-- [ ] T073 [US4] E2E `tests/e2e/f10-us4-migration.spec.ts`:
+- [X] T073 [US4] E2E `tests/e2e/f10-us4-migration.spec.ts`:
   1. Seed a small v1 fixture through a test-only route `src/app/api/test/convert-v1/route.ts`
      (`FARABI_TEST_HOOKS` only). It seeds the fixture and runs `convertV1`.
   2. Open the canvas: the converted conversation's text is visible as a column, the branch marker

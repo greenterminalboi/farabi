@@ -22,3 +22,6 @@ playwright-report/
 
 # v0.2 migration backups (pg_dump before 0010)
 /db/backups/
+
+# Local dev server builds against scratch databases
+/.next-scratch/
