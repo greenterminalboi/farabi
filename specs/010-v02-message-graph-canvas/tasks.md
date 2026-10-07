@@ -959,7 +959,7 @@ and kind settings with per-edge overrides.
   - resolution is edge, then kind, then default
   - a change never starts a run
   - every change is recorded with its time (FR-053)
-- [ ] T101 [P] [US8] E2E `tests/e2e/f10-us8-functions.spec.ts` (story 8, scenarios 1–5).
+- [X] T101 [P] [US8] E2E `tests/e2e/f10-us8-functions.spec.ts` (story 8, scenarios 1–5).
 
 ### Implementation
 
@@ -991,7 +991,7 @@ and kind settings with per-edge overrides.
   - `src/app/api/edges/[edgeId]/settings/route.ts`
 
   Update `src/app/api/kind-settings/route.ts`.
-- [ ] T107 [US8] Function UI:
+- [X] T107 [US8] Function UI:
   - `src/canvas/overlays/FunctionMenu.tsx`, from `src/components/kinds/FunctionMenu.tsx`, opens
     from `ƒ` in an answer's frame.
   - `src/canvas/overlays/OutputActions.tsx` has Confirm, Reject and Run again on output frames,
@@ -1001,7 +1001,7 @@ and kind settings with per-edge overrides.
   - The edge chip has a Settings popover from `src/components/kinds/NodeSettings.tsx`.
   - "Show rejected" in the canvas menu.
   - Function output arrival never moves the camera (FR-025).
-- [ ] T108 [US8] Update `src/components/settings/KindSettingsSections.tsx` to render sections for
+- [X] T108 [US8] Update `src/components/settings/KindSettingsSections.tsx` to render sections for
   every kind that declares settings (FR-053). No other change is expected.
 
 **Checkpoint**: Functions work on edges, and SC-013 holds.

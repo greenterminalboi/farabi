@@ -480,3 +480,6 @@ body { display: flex; flex-direction: column; }
 .element-text.note-chip .chrome-btn { font-style: italic; max-width: 100%; overflow: hidden; text-overflow: ellipsis; border-radius: 999px; }
 .element-text.note-chip.empty .chrome-btn { color: var(--muted); border-style: dashed; }
 .note-editor { position: fixed; z-index: 35; }
+/* Function menus over the canvas are placed in page coordinates (story 8). */
+.canvas-function-menu, .edge-settings { position: fixed; z-index: 35; width: 220px; right: auto; }
+.edge-settings { width: 260px; background: var(--surface); }

@@ -36,6 +36,9 @@ import {
   TrashProjectResponse,
 } from "@/shared/schemas";
 import { z } from "zod";
+import { ResolvedSetting } from "@/shared/schemas";
+
+const EdgeSettingsResponse = z.object({ kind: z.string(), settings: z.array(ResolvedSetting) });
 
 export class ApiError extends Error {
   constructor(
@@ -148,6 +151,7 @@ export const api = {
   getKindSettings: () => request("GET", "/api/kind-settings", KindSettingsResponse),
   saveKindSetting: (kind: string, key: string, value: string | null) =>
     request("PUT", "/api/kind-settings", SettingResponse, { kind, key, value }),
+  edgeSettings: (edgeId: string) => request("GET", `/api/edges/${edgeId}/settings`, EdgeSettingsResponse),
   saveEdgeSetting: (edgeId: string, key: string, value: string | null) =>
     request("PUT", `/api/edges/${edgeId}/settings`, SettingResponse, { key, value }),
 };

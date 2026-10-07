@@ -94,6 +94,17 @@ export async function setKindSetting(kind: string, key: string, value: string | 
   return { setting: settingOf(await resolveKindSettings(kind), key) };
 }
 
+/** A function edge's settings, resolved: its override, then the kind value, then the default. */
+export async function edgeSettings(edgeId: string): Promise<{ kind: string; settings: ResolvedSetting[] }> {
+  assertId(edgeId, "Edge");
+  const edge = await loadLive(db, edgeId);
+  if (edge.origin !== "run" || edge.shape !== "edge" || edge.function_id === null) {
+    throw new ConflictError("wrong_kind", "Only a function edge has settings", { kind: edge.kind });
+  }
+  const kind = getFunction(edge.function_id).outputKind;
+  return { kind, settings: await resolveKindSettings(kind, edgeId) };
+}
+
 /**
  * Sets or clears (null) the override on one function edge, for a setting its output kind declares
  * (FR-053). It applies to that edge's next run only.

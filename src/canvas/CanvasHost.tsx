@@ -28,6 +28,8 @@ import { SelectionToolbar } from "./overlays/SelectionToolbar";
 import { SidePanel } from "./overlays/SidePanel";
 import { MinimapToggle } from "./overlays/MinimapToggle";
 import { NoteEditor } from "./overlays/NoteEditor";
+import { FunctionMenu } from "./overlays/FunctionMenu";
+import { EdgeSettings } from "./overlays/EdgeSettings";
 import { Toasts } from "./overlays/Toasts";
 import { TextInteractions } from "./overlays/TextInteractions";
 import { TermCard } from "@/components/definitions/TermCard";
@@ -537,6 +539,8 @@ export function CanvasHost({ projectId, focus, span }: Props) {
           <TextInteractions />
           <MinimapToggle />
           <NoteEditor />
+          <FunctionMenu />
+          <EdgeSettings />
           <Toasts />
           <TermCard containerRef={rootRef} />
         </>

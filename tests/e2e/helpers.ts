@@ -81,28 +81,37 @@ export async function elementsOf(page: Page, kind: DebugElement["kind"]): Promis
 }
 
 /**
- * A screen point on an element's frame (not its text) that a press would really land on. Like a
- * user, it first brings the element into view when it is off screen or under an overlay.
+ * A screen point on an element's frame (its padding, not its text or buttons) that a press would
+ * really land on. Like a user, it first brings the element into view when no such point is visible.
  */
 export async function framePoint(page: Page, id: string): Promise<{ x: number; y: number }> {
-  const clickable = (pt: { x: number; y: number } | null) =>
-    page.evaluate(
-      ({ id, pt }) => {
-        if (!pt) return false;
-        const hit = document.elementFromPoint(pt.x, pt.y);
-        return !!hit && (hit.tagName === "CANVAS" || hit.closest(`[data-node-id="${id}"]`) !== null) && !hit.closest("[data-overlay]");
-      },
-      { id, pt },
-    );
-  let pt = await page.evaluate((id) => window.__farabiScreenPoint!(id, "frame"), id);
-  if (!(await clickable(pt))) {
+  const find = () =>
+    page.evaluate((id) => {
+      const item = document.querySelector<HTMLElement>(`[data-testid=element-text][data-node-id="${id}"]`);
+      const r = item?.getBoundingClientRect();
+      const canvas = document.querySelector("[data-testid=canvas]")!.getBoundingClientRect();
+      if (!item || !r) return null;
+      const candidates = [
+        { x: r.left + 4, y: r.top + r.height / 2 },
+        { x: r.right - 4, y: r.top + r.height / 2 },
+        { x: r.left + r.width / 2, y: r.bottom - 4 },
+        { x: r.left + 4, y: r.bottom - 4 },
+      ];
+      return (
+        candidates.find(
+          (p) =>
+            p.x > canvas.left && p.x < canvas.right && p.y > canvas.top && p.y < canvas.bottom && document.elementFromPoint(p.x, p.y) === item,
+        ) ?? null
+      );
+    }, id);
+  let pt = await find();
+  if (!pt) {
     const el = (await canvasDebug(page)).elements.find((e) => e.id === id);
     if (!el) throw new Error(`element ${id} is not on the canvas`);
     await page.evaluate(([x, y]) => window.__farabiSetCamera!(x, y, 1), [el.x + el.w / 2, el.y + el.h / 2] as const);
-    await page.waitForTimeout(200);
-    pt = await page.evaluate((id) => window.__farabiScreenPoint!(id, "frame"), id);
+    await expect.poll(find, { timeout: 3000 }).not.toBeNull();
+    pt = (await find())!;
   }
-  if (!pt) throw new Error(`element ${id} is not on the canvas`);
   return pt;
 }
 

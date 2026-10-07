@@ -544,8 +544,9 @@ export class CanvasRenderer {
       const r = this.elementScreenRect(id);
       const host = this.app?.canvas.getBoundingClientRect();
       if (!r || !host) return null;
-      // The frame: the header strip's empty end. The text: inside the body, near its start.
-      const pt = part === "frame" ? { x: r.x + r.w - Math.min(12, r.w / 4), y: r.y + Math.min(6, r.h / 4) } : { x: r.x + r.w / 2, y: r.y + r.h / 2 };
+      // The frame: the left padding at mid-height, clear of the header's buttons and of the text.
+      // The text: the middle of the body.
+      const pt = part === "frame" ? { x: r.x + Math.min(5, r.w / 4), y: r.y + r.h / 2 } : { x: r.x + r.w / 2, y: r.y + r.h / 2 };
       return { x: host.left + pt.x, y: host.top + pt.y };
     };
   }
