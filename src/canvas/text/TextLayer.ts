@@ -80,6 +80,7 @@ export class TextLayer {
   private unmountTimer: ReturnType<typeof setTimeout> | null = null;
   private camera: Camera | null = null;
   private idleListeners = new Set<() => void>();
+  private fullListeners = new Set<(id: string, body: HTMLElement) => void>();
   private work = { refreshMs: 0, refreshes: 0, renderMs: 0, renders: 0 };
   private filled = false;
   private movingUntil = 0;
@@ -152,6 +153,12 @@ export class TextLayer {
 
   element(id: string): HTMLElement | null {
     return this.mounted.get(id)?.el ?? null;
+  }
+
+  /** Called after an item is rendered with all of its text, so its real height can be measured. */
+  onFullRender(cb: (id: string, body: HTMLElement) => void): () => void {
+    this.fullListeners.add(cb);
+    return () => this.fullListeners.delete(cb);
   }
 
   /** Resolves the next time all queued work is done and nothing waits to unmount. */
@@ -286,6 +293,7 @@ export class TextLayer {
     m.chars = cut.chars;
     m.clipped = clipped;
     m.version = item.version;
+    if (!clipped && item.source) for (const cb of this.fullListeners) cb(id, body);
   }
 
   private place(el: HTMLElement, item: TextItem): void {

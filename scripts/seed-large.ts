@@ -1,6 +1,9 @@
-// Seeds 20 trees with 500 nodes total for the scale check (quickstart scenario 8).
+// Seeds one project with `--elements N` graph elements (default 5,000) over 20 trees, for the
+// scale checks (Feature 10, SC-005, T079): question and answer runs, with about 15% of elements
+// starting a branch, and answer texts shaped like real replies (research R17).
 // `--feedback N` also seeds N feedback items, about a third with a screenshot (Feature 3, SC-008).
-// `--outputs N` also seeds N Analogy outputs with their pipes (Feature 9, SC-009).
+// `--outputs N` also runs Analogy on the first N answers: a function edge and one output each.
+// `--test` targets the test database.
 import { crc32, deflateSync } from "node:zlib";
 import { createDb } from "../src/server/db/client";
 import { writeAttachmentFiles } from "../src/server/feedback/attachments";
@@ -12,119 +15,170 @@ const useTest = process.argv.includes("--test");
 const url = useTest ? process.env.TEST_DATABASE_URL : process.env.DATABASE_URL;
 if (!url) throw new Error("database URL not set");
 const db = createDb(url);
+const arg = (name: string, fallback: number) => {
+  const i = process.argv.indexOf(name);
+  return i >= 0 ? Number(process.argv[i + 1]) : fallback;
+};
 
-// Feature 4: everything is seeded into one project.
-const project = await db.insertInto("projects").values({ name: "Scale seed" }).returning("id").executeTakeFirstOrThrow();
-
+const ELEMENTS = arg("--elements", 5000);
 const TREES = 20;
-const NODES = 500;
-const MAX_DEPTH = 6;
+const BRANCH_SHARE = 0.15;
+
 let seed = 42;
 const rand = () => ((seed = (seed * 1103515245 + 12345) % 2 ** 31) / 2 ** 31);
 
-type SeedNode = { id: string; treeId: string; depth: number; aiMessageId: string; aiContent: string };
-const all: SeedNode[] = [];
+const WORDS = (
+  "pods containers scheduling nodes cluster network service volume replica controller state " +
+  "the a of to and in is that for it as with be on not this by are or from at which an have " +
+  "learning memory attention gradient model layer weights training data loss function value"
+).split(" ");
 
-async function addNode(treeId: string, parent: SeedNode | null, depth: number): Promise<SeedNode> {
-  const id = crypto.randomUUID();
-  await db.insertInto("nodes").values({
-    id, tree_id: treeId, parent_id: parent?.id ?? null, provenance: "user_authored",
-    kind: "conversation", origin: parent ? "branch" : "root",
-  }).execute();
-  const topic = `topic ${all.length}`;
-  const turns = [
-    { role: "user" as const, content: `Question about ${topic}` },
-    { role: "ai" as const, content: `Answer about ${topic}. Containers are mentioned here.` },
-    { role: "user" as const, content: `Follow-up on ${topic}` },
-    { role: "ai" as const, content: `More on ${topic}. Scheduling is mentioned here.` },
-  ];
-  const inserted = await db
-    .insertInto("messages")
-    .values(turns.map((t, i) => ({
-      node_id: id, seq: i + 1, role: t.role, content: t.content, status: "complete" as const,
-      provenance: t.role === "ai" ? ("ai_suggested" as const) : ("user_authored" as const),
-    })))
-    .returning(["id", "role", "content"])
-    .execute();
-  const ai = inserted.filter((m) => m.role === "ai").at(-1)!;
-  if (parent) {
-    const start = parent.aiContent.indexOf("Containers");
-    await db.insertInto("branch_markers").values({
-      parent_node_id: parent.id, message_id: parent.aiMessageId, child_node_id: id,
-      start_offset: start, end_offset: start + 10, anchor_text: "Containers",
-      prefix: parent.aiContent.slice(Math.max(0, start - 32), start),
-      suffix: parent.aiContent.slice(start + 10, start + 42), provenance: "user_authored",
-    }).execute();
+function sentence(words: number): string {
+  const ws = Array.from({ length: words }, () => WORDS[Math.floor(rand() * WORDS.length)]);
+  if (rand() < 0.3) {
+    const i = Math.floor(rand() * (ws.length - 1));
+    ws[i] = `**${ws[i]}**`;
   }
-  await db.insertInto("node_summaries").values({
-    node_id: id, text: `About ${topic}.`, provenance: "ai_suggested", through_message_id: ai.id,
-  }).execute();
-  // Anchor branches on the first AI reply so later messages don't interfere.
-  const firstAi = inserted.find((m) => m.role === "ai")!;
-  const node = { id, treeId, depth, aiMessageId: firstAi.id, aiContent: firstAi.content };
-  all.push(node);
-  return node;
+  const s = ws.join(" ");
+  return s.charAt(0).toUpperCase() + s.slice(1) + ".";
 }
 
+/** Skewed length like the owner's replies: most 1,000–2,500 characters, a few up to 8,000. */
+function answerText(): string {
+  const target = Math.min(8000, Math.round(300 + -Math.log(1 - rand() * 0.999) * 1400));
+  const parts: string[] = [];
+  let len = 0;
+  while (len < target) {
+    const para =
+      rand() < 0.2
+        ? Array.from({ length: 2 + Math.floor(rand() * 4) }, () => `- ${sentence(6 + Math.floor(rand() * 10))}`).join("\n")
+        : Array.from({ length: 2 + Math.floor(rand() * 4) }, () => sentence(8 + Math.floor(rand() * 14))).join(" ");
+    parts.push(para);
+    len += para.length + 2;
+  }
+  return parts.join("\n\n");
+}
+
+const project = await db.insertInto("projects").values({ name: "Scale seed" }).returning("id").executeTakeFirstOrThrow();
+
+type Row = {
+  id: string;
+  tree_id: string;
+  parent_id: string | null;
+  kind: "question" | "answer";
+  shape: "edge" | "node";
+  origin: "origin" | "ask" | "branch" | "reply";
+  provenance: "user_authored" | "ai_suggested";
+  text: string;
+  status: "complete" | null;
+  anchor?: { start: number; end: number; text: string; prefix: string; suffix: string };
+  depth: number;
+  created_at: Date;
+};
+
+const rows: Row[] = [];
+const answers: Row[] = [];
+let clock = Date.UTC(2026, 9, 1);
+const tick = () => new Date((clock += 1000));
+
+function addPair(treeId: string, parent: Row | null, branchFrom = false): Row {
+  const q: Row = {
+    id: crypto.randomUUID(),
+    tree_id: treeId,
+    parent_id: parent?.id ?? null,
+    kind: "question",
+    shape: "edge",
+    origin: parent ? (branchFrom ? "branch" : "ask") : "origin",
+    provenance: "user_authored",
+    text: sentence(6 + Math.floor(rand() * 10)).replace(/\.$/, "?"),
+    status: null,
+    depth: (parent?.depth ?? -1) + 1,
+    created_at: tick(),
+  };
+  if (branchFrom && parent) {
+    // Anchor the branch on a word of its parent answer.
+    const at = parent.text.indexOf(" ", Math.floor(rand() * parent.text.length * 0.8)) + 1;
+    const end = parent.text.indexOf(" ", at);
+    if (at > 0 && end > at) {
+      const text = parent.text.slice(at, end);
+      if (text.trim()) {
+        q.anchor = { start: at, end, text, prefix: parent.text.slice(Math.max(0, at - 32), at), suffix: parent.text.slice(end, end + 32) };
+      }
+    }
+    if (!q.anchor) q.origin = "ask";
+  }
+  const a: Row = {
+    id: crypto.randomUUID(),
+    tree_id: treeId,
+    parent_id: q.id,
+    kind: "answer",
+    shape: "node",
+    origin: "reply",
+    provenance: "ai_suggested",
+    text: answerText(),
+    status: "complete",
+    depth: q.depth + 1,
+    created_at: tick(),
+  };
+  rows.push(q, a);
+  answers.push(a);
+  return a;
+}
+
+const trees: Array<{ id: string; tip: Row }> = [];
 for (let t = 0; t < TREES; t++) {
   const treeId = crypto.randomUUID();
-  const rootId = crypto.randomUUID();
-  await db.transaction().execute(async (trx) => {
-    await trx.insertInto("trees").values({ id: treeId, project_id: project.id, root_node_id: rootId, layout_origin_x: t * 2000, layout_origin_y: 0 }).execute();
-    await trx.insertInto("nodes").values({ id: rootId, tree_id: treeId, parent_id: null, provenance: "user_authored", kind: "conversation", origin: "root" }).execute();
-  });
-  const turns = [
-    { role: "user" as const, content: `Root question ${t}` },
-    { role: "ai" as const, content: `Root answer ${t}. Containers are mentioned here.` },
-  ];
-  const inserted = await db.insertInto("messages").values(turns.map((x, i) => ({
-    node_id: rootId, seq: i + 1, role: x.role, content: x.content, status: "complete" as const,
-    provenance: x.role === "ai" ? ("ai_suggested" as const) : ("user_authored" as const),
-  }))).returning(["id", "content", "role"]).execute();
-  const ai = inserted.find((m) => m.role === "ai")!;
-  all.push({ id: rootId, treeId, depth: 0, aiMessageId: ai.id, aiContent: ai.content });
+  await db.insertInto("trees").values({ id: treeId, project_id: project.id, layout_origin_x: t * 6000, layout_origin_y: 0 }).execute();
+  trees.push({ id: treeId, tip: addPair(treeId, null) });
+}
+while (rows.length < ELEMENTS) {
+  const tree = trees[Math.floor(rand() * trees.length)];
+  if (rand() < BRANCH_SHARE) {
+    const from = answers.filter((a) => a.tree_id === tree.id)[Math.floor(rand() * answers.filter((a) => a.tree_id === tree.id).length)];
+    addPair(tree.id, from, true);
+  } else tree.tip = addPair(tree.id, tree.tip);
 }
 
-while (all.length < NODES) {
-  const candidates = all.filter((n) => n.depth < MAX_DEPTH);
-  const parent = candidates[Math.floor(rand() * candidates.length)];
-  await addNode(parent.treeId, parent, parent.depth + 1);
+// Parents first: each depth in its own statements, so the shape trigger always finds the parent.
+const byDepth = new Map<number, Row[]>();
+for (const r of rows) byDepth.set(r.depth, [...(byDepth.get(r.depth) ?? []), r]);
+for (const depth of [...byDepth.keys()].sort((a, b) => a - b)) {
+  const level = byDepth.get(depth)!;
+  for (let i = 0; i < level.length; i += 500) {
+    await db
+      .insertInto("nodes")
+      .values(
+        level.slice(i, i + 500).map((r) => ({
+          id: r.id,
+          project_id: project.id,
+          tree_id: r.tree_id,
+          parent_id: r.parent_id,
+          kind: r.kind,
+          shape: r.shape,
+          origin: r.origin,
+          provenance: r.provenance,
+          text: r.text,
+          status: r.status,
+          pressure_level: r.kind === "answer" ? 8 : null,
+          anchor_start: r.anchor?.start ?? null,
+          anchor_end: r.anchor?.end ?? null,
+          anchor_text: r.anchor?.text ?? null,
+          anchor_prefix: r.anchor?.prefix ?? null,
+          anchor_suffix: r.anchor?.suffix ?? null,
+          sent_at: r.kind === "question" ? r.created_at : null,
+          created_at: r.created_at,
+        })),
+      )
+      .execute();
+  }
 }
 
-// Feature 2: 500 definitions (one draft each) and a few edge labels.
-const DEFINITIONS = 500;
-const defRows = Array.from({ length: DEFINITIONS }, (_, i) => {
-  const source = all[i % all.length];
-  return {
-    project_id: project.id,
-    term: `term ${i}`,
-    term_key: `term ${i}`,
-    source_node_id: source.id,
-    source_message_id: source.aiMessageId,
-  };
-});
-defRows[0] = { ...defRows[0], term: "Containers", term_key: "containers" };
-const defs = await db.insertInto("definitions").values(defRows).returning(["id", "term"]).execute();
-await db
-  .insertInto("definition_versions")
-  .values(
-    defs.map((d) => ({
-      definition_id: d.id,
-      general_text: `General meaning of ${d.term}.`,
-      usage_text: `How ${d.term} was used in the conversation.`,
-      provenance: "ai_suggested" as const,
-    })),
-  )
-  .execute();
-const labelled = all.filter((n) => n.depth > 0).slice(0, 10);
-await db
-  .insertInto("edge_label_versions")
-  .values(labelled.map((n) => ({ child_node_id: n.id, text: "builds on", provenance: "user_authored" as const })))
-  .execute();
+// A few notes on edges (FR-040).
+const noted = rows.filter((r) => r.kind === "question" && r.parent_id).slice(0, 20);
+if (noted.length) await db.insertInto("edge_notes").values(noted.map((r) => ({ edge_id: r.id, text: "builds on" }))).execute();
 
 // Feature 3: feedback items for the panel scale check.
-const feedbackArg = process.argv.indexOf("--feedback");
-const FEEDBACK = feedbackArg >= 0 ? Number(process.argv[feedbackArg + 1]) : 0;
+const FEEDBACK = arg("--feedback", 0);
 
 /** A solid-colour RGB PNG, like a real screenshot in size (encoded with zlib, no image library). */
 function solidPng(width: number, height: number, [r, g, b]: [number, number, number]): Uint8Array {
@@ -153,18 +207,19 @@ function solidPng(width: number, height: number, [r, g, b]: [number, number, num
   );
 }
 
-const TAGS = ["map", "chat", "layout", "Map View", "streaming", "definitions"];
+const TAGS = ["canvas", "text", "layout", "Map View", "streaming", "definitions"];
 for (let i = 0; i < FEEDBACK; i++) {
   const id = crypto.randomUUID();
-  const node = all[i % all.length];
-  const inChat = i % 2 === 0;
+  const el = rows[i % rows.length];
+  const onElement = i % 2 === 0;
   await db
     .insertInto("feedback_items")
     .values({
       id,
-      text: `Feedback ${i}: something about ${inChat ? "this conversation" : "the map"}.\nSecond line with detail.`,
-      view: inChat ? "chat" : "map",
-      node_id: inChat ? node.id : null,
+      text: `Feedback ${i}: something about ${onElement ? "this answer" : "the canvas"}.\nSecond line with detail.`,
+      view: "canvas",
+      project_id: project.id,
+      element_id: onElement ? el.id : null,
       provenance: "user_authored",
     })
     .execute();
@@ -188,30 +243,22 @@ for (let i = 0; i < FEEDBACK; i++) {
 }
 if (FEEDBACK > 0) await regenerateFeedbackFile(db);
 
-// Feature 9: function outputs beside the first N nodes, each with a pipe and one version.
-const outputsArg = process.argv.indexOf("--outputs");
-const OUTPUTS = outputsArg >= 0 ? Number(process.argv[outputsArg + 1]) : 0;
-for (const source of all.slice(0, OUTPUTS)) {
-  const summary = await db
-    .selectFrom("node_summaries")
-    .select("id")
-    .where("node_id", "=", source.id)
-    .orderBy("created_at", "desc")
-    .executeTakeFirst();
-  const fn = { tree_id: source.treeId, parent_id: null, provenance: "ai_suggested" as const, origin: "function" as const, function_id: "analogy", function_version: 1 };
+// Analogy on the first N answers: a function edge and one output under it (FR-048).
+const OUTPUTS = arg("--outputs", 0);
+for (const source of answers.slice(0, OUTPUTS)) {
+  const common = { project_id: project.id, tree_id: source.tree_id, provenance: "ai_suggested" as const, origin: "run" as const, function_id: "analogy", function_version: 2 };
   await db.transaction().execute(async (trx) => {
-    const output = await trx.insertInto("nodes").values({ ...fn, kind: "analogy" }).returning("id").executeTakeFirstOrThrow();
-    const pipe = await trx.insertInto("nodes").values({ ...fn, kind: "pipe" }).returning("id").executeTakeFirstOrThrow();
-    await trx.insertInto("pipes").values({
-      node_id: pipe.id, input_node_id: source.id, output_node_id: output.id, reads: "summary", function_id: "analogy", function_version: 1,
-    }).execute();
-    await trx.insertInto("function_output_versions").values({
-      output_node_id: output.id, text: "Like a library card catalogue for this topic.",
-      source_version: summary?.id ?? crypto.randomUUID(), function_version: 1,
-      settings: JSON.stringify({ reach: "everyday", length: "short" }),
-    }).execute();
+    const edge = await trx
+      .insertInto("nodes")
+      .values({ ...common, parent_id: source.id, kind: "function", shape: "edge" })
+      .returning("id")
+      .executeTakeFirstOrThrow();
+    await trx
+      .insertInto("nodes")
+      .values({ ...common, parent_id: edge.id, kind: "analogy", shape: "node", text: "Like a library card catalogue for this topic." })
+      .execute();
   });
 }
 
-console.log(`Seeded ${TREES} trees, ${all.length} nodes, ${defs.length} definitions, ${FEEDBACK} feedback items, ${OUTPUTS} outputs.`);
+console.log(`Seeded ${TREES} trees, ${rows.length} elements, ${FEEDBACK} feedback items, ${OUTPUTS} function runs.`);
 await db.destroy();

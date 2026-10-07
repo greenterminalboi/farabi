@@ -114,6 +114,7 @@ export class CanvasRenderer {
   private cameraListeners = new Set<() => void>();
   private cameraDirty = true;
   private minScale = 0.02;
+  private resizeObserver: ResizeObserver | null = null;
 
   async mount(host: HTMLElement): Promise<void> {
     this.palette = window.matchMedia("(prefers-color-scheme: dark)").matches ? DARK : LIGHT;
@@ -131,6 +132,8 @@ export class CanvasRenderer {
       screenWidth: host.clientWidth,
       screenHeight: host.clientHeight,
       events: app.renderer.events,
+      // The app's own ticker: the viewport moves, then the text layer follows, then the frame draws.
+      ticker: app.ticker,
       passiveWheel: false,
       // A fixed, very large hit area: the default one lags a tick behind programmatic moves.
       forceHitArea: new Rectangle(-1e7, -1e7, 2e7, 2e7),
@@ -143,22 +146,28 @@ export class CanvasRenderer {
       .clampZoom({ minScale: this.minScale, maxScale: 4 });
     viewport.addChild(this.regionLayer, this.treeLayer, this.focusLayer);
     app.stage.addChild(viewport);
+    // The host changes size with the side panel too, not only with the window.
+    this.resizeObserver = new ResizeObserver(() => app.resize());
+    this.resizeObserver.observe(host);
     app.renderer.on("resize", (w: number, h: number) => {
       viewport.resize(w, h);
       this.cameraDirty = true;
     });
     viewport.on("moved", () => (this.cameraDirty = true));
     viewport.on("zoomed", () => (this.cameraDirty = true));
-    // The text layer's transform is written in the frame the canvas renders (FR-029).
+    // The text layer's transform is written in the frame the canvas renders (FR-029). The actual
+    // transform is compared each tick: a glide's last step can land without a "moved" event.
+    let last = "";
     app.ticker.add(() => {
-      if (!this.cameraDirty) return;
+      const now = `${viewport.x},${viewport.y},${viewport.scale.x},${viewport.screenWidth},${viewport.screenHeight}`;
+      if (!this.cameraDirty && now === last) return;
       this.cameraDirty = false;
+      last = now;
       for (const cb of this.cameraListeners) cb();
     });
     this.app = app;
     this.viewport = viewport;
     this.redrawAll();
-    this.installHooks();
   }
 
   get canvas(): HTMLCanvasElement | null {
@@ -452,7 +461,8 @@ export class CanvasRenderer {
 
   private hooks: { debug?: Window["__farabiCanvasDebug"]; point?: Window["__farabiScreenPoint"] } = {};
 
-  private installHooks(): void {
+  /** Test hooks; installed by the host once this renderer is the live one. */
+  installHooks(): void {
     if (process.env.NEXT_PUBLIC_FARABI_TEST_HOOKS !== "1") return;
     window.__farabiCanvasDebug = this.hooks.debug = () => ({
       elements: this.scene.elements.map((e) => ({
@@ -481,6 +491,9 @@ export class CanvasRenderer {
 
   destroy(): void {
     this.cameraListeners.clear();
+    this.resizeObserver?.disconnect();
+    // The viewport first: it unregisters from the app's ticker, which the app destroys.
+    this.viewport?.destroy({ children: true });
     this.app?.destroy(true, { children: true });
     this.app = null;
     this.viewport = null;

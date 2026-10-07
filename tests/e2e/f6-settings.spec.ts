@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { resetDb, send, setAiMode, startConversation } from "./helpers";
+import { ask, openCanvas, resetDb, setAiMode, startTree } from "./helpers";
 
 test.beforeEach(async ({ page }) => {
   await resetDb();
@@ -27,17 +27,16 @@ test("defaults, then the level and model shape and label new replies (US1, US3, 
   await expect(readout(page)).toHaveText("Level 2 · Brief");
   await expect(page.getByRole("status")).toHaveText("Saved");
 
-  await startConversation(page);
-  await send(page, "Pods");
+  await openCanvas(page);
+  await startTree(page, "Pods");
   await expect(page.getByTestId("reply-meta").last()).toHaveText("Brief · 2 · Default model");
 
   await openSettings(page);
   await expect(readout(page)).toHaveText("Level 2 · Brief");
   await page.getByTestId("model-select").selectOption("claude-sonnet-5");
   await expect(page.getByRole("status")).toHaveText("Saved");
-  await page.goBack();
-  await page.waitForURL(/\/n\//);
-  await send(page, "More");
+  await openCanvas(page);
+  await ask(page, "More");
   const labels = page.getByTestId("reply-meta");
   await expect(labels).toHaveText(["Brief · 2 · Default model", "Brief · 2 · Claude Sonnet 5"]);
 });
@@ -56,10 +55,7 @@ test("a failed save keeps the level in effect and says so", async ({ page }) => 
 });
 
 test("Settings is reachable from every view (SC-006)", async ({ page }) => {
-  await startConversation(page);
-  await expect(page.getByRole("link", { name: "Settings" })).toBeVisible();
-  await page.getByRole("link", { name: "Map" }).click();
-  await page.waitForURL(/\/map$/);
+  await openCanvas(page);
   await expect(page.getByRole("link", { name: "Settings" })).toBeVisible();
   await page.getByRole("link", { name: "Definitions", exact: true }).click();
   await page.waitForURL(/\/definitions$/);

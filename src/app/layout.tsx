@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { ProjectMenu } from "@/components/common/ProjectMenu";
 import { SettingsLink } from "@/components/common/SettingsLink";
+import { TopNav } from "@/components/common/TopNav";
 import { FeedbackButton } from "@/components/feedback/FeedbackButton";
 import { FeedbackDrawer } from "@/components/feedback/FeedbackDrawer";
 import "@fontsource/opendyslexic/400.css";
@@ -20,7 +21,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <header className="topbar">
           <span className="brand">Farabi</span>
           <ProjectMenu />
-          <span className="topbar-spacer" />
+          <TopNav />
           <SettingsLink />
           <FeedbackButton />
         </header>

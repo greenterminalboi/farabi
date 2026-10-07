@@ -6,7 +6,7 @@ type Handler = (req: Request, ctx: { params: Promise<Record<string, string>> }) 
 
 // Every route handler under src/app/api, found by path: `[param]` segments become captures. More
 // specific routes (fewer params) are tried first, so a fixed segment wins over a `[param]` one.
-const modules = import.meta.glob<RouteModule>("/src/app/api/**/route.ts");
+const modules = import.meta.glob("/src/app/api/**/route.ts") as Record<string, () => Promise<RouteModule>>;
 const routes = Object.entries(modules)
   .map(([file, load]) => {
     const segments = file.replace(/^\/src\/app/, "").replace(/\/route\.ts$/, "").split("/").filter(Boolean);

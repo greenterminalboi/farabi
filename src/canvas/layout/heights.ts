@@ -3,7 +3,6 @@
 // font and width, then replaced by the real height once an element is mounted in full.
 import type { Element } from "@/shared/schemas";
 import { BLOCK_GAP, displayOf, FONT_SIZE, frameHeight, LINE_HEIGHT, PADDING, textOf, widthOf } from "../geometry";
-import { type Block, richTextFor } from "../text/richText";
 
 /** Bump when the CSS or the estimator changes, so stored heights are measured again. */
 export const HEIGHTS_VERSION = 1;
@@ -46,36 +45,86 @@ function wordWidth(word: string, bold: boolean): number {
   return w;
 }
 
-/** Lines a block wraps to at `width`, by greedy word wrap. */
-function blockLines(block: Block, width: number): number {
-  if (block.tag === "hr") return 0.5;
-  const indent = block.tag === "li" ? FONT_SIZE * 1.2 * Math.max(1, block.depth) : 0;
-  const room = Math.max(40, width - indent);
+const LIST_ITEM = /^\s*(?:[-*+]|\d+[.)])\s+/;
+const HEADING = /^\s*#{1,6}\s+/;
+const QUOTE = /^\s*>\s?/;
+const SYNTAX = /[*_`~]/g;
+
+/** Lines `text` wraps to in `room` px, by greedy word wrap over cached word widths. */
+function wrappedLines(text: string, room: number, bold: boolean): number {
   const space = wordWidth(" ", false);
   let lines = 1;
   let x = 0;
-  for (const run of block.runs) {
-    const bold = run.marks.includes("strong") || block.tag.startsWith("h");
-    for (const part of run.text.split(/(\n)/)) {
-      if (part === "\n") {
-        lines++;
-        x = 0;
-        continue;
-      }
-      for (const word of part.split(" ")) {
-        if (!word) {
-          x += space;
-          continue;
-        }
-        const w = wordWidth(word, bold);
-        if (x > 0 && x + w > room) {
-          lines += Math.ceil(w / room);
-          x = w % room;
-        } else x += w + space;
-      }
-    }
+  for (const word of text.split(" ")) {
+    if (!word) continue;
+    const w = wordWidth(word, bold);
+    if (x > 0 && x + w > room) {
+      lines += Math.ceil(w / room);
+      x = w % room;
+    } else x += w + space;
   }
   return lines;
+}
+
+/**
+ * Height of an element's text, without parsing it (research R10): 5,000 answers have to be laid
+ * out before the canvas opens, so markdown is read line by line, its syntax skipped, and each
+ * block wrapped at the text width. Close enough for layout; the real height replaces it once the
+ * element is mounted in full.
+ */
+function estimateLines(source: string, markdown: boolean, width: number): { lines: number; blocks: number } {
+  let lines = 0;
+  let blocks = 0;
+  let inBlock = false;
+  let fence = false;
+  for (const raw of source.split("\n")) {
+    if (markdown && raw.trimStart().startsWith("```")) {
+      fence = !fence;
+      if (!inBlock) {
+        blocks++;
+        inBlock = true;
+      }
+      continue;
+    }
+    if (!raw.trim()) {
+      if (!markdown) {
+        lines++;
+        continue;
+      }
+      inBlock = false;
+      continue;
+    }
+    let text = raw;
+    let room = width;
+    let bold = false;
+    if (markdown && !fence) {
+      const list = LIST_ITEM.exec(text);
+      if (list) {
+        // Each list item is its own block (rich text renders them that way).
+        text = text.slice(list[0].length);
+        room -= FONT_SIZE * 1.2 * Math.max(1, Math.floor(list[0].length / 2));
+        blocks++;
+        inBlock = true;
+      } else if (HEADING.test(text)) {
+        text = text.replace(HEADING, "");
+        bold = true;
+        blocks++;
+        inBlock = false;
+      } else {
+        text = text.replace(QUOTE, "");
+        if (!inBlock) {
+          blocks++;
+          inBlock = true;
+        }
+      }
+      text = text.replace(SYNTAX, "");
+    } else if (!inBlock) {
+      blocks++;
+      inBlock = true;
+    }
+    lines += wrappedLines(text, Math.max(40, room), bold);
+  }
+  return { lines, blocks: Math.max(1, blocks) };
 }
 
 /** Height of an element's text box, padding included, at its kind's width. */
@@ -86,10 +135,11 @@ export function estimateTextHeight(el: Pick<Element, "id" | "kind" | "text" | "s
   const width = widthOf(el) - pad.x * 2;
   const source = textOf(el);
   if (!source) return pad.y * 2 + LINE_HEIGHT;
-  const rich = richTextFor(el.id, source, display === "answer");
-  let height = 0;
-  for (const block of rich.blocks) height += blockLines(block, width) * LINE_HEIGHT + BLOCK_GAP;
-  return Math.ceil(pad.y * 2 + Math.max(LINE_HEIGHT, height - BLOCK_GAP));
+  const markdown = display === "answer";
+  const { lines, blocks } = estimateLines(source, markdown, width);
+  // Plain text keeps its line breaks in one block; markdown blocks are spaced apart.
+  const gaps = markdown ? (blocks - 1) * BLOCK_GAP : 0;
+  return Math.ceil(pad.y * 2 + Math.max(LINE_HEIGHT, lines * LINE_HEIGHT + gaps));
 }
 
 const measured = new Map<string, number>();

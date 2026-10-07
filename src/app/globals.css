@@ -43,6 +43,9 @@ body { display: flex; flex-direction: column; }
   border-bottom: 1px solid var(--border); background: var(--surface);
 }
 .brand { font-weight: 600; }
+.view-toggle { display: flex; gap: 4px; margin-right: auto; }
+.view-toggle a { padding: 4px 12px; border-radius: 6px; color: var(--muted); text-decoration: none; }
+.view-toggle a[aria-current="page"] { background: var(--accent-soft); color: var(--accent); }
 
 .main { flex: 1; min-height: 0; position: relative; display: flex; }
 
@@ -463,3 +466,6 @@ body { display: flex; flex-direction: column; }
 .canvas-composer[data-pointer="down"]::before { bottom: -14px; border-top-color: var(--accent); }
 .canvas-composer[data-pointer="left"]::before { left: -14px; top: 50%; border-right-color: var(--accent); }
 .canvas-composer[data-pointer="right"]::before { left: auto; right: -14px; top: 50%; border-left-color: var(--accent); }
+
+/* The side panel sits beside the canvas (FR-022); the canvas narrows to make room. */
+.side-panel .branch-row { width: 100%; text-align: left; font: inherit; color: inherit; }

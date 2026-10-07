@@ -491,7 +491,7 @@ Text outside the viewport is not mounted (quickstart §3.2).
     (FR-033)
 
   Delete `tests/unit/selection.test.ts` once merged.
-- [ ] T048 [P] [US2] E2E `tests/e2e/f10-us2-zoom-select.spec.ts` (story 2, scenarios 1–5; SC-004,
+- [X] T048 [P] [US2] E2E `tests/e2e/f10-us2-zoom-select.spec.ts` (story 2, scenarios 1–5; SC-004,
   SC-006, SC-007):
   - at 6 zoom levels from 0.02 to 4, selecting in a visible item opens the toolbar
   - `data-clipped` at far zoom, with the mounted characters growing on zoom in
@@ -506,7 +506,7 @@ Text outside the viewport is not mounted (quickstart §3.2).
 - [X] T049 [US2] Update `src/components/chat/selection.ts`: the root attribute becomes
   `data-node-id`, the result type returns `nodeId` instead of `messageId`, and `rangeForOffsets`
   takes the item element. Move it to `src/canvas/text/selection.ts` and update imports.
-- [ ] T050 [US2] Create `src/canvas/text/render.ts`, which renders `RichText` runs into an item:
+- [X] T050 [US2] Create `src/canvas/text/render.ts`, which renders `RichText` runs into an item:
   - split runs at boundaries from `markerRanges.splitByMarkers` (moved to
     `src/canvas/text/markerRanges.ts`)
   - markers come from child edges' anchors on this element (`data-markers`)
@@ -516,20 +516,20 @@ Text outside the viewport is not mounted (quickstart §3.2).
     contract
 
   Re-render an item only when its markers, terms or the suggestion setting change.
-- [ ] T051 [US2] In `src/canvas/text/TextLayer.ts`:
+- [X] T051 [US2] In `src/canvas/text/TextLayer.ts`:
   - pin on `selectionchange` while the selection is inside an item, and unpin when it leaves
   - re-mount and refresh items whose budget grew past their clip point on zoom-in (story 2,
     scenario 2)
   - after a full mount, measure `offsetHeight` and call `heights.recordMeasured`, relaying out the
     tree when it changed by more than 2 px
-- [ ] T052 [US2] Create `src/canvas/overlays/SelectionToolbar.tsx` from
+- [X] T052 [US2] Create `src/canvas/overlays/SelectionToolbar.tsx` from
   `src/components/chat/BranchAction.tsx`:
   - It watches `selectionchange` within the text layer and shows Define, Branch and Park above the
     selection, with the inline question step of Feature 8.
   - **Define** calls `api.captureDefinition({ nodeId, start, end, text })`.
   - **Branch** and **Park** are wired in US3 (T057, T061).
   - **Hidden** for a cross-element selection, and for Branch and Park on outputs (Define only).
-- [ ] T053 [US2] Marker and term interactions in `src/canvas/CanvasHost.tsx`:
+- [X] T053 [US2] Marker and term interactions in `src/canvas/CanvasHost.tsx`:
   - a click on `[data-markers]` walks to the edge (`focus` and `camera.follow`), or opens
     `src/canvas/overlays/MarkerMenu.tsx` when there are several
   - a click on `[data-suggest]` selects that range, as in `ChatView.onListClick`
@@ -569,7 +569,7 @@ Text outside the viewport is not mounted (quickstart §3.2).
     with the anchor text)
   - a fired tangent can't fire twice
   - parking never changes elements
-- [ ] T056 [P] [US3] E2E `tests/e2e/f10-us3-branch.spec.ts` (story 3, scenarios 1–5):
+- [X] T056 [P] [US3] E2E `tests/e2e/f10-us3-branch.spec.ts` (story 3, scenarios 1–5):
   - the four gestures
   - the marker click walks the camera to the edge (FR-018)
   - the side panel lists the direct child edges, newest first (FR-022)
@@ -606,21 +606,21 @@ Text outside the viewport is not mounted (quickstart §3.2).
   - the `fired` event records `edge_id`
 
   Update `src/app/api/nodes/[nodeId]/parked/route.ts` and `src/app/api/parked/[id]/{question,discard,fire}/route.ts`.
-- [ ] T061 [US3] Wire Branch and Park in `src/canvas/overlays/SelectionToolbar.tsx`:
+- [X] T061 [US3] Wire Branch and Park in `src/canvas/overlays/SelectionToolbar.tsx`:
   - **Branch** calls `api.branch`, merges the unsent edge, focuses it, preloads the draft (the
     inline question, else the anchor text) and calls `camera.follow`.
   - **Park** calls `api.park`, refreshes the panel and shows the parked notice (Feature 8).
-- [ ] T062 [US3] Unsent edges in `src/canvas/renderer/CanvasRenderer.ts` and
+- [X] T062 [US3] Unsent edges in `src/canvas/renderer/CanvasRenderer.ts` and
   `src/canvas/overlays/Composer.tsx`:
   - draw a dashed empty bubble
   - the composer targets the edge with the placeholder "Ask about the highlighted text…" and sends
     through `api.sendUnsent`
   - draw the marker connector stub from the span's position
-- [ ] T063 [US3] Create `src/server/graph/panel.ts` and `src/app/api/nodes/[nodeId]/panel/route.ts`
+- [X] T063 [US3] Create `src/server/graph/panel.ts` and `src/app/api/nodes/[nodeId]/panel/route.ts`
   returning `{ children, parked }` (FR-022). Create `src/canvas/overlays/SidePanel.tsx` from
   `src/components/chat/BranchPanel.tsx`: the Branches tab lists child edges with their state and
   first words or anchor, and a click walks there. The Parked tab is unchanged.
-- [ ] T064 [US3] Path emphasis on focus in `src/canvas/CanvasHost.tsx`. Pass
+- [X] T064 [US3] Path emphasis on focus in `src/canvas/CanvasHost.tsx`. Pass
   `graph.ancestors(focusId)` to the renderer's path emphasis (FR-026) and to `__farabiCanvasDebug`
   (`onPath`).
 
@@ -764,7 +764,7 @@ persists per project, at 5,000 elements.
 
   Each walk sets focus and calls `camera.follow`. Side panel entries and definition links use the
   same walk function.
-- [ ] T079 [US5] Rewrite `scripts/seed-large.ts`. `--elements N` (default 5,000) seeds one project
+- [X] T079 [US5] Rewrite `scripts/seed-large.ts`. `--elements N` (default 5,000) seeds one project
   of 20 trees:
   - edge and answer chains, with about 15% of elements branching
   - answer texts drawn from the same length distribution as T009
@@ -891,7 +891,7 @@ SC-016).
   - trashed projects are hidden
   - a reply streaming in project A finishes and is stored while B is open (FR-012)
   - each answer records the pressure and model in effect at insert (FR-057)
-- [ ] T093 [P] [US9] E2E `tests/e2e/f10-us9-carried.spec.ts`:
+- [X] T093 [P] [US9] E2E `tests/e2e/f10-us9-carried.spec.ts`:
   - term underline and hover card on mounted text
   - suggestion underline on complete answers only, where a click selects
   - feedback while focused records the element
@@ -917,10 +917,10 @@ SC-016).
     store
   - `src/server/feedback/create.ts` validates `elementId` exists in the project
   - `src/server/feedback/exportFile.ts` prints the kind and a 120-character excerpt (FR-058)
-- [ ] T096 [US9] Projects: `src/components/common/ProjectMenu.tsx` switches project and remounts
+- [X] T096 [US9] Projects: `src/components/common/ProjectMenu.tsx` switches project and remounts
   `CanvasHost` with the new `projectId`. Generation keeps running server-side (FR-012). Confirm that
   trash and restore routes need no change (FR-059).
-- [ ] T097 [US9] Suggestions toggle: move the "Suggestions" control from `NodeHeader` into the
+- [X] T097 [US9] Suggestions toggle: move the "Suggestions" control from `NodeHeader` into the
   canvas menu (`src/canvas/CanvasHost.tsx`), persisted in `settingsStore.showSuggestions`.
   `render.ts` applies it to complete answers only (FR-056).
 

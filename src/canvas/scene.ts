@@ -8,7 +8,8 @@ import { type CanvasGraph, children, firstChild } from "./graph";
 import type { ForestLayout } from "./layout/forestLayout";
 import type { DrawElement } from "./renderer/CanvasRenderer";
 import type { ChromePart, TextItem } from "./text/TextLayer";
-import type { Decorate } from "./text/render";
+import { type DecorationInput, decorationKey, makeDecorate } from "./text/decorate";
+import type { TermMatcher } from "@/lib/terms";
 
 export type SceneInput = {
   graph: CanvasGraph;
@@ -21,8 +22,22 @@ export type SceneInput = {
   focusId: string | null;
   /** Temporary positions while dragging. */
   dragOverride: ReadonlyMap<string, { x: number; y: number }>;
-  decorate?: (el: Element) => Decorate | null;
+  /** Collected terms to underline, and a number that changes with them. */
+  terms: { matcher: TermMatcher | null; version: number };
+  showSuggestions: boolean;
 };
+
+/** An element's decorations: branch markers from its anchored child edges, terms, suggestions. */
+function decorationsOf(el: Element, input: SceneInput, text: string): DecorationInput {
+  const markers = children(input.graph, el.id)
+    .filter((c) => c.anchor && input.visible(c))
+    .map((c) => ({ id: c.id, start: c.anchor!.start, end: c.anchor!.end }));
+  return {
+    markers,
+    matcher: text ? input.terms.matcher : null,
+    suggestBold: input.showSuggestions && el.kind === "answer" && el.status === "complete",
+  };
+}
 
 export type BuiltScene = { draw: DrawElement[]; items: TextItem[] };
 
@@ -160,7 +175,18 @@ export function buildScene(input: SceneInput): BuiltScene {
     const footer = chrome.footer?.length ? " with-footer" : "";
     const stateClass = state ? ` state-${state}` : el.status ? ` status-${el.status}` : "";
     const className = `${display}${stateClass}${footer}${el.id === input.focusId ? " focused" : ""}`;
-    const key = [source.length, el.status, state, el.review, el.functionName, el.pressureLevel, className, chrome.footer?.length ?? 0].join("|");
+    const decorations = decorationsOf(el, input, source);
+    const key = [
+      source.length,
+      el.status,
+      state,
+      el.review,
+      el.functionName,
+      el.pressureLevel,
+      className,
+      chrome.footer?.length ?? 0,
+      decorationKey(decorations, input.terms.version),
+    ].join("|");
     items.push({
       id: el.id,
       x: pos.x,
@@ -171,7 +197,7 @@ export function buildScene(input: SceneInput): BuiltScene {
       source,
       markdown: isMarkdown(el),
       version: versionOf(el.id, key),
-      decorate: input.decorate?.(el) ?? null,
+      decorate: makeDecorate(decorations),
       label: chrome.label,
       header: chrome.header,
       footer: chrome.footer,

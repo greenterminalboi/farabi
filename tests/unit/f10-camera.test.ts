@@ -85,17 +85,21 @@ describe("Feature 10 · camera", () => {
 
   it("while following, a relayout keeps the target put and a streaming answer keeps its bottom in view", () => {
     const view = new FakeView();
-    const camera = new Camera(view);
+    let t = 0;
+    const camera = new Camera(view, { now: () => t });
     camera.follow("a1", box(0, 0, 480, 200));
+    t = 1000; // the glide has finished
     const before = view.center();
     camera.relayoutCompensate("a1", 0, 120);
     expect(view.center()).toEqual({ x: before.x, y: before.y + 120 });
     camera.relayoutCompensate("other", 0, 120);
     expect(view.center()).toEqual({ x: before.x, y: before.y + 120 });
 
-    const camera2 = new Camera(new FakeView());
+    const camera2 = new Camera(new FakeView(), { now: () => t });
     const v2 = (camera2 as unknown as { view: FakeView }).view;
+    t = 0;
     camera2.follow("s", box(0, 0, 480, 200));
+    t = 1000;
     const y0 = v2.center().y;
     camera2.onTargetResized("s", box(0, 0, 480, 250));
     expect(v2.center().y).toBe(y0); // still fits
@@ -115,5 +119,20 @@ describe("Feature 10 · camera", () => {
     expect(view.minScale).toBeCloseTo(Math.min(300 / 3000, 200 / 2000));
     camera.setBounds({ minX: 0, minY: 0, maxX: 10, maxY: 10 });
     expect(view.minScale).toBe(1);
+  });
+
+  it("a relayout during a glide retargets the glide instead of cutting it short", () => {
+    const view = new FakeView();
+    let t = 0;
+    const camera = new Camera(view, { now: () => t });
+    camera.follow("e", box(0, 0, 360, 46));
+    t = 100;
+    camera.onTargetResized("e", box(400, 0, 360, 46));
+    camera.relayoutCompensate("e", 400, 0, box(400, 0, 360, 46));
+    // Each call glides to the element's new place in the time left, never jumping mid-way.
+    expect(view.calls.slice(1).every((c) => c.ms === 250 && c.x === 580)).toBe(true);
+    t = 400;
+    camera.relayoutCompensate("e", 0, 50, box(400, 50, 360, 46));
+    expect(view.calls.at(-1)).toMatchObject({ ms: 0, y: view.calls.at(-2)!.y + 50 });
   });
 });

@@ -7,13 +7,15 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "@/lib/api";
 import { followReply } from "@/lib/replyStream";
 import type { Element } from "@/shared/schemas";
+import { useDefinitionsStore } from "@/state/definitionsStore";
 import { useSettingsStore } from "@/state/settingsStore";
 import { Camera } from "./camera";
 import { type CanvasEngine, EngineContext } from "./engine";
 import { ancestors, buildGraph, type CanvasGraph, children, element, firstChild, mergeGraph } from "./graph";
 import { installInput, type Walk } from "./input";
 import { type ForestLayout, layoutForest, type LayoutCache } from "./layout/forestLayout";
-import { heightOf } from "./layout/heights";
+import { heightOf, measuredTextHeight, recordMeasured } from "./layout/heights";
+import { PADDING } from "./geometry";
 import { CanvasRenderer } from "./renderer/CanvasRenderer";
 import { buildScene } from "./scene";
 import { isVisible, useCanvasStore } from "./store";
@@ -21,6 +23,10 @@ import { TextLayer } from "./text/TextLayer";
 import { Composer } from "./overlays/Composer";
 import { CanvasMenu } from "./overlays/CanvasMenu";
 import { EmptyState } from "./overlays/EmptyState";
+import { SelectionToolbar } from "./overlays/SelectionToolbar";
+import { SidePanel } from "./overlays/SidePanel";
+import { TextInteractions } from "./overlays/TextInteractions";
+import { TermCard } from "@/components/definitions/TermCard";
 
 declare global {
   interface Window {
@@ -28,6 +34,8 @@ declare global {
     __farabiTextStats?: () => import("./text/TextLayer").TextStats;
     __farabiCamera?: () => import("./camera").CameraState;
     __farabiFrameStats?: (ms: number) => Promise<{ p50: number; p95: number; max: number; frames: number }>;
+    /** Tests: put the camera at a world point and scale, as a manual pan and zoom would. */
+    __farabiSetCamera?: (x: number, y: number, scale: number) => void;
   }
 }
 
@@ -81,6 +89,8 @@ export function CanvasHost({ projectId, focus }: Props) {
       let followAfterLayout: string | null = null;
       let raf = 0;
       let showRejected = useSettingsStore.getState().showRejected;
+      let showSuggestions = useSettingsStore.getState().showSuggestions;
+      let terms = { matcher: useDefinitionsStore.getState().matcher, version: 0 };
 
       const visible = (el: Element) => isVisible(el, showRejected);
       const height = (el: Element) => {
@@ -128,6 +138,8 @@ export function CanvasHost({ projectId, focus }: Props) {
           streaming,
           focusId,
           dragOverride,
+          terms,
+          showSuggestions,
         });
         renderer.setScene({ elements: scene.draw, trees: layout.boxes, focusId, path }, changed);
         layer.setItems(scene.items);
@@ -143,8 +155,8 @@ export function CanvasHost({ projectId, focus }: Props) {
         // While following, the target stays put on screen through a relayout (R11).
         if (camera.target && before) {
           const after = layout.positions.get(camera.target);
-          if (after) camera.relayoutCompensate(camera.target, after.x - before.x, after.y - before.y);
           const box = renderer.element(camera.target)?.box;
+          if (after) camera.relayoutCompensate(camera.target, after.x - before.x, after.y - before.y, box);
           if (box) camera.onTargetResized(camera.target, box);
         }
         if (followAfterLayout) {
@@ -213,10 +225,36 @@ export function CanvasHost({ projectId, focus }: Props) {
         }
       });
       const unsubscribeSettings = useSettingsStore.subscribe((s) => {
+        if (s.showSuggestions !== showSuggestions) {
+          showSuggestions = s.showSuggestions;
+          schedule();
+        }
         if (s.showRejected === showRejected) return;
         showRejected = s.showRejected;
         cache.clear();
         schedule();
+      });
+      // Collected terms are underlined everywhere they appear (FR-035, FR-055).
+      const unsubscribeTerms = useDefinitionsStore.subscribe((s) => {
+        if (s.matcher === terms.matcher) return;
+        terms = { matcher: s.matcher, version: terms.version + 1 };
+        schedule();
+      });
+      void useDefinitionsStore.getState().refreshIndex().catch(() => {});
+
+      // Once an element's whole text is mounted its real height replaces the estimate; only its own
+      // tree is laid out again, and only for a real change (research R10).
+      const offMeasure = layer.onFullRender((id, body) => {
+        const el = useCanvasStore.getState().elements.get(id);
+        if (!el || el.status === "pending") return;
+        const display = renderer.element(id)?.display;
+        if (display !== "answer" && display !== "question" && display !== "output") return;
+        const h = body.offsetHeight + PADDING[display].y * 2;
+        const known = measuredTextHeight(id);
+        if (known !== undefined && Math.abs(known - h) <= 2) return;
+        const before = heightOf(el);
+        recordMeasured(id, h);
+        if (Math.abs(heightOf(el) - before) > 2) schedule([el.treeId]);
       });
 
       // The text layer follows the camera in the frame the canvas renders (FR-029).
@@ -377,32 +415,44 @@ export function CanvasHost({ projectId, focus }: Props) {
               cancelAnimationFrame(raf);
               rebuild();
             }
+            // The newest element is focused, so the composer is ready; the camera stays where it was.
+            const latest = [...useCanvasStore.getState().elements.values()]
+              .filter((e) => renderer.element(e.id) && e.origin !== "run")
+              .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))[0];
             if (focus && renderer.element(focus)) engineApi.walkTo(focus);
-            else if (canvas.camera) renderer.cameraView().moveTo(canvas.camera, 0);
             else {
-              const latest = [...useCanvasStore.getState().elements.values()].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))[0];
+              if (latest && !useCanvasStore.getState().focusId) useCanvasStore.getState().focus(latest.id);
               const box = latest ? renderer.element(latest.id)?.box : undefined;
-              if (box) renderer.cameraView().moveTo({ x: box.x + box.w / 2, y: box.y + box.h / 2, scale: 1 }, 0);
+              if (canvas.camera) renderer.cameraView().moveTo(canvas.camera, 0);
+              else if (box) renderer.cameraView().moveTo({ x: box.x + box.w / 2, y: box.y + box.h / 2, scale: 1 }, 0);
               else renderer.cameraView().moveTo({ x: 0, y: 0, scale: 1 }, 0);
             }
             layer.setCamera(renderer.camera());
           });
         }
       };
-      void load().catch(() => setLoaded(true));
+      void load().catch((err) => {
+        console.error("canvas load failed", err);
+        setLoaded(true);
+      });
       const refetch = () => {
         if (document.visibilityState === "visible") void load().catch(() => {});
       };
       const timer = window.setInterval(refetch, REFETCH_MS);
       window.addEventListener("focus", refetch);
 
-      if (process.env.NEXT_PUBLIC_FARABI_TEST_HOOKS === "1") installHooks(renderer, layer, camera);
+      if (process.env.NEXT_PUBLIC_FARABI_TEST_HOOKS === "1") {
+        renderer.installHooks();
+        installHooks(renderer, layer, camera);
+      }
 
       setEngine(engineApi);
       cleanup = () => {
         unsubscribe();
         unsubscribeSettings();
+        unsubscribeTerms();
         offCamera();
+        offMeasure();
         offSave();
         offInput();
         window.clearInterval(timer);
@@ -431,6 +481,9 @@ export function CanvasHost({ projectId, focus }: Props) {
           {!hasTrees && <EmptyState />}
           <CanvasMenu />
           <Composer />
+          <SelectionToolbar />
+          <TextInteractions />
+          <TermCard containerRef={rootRef} />
         </>
       ) : null,
     [engine, loaded, hasTrees],
@@ -442,11 +495,17 @@ export function CanvasHost({ projectId, focus }: Props) {
         <div ref={hostRef} className="canvas-host" data-testid="canvas" />
         {overlays}
       </div>
+      {/* Beside the canvas, not over it, so the camera never follows something under the panel. */}
+      {engine && loaded && <SidePanel />}
     </EngineContext.Provider>
   );
 }
 
 function installHooks(renderer: CanvasRenderer, layer: TextLayer, camera: Camera): void {
+  window.__farabiSetCamera = (x, y, scale) => {
+    camera.onManual();
+    renderer.cameraView().moveTo({ x, y, scale }, 0);
+  };
   window.__farabiTextStats = () => layer.stats();
   window.__farabiCamera = () => camera.state();
   // Largest gap between a mounted item's box and its drawn frame, in screen px (FR-029).

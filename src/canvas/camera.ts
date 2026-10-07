@@ -32,12 +32,16 @@ export class Camera {
   /** Automatic moves since load (SC-008 counts these). */
   moves = 0;
   private reducedMotion: () => boolean;
+  /** While a glide runs, a relayout retargets it rather than cutting it short. */
+  private glideUntil = 0;
+  private now: () => number;
 
   constructor(
     private readonly view: CameraView,
-    options: { reducedMotion?: () => boolean } = {},
+    options: { reducedMotion?: () => boolean; now?: () => number } = {},
   ) {
     this.reducedMotion = options.reducedMotion ?? (() => false);
+    this.now = options.now ?? (() => performance.now());
   }
 
   /** A send or a walk: follow `id` and glide until its box is in view (FR-025, within 1 s). */
@@ -50,11 +54,17 @@ export class Camera {
   /** Any manual pan, zoom or pinch. */
   onManual(): void {
     this.mode = "free";
+    this.glideUntil = 0;
+  }
+
+  private gliding(): boolean {
+    return this.now() < this.glideUntil;
   }
 
   /** The followed element changed size (a streaming answer): keep its bottom in view. */
   onTargetResized(id: string, box: Box): void {
     if (this.mode !== "follow" || this.target !== id) return;
+    if (this.gliding()) return this.retarget(box);
     const { height } = this.view.screen();
     const scale = this.view.scale();
     const c = this.view.center();
@@ -71,8 +81,9 @@ export class Camera {
    * A relayout moved the followed element by (dx, dy) in world units: move with it so it stays put
    * on screen. In free mode a relayout never moves the camera.
    */
-  relayoutCompensate(id: string, dx: number, dy: number): void {
+  relayoutCompensate(id: string, dx: number, dy: number, box?: Box): void {
     if (this.mode !== "follow" || this.target !== id || (dx === 0 && dy === 0)) return;
+    if (box && this.gliding()) return this.retarget(box);
     const c = this.view.center();
     this.moves++;
     this.view.moveTo({ x: c.x + dx, y: c.y + dy, scale: this.view.scale() }, 0);
@@ -108,7 +119,15 @@ export class Camera {
 
   private glide(to: { x: number; y: number; scale: number }): void {
     this.moves++;
-    this.view.moveTo(to, this.reducedMotion() ? 0 : GLIDE_MS);
+    const ms = this.reducedMotion() ? 0 : GLIDE_MS;
+    this.glideUntil = this.now() + ms;
+    this.view.moveTo(to, ms);
+  }
+
+  /** The target moved or grew mid-glide: finish the glide at its new place, in the time left. */
+  private retarget(box: Box): void {
+    const left = Math.max(0, this.glideUntil - this.now());
+    this.view.moveTo(this.fit(box), left);
   }
 }
 
