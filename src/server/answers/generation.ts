@@ -184,6 +184,16 @@ export async function finalizeOrphan(row: ElementRow): Promise<ElementRow> {
   return updated ?? (await db.selectFrom("nodes").selectAll().where("id", "=", row.id).executeTakeFirstOrThrow());
 }
 
+/**
+ * Stops every live reply the way Stop does (the text so far is kept) and waits up to `timeoutMs`
+ * for them to finalize. Used when the desktop app quits (feature 11, data-model.md §6).
+ */
+export async function stopAllGenerations(timeoutMs = 3000): Promise<void> {
+  const all = [...live.values()];
+  for (const gen of all) gen.abort.abort();
+  await Promise.race([Promise.allSettled(all.map((gen) => gen.done)), new Promise((r) => setTimeout(r, timeoutMs))]);
+}
+
 /** Resolves once no generation is running (tests). */
 export async function drainGenerations(): Promise<void> {
   while (live.size > 0) await Promise.allSettled([...live.values()].map((gen) => gen.done));

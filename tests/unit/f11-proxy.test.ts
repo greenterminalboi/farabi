@@ -39,6 +39,8 @@ describe("proxy request rules (contracts/launch-session.md)", () => {
 
   it("lets the session route through without credentials", () => {
     expect(passed(proxy(req("/__farabi/session?t=x")))).toBe(true);
+    expect(passed(proxy(req("/%5F%5Ffarabi/session?t=x")))).toBe(true);
+    expect(proxy(req("/%5F%5Ffarabi/other")).status).toBe(401);
   });
 
   it("passes with the session cookie or a bearer", () => {

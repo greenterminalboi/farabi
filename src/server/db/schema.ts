@@ -139,7 +139,15 @@ export interface DefinitionVersionsTable {
   created_at: CreatedAt;
 }
 
-export type SettingKey = "information_pressure" | "reply_model";
+export type SettingKey =
+  | "information_pressure"
+  | "reply_model"
+  // Feature 11: settings that used to be environment variables (data-model.md §3).
+  | "ai_provider"
+  | "default_model"
+  | "summary_trigger"
+  | "feedback_export_dir"
+  | "claude_code_path";
 
 /** Append-only history of global settings (Feature 6); the newest row per key is in effect. */
 export interface SettingChangesTable {
@@ -237,6 +245,22 @@ export interface FeedbackStateEventsTable {
   created_at: CreatedAt;
 }
 
+/** Feature 11: the one-time import from a web-app database (data-model.md §4); append-only. */
+export interface ImportRunsTable {
+  id: Generated<string>;
+  source_system_identifier: string;
+  source_label: string;
+  schema_level: string;
+  started_at: Date;
+  finished_at: Date | null;
+  outcome: "succeeded" | "failed";
+  /** Inserted as a JSON string; read back parsed. */
+  counts: ColumnType<Record<string, { source: number; imported: number }>, string, never>;
+  checksums_match: boolean | null;
+  error: string | null;
+  provenance: ColumnType<Provenance, never, never>;
+}
+
 export interface Database {
   projects: ProjectsTable;
   trees: TreesTable;
@@ -256,4 +280,5 @@ export interface Database {
   feedback_tags: FeedbackTagsTable;
   feedback_attachments: FeedbackAttachmentsTable;
   feedback_state_events: FeedbackStateEventsTable;
+  import_runs: ImportRunsTable;
 }

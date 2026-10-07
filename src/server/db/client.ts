@@ -50,8 +50,12 @@ export function createDb(target: StoreTarget | string): DB {
   return new Kysely<Database>({ dialect: new PGliteDialect({ pglite }) });
 }
 
-/** The store this process uses: Postgres when DATABASE_URL is set, else PGlite in FARABI_DATA_DIR. */
+/** The store this process uses: PGlite in the desktop app, else Postgres when DATABASE_URL is set, else PGlite in FARABI_DATA_DIR. */
 export function storeTarget(): StoreTarget {
+  // The desktop app always uses its own data folder, even if a dev .env.local sets DATABASE_URL.
+  if (process.env.FARABI_HOST === "tauri" && process.env.FARABI_DATA_DIR) {
+    return { kind: "pglite", dataDir: process.env.FARABI_DATA_DIR };
+  }
   if (process.env.DATABASE_URL) return { kind: "pg", url: process.env.DATABASE_URL };
   if (process.env.FARABI_DATA_DIR) return { kind: "pglite", dataDir: process.env.FARABI_DATA_DIR };
   throw new Error("DATABASE_URL is not set");

@@ -1,24 +1,30 @@
-import { ClaudeProvider } from "./claude";
+import { ClaudeProvider, defaultClaudeModel } from "./claude";
 import { ClaudeCodeProvider } from "./claudeCode";
 import { FakeAIProvider } from "./fake";
 import type { ReplyModelChoice } from "@/shared/models";
 import type { AIProvider } from "./provider";
 
-let provider: AIProvider | undefined;
+import { defaultModelFor, getConfig } from "../settings/config";
+
+const providers = new Map<string, AIProvider>();
 
 /**
- * `AI_PROVIDER`:
+ * The provider in effect, from the `ai_provider` setting (feature 11), which falls back to
+ * `AI_PROVIDER` in the web app and tests:
  * - `claude-code`: the local Claude Code CLI, using your Claude subscription (personal use)
- * - `claude`: the Claude API, billed to ANTHROPIC_API_KEY
+ * - `claude`: the Claude API, billed to your API key
  * - `fake` (default): deterministic output for development and tests
  */
 export function getAIProvider(): AIProvider {
-  if (provider) return provider;
-  const kind = process.env.AI_PROVIDER ?? "fake";
-  if (kind === "claude-code") provider = new ClaudeCodeProvider();
-  else if (kind === "claude") provider = new ClaudeProvider();
-  else if (kind === "fake") provider = new FakeAIProvider();
-  else throw new Error(`Unknown AI_PROVIDER "${kind}" (expected "claude-code", "claude" or "fake")`);
+  const kind = getConfig("ai_provider");
+  let provider = providers.get(kind);
+  if (!provider) {
+    if (kind === "claude-code") provider = new ClaudeCodeProvider();
+    else if (kind === "claude") provider = new ClaudeProvider();
+    else if (kind === "fake") provider = new FakeAIProvider();
+    else throw new Error(`Unknown AI provider "${kind}" (expected "claude-code", "claude" or "fake")`);
+    providers.set(kind, provider);
+  }
   return provider;
 }
 
@@ -28,9 +34,9 @@ export function getAIProvider(): AIProvider {
  */
 export function resolveReplyModel(choice: ReplyModelChoice): string | null {
   if (choice !== "default") return choice;
-  const kind = process.env.AI_PROVIDER ?? "fake";
-  if (kind === "claude") return process.env.CLAUDE_MODEL ?? "claude-opus-5";
-  if (kind === "claude-code") return process.env.CLAUDE_CODE_MODEL ?? null;
+  const kind = getConfig("ai_provider");
+  if (kind === "claude") return defaultClaudeModel();
+  if (kind === "claude-code") return defaultModelFor("claude-code");
   return null;
 }
 

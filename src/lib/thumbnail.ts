@@ -1,6 +1,9 @@
 const THUMB_EDGE = 320;
 
-/** A small WebP preview made in the browser, so the panel stays light (research R5). */
+/**
+ * A small preview made in the browser, so the panel stays light (research R5): WebP, or JPEG where
+ * the engine can't encode WebP (WebKit, so the macOS desktop app; feature 11).
+ */
 export async function makeThumbnail(file: Blob): Promise<Blob | null> {
   try {
     const bitmap = await createImageBitmap(file);
@@ -10,8 +13,11 @@ export async function makeThumbnail(file: Blob): Promise<Blob | null> {
     canvas.height = Math.max(1, Math.round(bitmap.height * scale));
     canvas.getContext("2d")?.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
     bitmap.close();
-    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/webp", 0.8));
-    return blob?.type === "image/webp" ? blob : null;
+    const encode = (type: string, quality: number) => new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, type, quality));
+    const webp = await encode("image/webp", 0.8);
+    if (webp?.type === "image/webp") return webp;
+    const jpeg = await encode("image/jpeg", 0.85);
+    return jpeg?.type === "image/jpeg" ? jpeg : null;
   } catch {
     return null;
   }

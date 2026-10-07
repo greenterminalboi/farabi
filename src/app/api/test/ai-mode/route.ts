@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { setFakeMode } from "@/server/ai/fake";
 import { readJson, withApi } from "@/server/http/withApi";
+import { getConfig } from "@/server/settings/config";
 
 const Body = z.object({
   mode: z.enum(["ok", "fail", "slow", "stall"]),
@@ -10,7 +11,7 @@ const Body = z.object({
 
 function enabled(): boolean {
   const testing = process.env.NODE_ENV !== "production" || process.env.FARABI_TEST_HOOKS === "1";
-  return testing && (process.env.AI_PROVIDER ?? "fake") === "fake";
+  return testing && getConfig("ai_provider") === "fake";
 }
 
 export const POST = withApi(async (req: Request) => {

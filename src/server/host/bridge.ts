@@ -5,6 +5,11 @@ import { EventEmitter } from "node:events";
 import type { Readable, Writable } from "node:stream";
 
 export const MAX_LINE_BYTES = 1024 * 1024;
+/**
+ * Marks the server's protocol lines on stdout. Next.js itself prints to stdout too (its banner,
+ * "Ready in…"), so the shell reads only lines that start with this and logs the rest.
+ */
+export const LINE_PREFIX = "\u001eFARABI1 ";
 
 export type Hello = {
   secret: string;
@@ -90,7 +95,7 @@ export class Bridge {
   }
 
   private write(msg: object): void {
-    this.output.write(`${JSON.stringify(msg)}\n`);
+    this.output.write(`${LINE_PREFIX}${JSON.stringify(msg)}\n`);
   }
 
   private onData(chunk: string): void {

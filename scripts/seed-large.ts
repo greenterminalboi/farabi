@@ -6,15 +6,18 @@
 // `--test` targets the test database.
 import { crc32, deflateSync } from "node:zlib";
 import { createDb } from "../src/server/db/client";
+import { releaseStoreLock } from "../src/server/db/storeLock";
 import { writeAttachmentFiles } from "../src/server/feedback/attachments";
 import { regenerateFeedbackFile } from "../src/server/feedback/exportFile";
 import { loadEnv } from "./env";
 
 loadEnv();
 const useTest = process.argv.includes("--test");
+// `--data-dir <dir>` seeds a desktop store (feature 11); Farabi must not be running on it.
+const dataDirArg = process.argv.indexOf("--data-dir");
 const url = useTest ? process.env.TEST_DATABASE_URL : process.env.DATABASE_URL;
-if (!url) throw new Error("database URL not set");
-const db = createDb(url);
+if (dataDirArg < 0 && !url) throw new Error("database URL not set");
+const db = dataDirArg >= 0 ? createDb({ kind: "pglite", dataDir: process.argv[dataDirArg + 1] }) : createDb(url!);
 const arg = (name: string, fallback: number) => {
   const i = process.argv.indexOf(name);
   return i >= 0 ? Number(process.argv[i + 1]) : fallback;
@@ -262,3 +265,4 @@ for (const source of answers.slice(0, OUTPUTS)) {
 
 console.log(`Seeded ${TREES} trees, ${rows.length} elements, ${FEEDBACK} feedback items, ${OUTPUTS} function runs.`);
 await db.destroy();
+if (dataDirArg >= 0) releaseStoreLock(process.argv[dataDirArg + 1]);

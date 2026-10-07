@@ -18,8 +18,14 @@ import {
   type ReplyOptions,
   type SummaryInput,
 } from "./provider";
+import { getBridge, getCredential, isDesktop } from "../host/bridge";
+import { registerSecret } from "../host/redact";
+import { defaultModelFor } from "../settings/config";
 
-const MODEL = process.env.CLAUDE_MODEL ?? "claude-opus-5";
+/** The default model: the `default_model` setting (feature 11; CLAUDE_MODEL in the web app), else claude-opus-5. */
+export function defaultClaudeModel(): string {
+  return defaultModelFor("claude") ?? "claude-opus-5";
+}
 // Server-side refusal fallback: a declined request is re-run on Anthropic's recommended model.
 export const FALLBACK_BETA = "server-side-fallback-2026-07-01";
 // Models documented to accept `fallbacks` (Feature 6, research R2); others are sent without it.
@@ -71,7 +77,7 @@ function textOf(message: Anthropic.Beta.BetaMessage): string {
 /** The streaming request body for a reply: the chosen model, with fallbacks where supported. */
 export function replyParams(input: ReplyInput) {
   const { system, messages } = buildReplyRequest(input);
-  const model = input.model ?? MODEL;
+  const model = input.model ?? defaultClaudeModel();
   return {
     model,
     max_tokens: 64000,
@@ -85,10 +91,28 @@ export function replyParams(input: ReplyInput) {
 export class ClaudeProvider implements AIProvider {
   private client: Anthropic | undefined;
 
-  /** Created on first use. Reads ANTHROPIC_API_KEY from the server environment (.env.local). */
-  private getClient(): Anthropic {
-    this.client ??= new Anthropic();
+  private listening = false;
+
+  /**
+   * Created on first use. The key comes from the OS credential store in the desktop app (feature
+   * 11, FR-013) and from ANTHROPIC_API_KEY in the web app. It's kept in memory only and never logged.
+   */
+  private async getClient(): Promise<Anthropic> {
+    if (this.client) return this.client;
+    const { value } = await getCredential({ reveal: true });
+    registerSecret(value);
+    if (isDesktop() && !this.listening) {
+      this.listening = true;
+      // A key saved or removed in Settings applies to the next request.
+      getBridge()?.on("event:credentials.changed", () => (this.client = undefined));
+    }
+    this.client = new Anthropic(value ? { apiKey: value } : {});
     return this.client;
+  }
+
+  /** Drops the client so the next request reads the key again. */
+  resetClient(): void {
+    this.client = undefined;
   }
 
   async reply(input: ReplyInput, options?: ReplyOptions): Promise<string> {
@@ -96,7 +120,7 @@ export class ClaudeProvider implements AIProvider {
     let delivered = "";
     try {
       // Streamed so long answers don't hit HTTP timeouts, and so the app can show text as it comes.
-      const stream = this.getClient().beta.messages.stream(params, { signal: input.signal });
+      const stream = (await this.getClient()).beta.messages.stream(params, { signal: input.signal });
       stream.on("text", (delta) => {
         delivered += delta;
         options?.onText?.(delta);
@@ -117,9 +141,9 @@ export class ClaudeProvider implements AIProvider {
   async summarize(input: SummaryInput): Promise<string> {
     const { system, messages } = buildSummaryRequest(input);
     try {
-      const message = await this.getClient().beta.messages.create(
+      const message = await (await this.getClient()).beta.messages.create(
         {
-          model: MODEL,
+          model: defaultClaudeModel(),
           max_tokens: 4000,
           betas: [FALLBACK_BETA],
           fallbacks: "default",
@@ -141,9 +165,9 @@ export class ClaudeProvider implements AIProvider {
   async define(input: DefineInput): Promise<DefinitionText> {
     const { system, prompt } = buildDefineRequest(input);
     try {
-      const message = await this.getClient().beta.messages.create(
+      const message = await (await this.getClient()).beta.messages.create(
         {
-          model: MODEL,
+          model: defaultClaudeModel(),
           max_tokens: 4000,
           betas: [FALLBACK_BETA],
           fallbacks: "default",
@@ -161,9 +185,9 @@ export class ClaudeProvider implements AIProvider {
 
   async complete(input: CompletionInput): Promise<string> {
     try {
-      const message = await this.getClient().beta.messages.create(
+      const message = await (await this.getClient()).beta.messages.create(
         {
-          model: MODEL,
+          model: defaultClaudeModel(),
           max_tokens: 4000,
           betas: [FALLBACK_BETA],
           fallbacks: "default",

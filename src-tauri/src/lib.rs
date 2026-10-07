@@ -68,12 +68,22 @@ pub fn run() {
             app.set_menu(tauri::menu::Menu::default(&handle)?)?;
 
             let nav = handle.clone();
-            WebviewWindowBuilder::new(app, "main", WebviewUrl::App("starting.html".into()))
+            let builder = WebviewWindowBuilder::new(app, "main", WebviewUrl::App("starting.html".into()))
                 .title("Farabi")
                 .inner_size(1280.0, 820.0)
                 .min_inner_size(720.0, 480.0)
-                .on_navigation(move |url| allow_navigation(&nav, url))
-                .build()?;
+                .on_navigation(move |url| allow_navigation(&nav, url));
+            // Debug builds only: gate G1 injects its probe into the real window (quickstart V1).
+            #[cfg(debug_assertions)]
+            let builder = builder.on_page_load(|window, payload| {
+                if payload.event() != tauri::webview::PageLoadEvent::Finished {
+                    return;
+                }
+                if let Some(js) = std::env::var_os("FARABI_PROBE_JS").and_then(|p| std::fs::read_to_string(p).ok()) {
+                    let _ = window.eval(&js);
+                }
+            });
+            builder.build()?;
 
             let paths = paths::resolve(&handle)?;
             if let Err(e) = sidecar::start(&handle, &paths) {

@@ -11,10 +11,20 @@ export default defineConfig({
   use: {
     baseURL: "http://127.0.0.1:3100",
     trace: "retain-on-failure",
-    // Full Chromium with GPU: headless-shell's software WebGL makes canvas timings meaningless.
-    channel: "chromium",
-    launchOptions: { args: ["--use-angle=metal", "--enable-gpu", "--ignore-gpu-blocklist"] },
   },
+  projects: [
+    {
+      name: "chromium",
+      use: {
+        // Full Chromium with GPU: headless-shell's software WebGL makes canvas timings meaningless.
+        channel: "chromium",
+        launchOptions: { args: ["--use-angle=metal", "--enable-gpu", "--ignore-gpu-blocklist"] },
+      },
+    },
+    // The macOS desktop app runs on WKWebView, which is WebKit (feature 11, research R6). Opt-in
+    // with E2E_WEBKIT=1 (npm run test:e2e:webkit) so the default run stays as fast as before.
+    ...(process.env.E2E_WEBKIT === "1" ? [{ name: "webkit", use: { browserName: "webkit" as const } }] : []),
+  ],
   webServer: {
     // Production build, so performance checks (SC-004, SC-006) measure the real app.
     command: "npx next build && npx next start -H 127.0.0.1 -p 3100",

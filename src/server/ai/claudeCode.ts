@@ -23,6 +23,7 @@ import {
   type ReplyOptions,
   type SummaryInput,
 } from "./provider";
+import { defaultModelFor } from "../settings/config";
 
 const CLAUDE_BIN = process.env.CLAUDE_CODE_BIN ?? "claude";
 const TIMEOUT_MS = Number(process.env.CLAUDE_CODE_TIMEOUT_MS ?? 180_000);
@@ -65,7 +66,7 @@ export function headlessArgs(system: string, options: { effort?: string; model?:
     "--disable-slash-commands",
     "--no-session-persistence",
   ];
-  const model = options.model ?? process.env.CLAUDE_CODE_MODEL;
+  const model = options.model ?? defaultModelFor("claude-code") ?? undefined;
   if (model) args.push("--model", model);
   if (options.effort) args.push("--effort", options.effort);
   return args;

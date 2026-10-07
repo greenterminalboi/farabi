@@ -33,7 +33,15 @@ export function proxy(request: NextRequest): NextResponse {
   const origin = `http://127.0.0.1:${session.port}`;
   if (request.headers.get("host") !== `127.0.0.1:${session.port}`) return deny(421);
 
-  if (request.nextUrl.pathname !== SESSION_PATH) {
+  // The route's folder is `%5F%5Ffarabi` (a leading `_` makes App Router folders private), so the
+  // window's URL arrives percent-encoded.
+  let pathname = request.nextUrl.pathname;
+  try {
+    pathname = decodeURIComponent(pathname);
+  } catch {
+    // Malformed escapes: keep the raw path, which can't match the session route.
+  }
+  if (pathname !== SESSION_PATH) {
     const auth = request.headers.get("authorization");
     const bearer = auth?.startsWith("Bearer ") ? auth.slice(7) : null;
     const viaBearer = matchesSecret(bearer);

@@ -14,6 +14,8 @@ use tauri_plugin_opener::OpenerExt;
 use crate::credentials;
 
 pub const MAX_LINE_BYTES: usize = 1024 * 1024;
+/// The server marks its protocol lines with this; anything else on stdout is Next.js output.
+pub const LINE_PREFIX: &str = "\u{1e}FARABI1 ";
 
 /// Writes framed messages to the server's stdin and tracks shell → server requests.
 pub struct Link {
@@ -78,13 +80,14 @@ pub fn handle_line(app: &AppHandle, link: &Arc<Link>, line: &str) -> Incoming {
     if line.len() > MAX_LINE_BYTES || line.trim().is_empty() {
         return Incoming::Handled;
     }
-    let msg: Value = match serde_json::from_str(line) {
+    let Some(json) = line.strip_prefix(LINE_PREFIX) else {
+        // Next.js's own stdout (banner, "Ready in…"): log it, it isn't for us.
+        crate::sidecar::log_line(line);
+        return Incoming::Handled;
+    };
+    let msg: Value = match serde_json::from_str(json) {
         Ok(v) => v,
-        // The server sends logs to stderr; a non-JSON stdout line is a stray write. Log it.
-        Err(_) => {
-            eprintln!("[bridge] ignored non-protocol line on stdout");
-            return Incoming::Handled;
-        }
+        Err(_) => return Incoming::Handled,
     };
     if msg["v"] != 1 {
         return Incoming::Handled;

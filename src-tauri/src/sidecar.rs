@@ -127,7 +127,7 @@ pub fn start(app: &AppHandle, paths: &Paths) -> Result<(), String> {
                 match bridge::handle_line(&app, &server.link, &line) {
                     Incoming::Ready => {
                         server.ready.store(true, Ordering::SeqCst);
-                        let url = format!("http://127.0.0.1:{}/%5F%5Ffarabi/session?t={}", server.port, secret);
+                        let url = format!("http://127.0.0.1:{}/__farabi/session?t={}", server.port, secret);
                         if let Some(w) = app.get_webview_window("main") {
                             let _ = w.navigate(Url::parse(&url).unwrap());
                         }
@@ -223,6 +223,18 @@ pub fn restart(app: &AppHandle) -> Result<(), String> {
     show_page(app, "starting.html");
     let (data, logs) = PATHS.get().cloned().ok_or("not started")?;
     start(app, &Paths { data_dir: data, log_dir: logs })
+}
+
+/// Appends one non-protocol stdout line (Next.js's own output) to the server log.
+pub fn log_line(line: &str) {
+    if cfg!(debug_assertions) {
+        eprintln!("{line}");
+    }
+    if let Some((_, logs)) = PATHS.get() {
+        if let Ok(mut f) = OpenOptions::new().create(true).append(true).open(logs.join("server.log")) {
+            let _ = writeln!(f, "{line}");
+        }
+    }
 }
 
 /// Copies the server's stderr into a size-rotated log file (5 MB × 5).

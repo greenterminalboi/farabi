@@ -25,6 +25,7 @@ const { setFakeMode } = await import("@/server/ai/fake");
 const { drainGenerations } = await import("@/server/answers/generation");
 const { drainDrafts } = await import("@/server/definitions/draftQueue");
 const { resetFakeCalls } = await import("@/server/ai/fake");
+const { resetConfigCache } = await import("@/server/settings/config");
 
 beforeAll(async () => {
   const { migrationProvider } = await import("@/server/db/migrationList");
@@ -37,6 +38,8 @@ beforeEach(async () => {
   await drainGenerations();
   await drainDrafts();
   resetFakeCalls();
+  // setting_changes is truncated below, so the config cache must forget its rows too (feature 11).
+  resetConfigCache();
   // v2 tables, the live tables, and the frozen v1 tables that conversion tests seed. TRUNCATE
   // fires no row triggers, so the append-only and frozen guards don't get in the way.
   await sql`TRUNCATE ${sql.raw(TRUNCATE_TABLES.join(", "))} RESTART IDENTITY CASCADE`.execute(db);

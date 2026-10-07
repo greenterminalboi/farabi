@@ -45,11 +45,9 @@ export function validateUploads(uploads: Upload[]): ValidUpload[] {
     if (u.bytes.byteLength > FEEDBACK_MAX_IMAGE_BYTES) throw new InvalidRequestError(`${label} is larger than 10 MB`);
     const mimeType = sniffImageType(u.bytes);
     if (!mimeType) throw new InvalidRequestError(`${label} is not a PNG, JPEG, WebP or GIF image`);
-    const thumbOk =
-      u.thumb !== null &&
-      u.thumb.byteLength > 0 &&
-      u.thumb.byteLength <= MAX_THUMB_BYTES &&
-      sniffImageType(u.thumb) === "image/webp";
+    // WebP, or JPEG from engines that can't encode WebP (WebKit; feature 11).
+    const thumbType = u.thumb && u.thumb.byteLength > 0 && u.thumb.byteLength <= MAX_THUMB_BYTES ? sniffImageType(u.thumb) : null;
+    const thumbOk = thumbType === "image/webp" || thumbType === "image/jpeg";
     return { ...u, thumb: thumbOk ? u.thumb : null, mimeType };
   });
 }
@@ -84,7 +82,8 @@ export async function writeAttachmentFiles(
     written.push(attachmentAbsPath(filePath));
     let thumbPath: string | null = null;
     if (u.thumb) {
-      thumbPath = path.join(dir, `${id}.thumb.webp`).split(path.sep).join("/");
+      const thumbExt = sniffImageType(u.thumb) === "image/jpeg" ? "jpg" : "webp";
+      thumbPath = path.join(dir, `${id}.thumb.${thumbExt}`).split(path.sep).join("/");
       await fs.writeFile(attachmentAbsPath(thumbPath), u.thumb, { flag: "wx" });
       written.push(attachmentAbsPath(thumbPath));
     }
@@ -115,7 +114,7 @@ export async function readAttachment(id: string, thumb: boolean): Promise<{ byte
   const useThumb = thumb && row.thumb_path !== null;
   const rel = useThumb ? row.thumb_path! : row.file_path;
   try {
-    return { bytes: await fs.readFile(attachmentAbsPath(rel)), mimeType: useThumb ? "image/webp" : row.mime_type };
+    return { bytes: await fs.readFile(attachmentAbsPath(rel)), mimeType: useThumb ? (rel.endsWith(".jpg") ? "image/jpeg" : "image/webp") : row.mime_type };
   } catch (err) {
     console.error(`Feedback attachment file missing: ${rel}`, err);
     throw new NotFoundError("Attachment file not found");

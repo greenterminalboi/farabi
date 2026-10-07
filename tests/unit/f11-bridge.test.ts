@@ -1,6 +1,6 @@
 import { PassThrough } from "node:stream";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { Bridge, BridgeError, MAX_LINE_BYTES } from "@/server/host/bridge";
+import { Bridge, BridgeError, LINE_PREFIX, MAX_LINE_BYTES } from "@/server/host/bridge";
 
 /** A bridge wired to in-memory streams, plus helpers to play the shell's side. */
 function harness() {
@@ -13,7 +13,9 @@ function harness() {
     buf += chunk.toString("utf8");
     let nl: number;
     while ((nl = buf.indexOf("\n")) >= 0) {
-      sent.push(JSON.parse(buf.slice(0, nl)));
+      const line = buf.slice(0, nl);
+      expect(line.startsWith(LINE_PREFIX)).toBe(true);
+      sent.push(JSON.parse(line.slice(LINE_PREFIX.length)));
       buf = buf.slice(nl + 1);
     }
   });

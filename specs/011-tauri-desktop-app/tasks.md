@@ -46,39 +46,39 @@ touches different files and has no unfinished dependencies.
 **Purpose**: bring the branch up to the shared contracts, and scaffold the Tauri crate and build
 scripts.
 
-- [ ] T001 Rebase `011-tauri-desktop-app` onto the current `v0.2` head, so the branch has commit
+- [X] T001 Rebase `011-tauri-desktop-app` onto the current `v0.2` head, so the branch has commit
   `d0ac962` or later. That brings in `src/server/db/migrationList.ts`, migration 0010 and the v2
   graph. Run `npm ci && npm run typecheck && npm test` (Postgres via `docker compose up -d`), then
   log the rebased commit in STATUS.md.
-- [ ] T002 Add the dependencies in `package.json`, then run `npm install`:
+- [X] T002 Add the dependencies in `package.json`, then run `npm install`:
   - `@electric-sql/pglite` and `@electric-sql/pglite-pgvector`, pinned to the exact matching
     versions (the pgvector package has an exact peer dependency);
   - dev dependencies `@tauri-apps/cli@^2`, `@wdio/cli`, `@wdio/local-runner`, `@wdio/mocha-framework`
     and `@wdio/tauri-service` (research R7).
-- [ ] T003 [P] Scaffold `src-tauri/` as a Tauri v2 crate: `Cargo.toml`, `build.rs`,
+- [X] T003 [P] Scaffold `src-tauri/` as a Tauri v2 crate: `Cargo.toml`, `build.rs`,
   `src/main.rs` (empty builder for now), `icons/` (generate them with `npx tauri icon` from
   `public/` art, or a placeholder), and `capabilities/default.json`. The capabilities file grants
   **no** permissions to remote URLs (research R5).
-- [ ] T004 [P] Create `src-tauri/tauri.conf.json` with:
+- [X] T004 [P] Create `src-tauri/tauri.conf.json` with:
   - `identifier: "app.farabi"`, `productName: "Farabi"`;
   - `bundle.targets: ["dmg", "nsis"]`;
   - `bundle.externalBin: ["binaries/node"]` and `bundle.resources: { "../.desktop/server": "server" }`;
   - the NSIS `installMode: "currentUser"`, with the WebView2 `downloadBootstrapper`;
   - `app.windows: []` (the window is created in code, T016);
   - no `devUrl` or `frontendDist` server (the starting page is a bundled asset, T017).
-- [ ] T005 [P] Update `.gitignore` with `src-tauri/target/`, `src-tauri/binaries/`, `.desktop/`
+- [X] T005 [P] Update `.gitignore` with `src-tauri/target/`, `src-tauri/binaries/`, `.desktop/`
   and `.farabi-dev/`.
-- [ ] T006 [P] Write `scripts/desktop/fetch-node.ts`. It downloads the official Node 24 LTS
+- [X] T006 [P] Write `scripts/desktop/fetch-node.ts`. It downloads the official Node 24 LTS
   binary for the host target, or `--target <triple>`, from nodejs.org, using a version and
   SHA-256 pinned in the script. It verifies the checksum and writes
   `src-tauri/binaries/node-<target-triple>[.exe]`, then makes the file executable. It is
   idempotent and skips the download when the checksum already matches.
-- [ ] T007 Make standalone output opt-in in `next.config.ts`: set
+- [X] T007 Make standalone output opt-in in `next.config.ts`: set
   `output: process.env.FARABI_STANDALONE === "1" ? "standalone" : undefined`, so `next start` (the
   web app and Playwright `chromium`) is unchanged. Add `@electric-sql/pglite` and
   `@electric-sql/pglite-pgvector` to `serverExternalPackages`. Run
   `FARABI_STANDALONE=1 npx next build` and confirm `.next/standalone/server.js` exists.
-- [ ] T008 Write `scripts/desktop/prepare-server.ts`. It:
+- [X] T008 Write `scripts/desktop/prepare-server.ts`. It:
   - copies `.next/standalone/` to `.desktop/server/`, and `.next/static/` to
     `.desktop/server/.next/static/` and `public/` to `.desktop/server/public/`;
   - verifies `pglite.wasm`, `pglite.data` and the pgvector tarball are present under
@@ -86,7 +86,7 @@ scripts.
     missed them (research `farabi-coord/research/2026-10-07-pglite.md`, "Not verified").
 
   Fail loudly if any asset is missing.
-- [ ] T009 Add npm scripts to `package.json` (contracts/cli.md):
+- [X] T009 Add npm scripts to `package.json` (contracts/cli.md):
   - `desktop:dev`: `tauri dev`;
   - `desktop:build`: fetch-node, then `FARABI_STANDALONE=1 next build`, prepare-server and
     `tauri build`, then print the installer path and size in MB;
@@ -101,7 +101,7 @@ gates G1–G3. No user story starts until this phase is done and all three gates
 
 ### Server-side bridge and session
 
-- [ ] T010 [P] Write `tests/unit/f11-bridge.test.ts` (fails first). Cover:
+- [X] T010 [P] Write `tests/unit/f11-bridge.test.ts` (fails first). Cover:
   - line framing and the `v: 1` envelope;
   - request and response matching by `id` and `re`, and timeouts (`code: "timeout"`);
   - lines over 1 MiB are rejected;
@@ -109,7 +109,7 @@ gates G1–G3. No user story starts until this phase is done and all three gates
   - in web mode, the fallbacks in contracts/host-bridge.md ("Rules") are used.
 
   Drive it with in-memory streams.
-- [ ] T011 Implement `src/server/host/bridge.ts` per contracts/host-bridge.md. It exports:
+- [X] T011 Implement `src/server/host/bridge.ts` per contracts/host-bridge.md. It exports:
   - `isDesktop()`, which is true when `FARABI_HOST === "tauri"`;
   - `startBridge(stdin, stdout)`, `request(type, params, timeoutMs)`, `emit(event, data)` and
     `onRequest(type, handler)`;
@@ -118,10 +118,10 @@ gates G1–G3. No user story starts until this phase is done and all three gates
 
   In desktop mode it redirects `console.log` and `console.info` to stderr. The instance is cached
   on `globalThis` (as `client.ts` does), so hot reload doesn't open a second bridge.
-- [ ] T012 [P] Implement `src/server/host/redact.ts`. Its `redact(text)` replaces any occurrence
+- [X] T012 [P] Implement `src/server/host/redact.ts`. Its `redact(text)` replaces any occurrence
   of the current API key or session secret, if known, with `[redacted]`. Wrap the stderr writer
   that T011 installs with it. Unit tests go in `tests/unit/f11-redact.test.ts`.
-- [ ] T013 [P] Write `tests/unit/f11-proxy.test.ts` (fails first). It calls the exported proxy
+- [X] T013 [P] Write `tests/unit/f11-proxy.test.ts` (fails first). It calls the exported proxy
   function with constructed requests and covers every row of the "Request rules" table in
   contracts/launch-session.md:
   - `421` for a wrong `Host`;
@@ -129,12 +129,12 @@ gates G1–G3. No user story starts until this phase is done and all three gates
   - the session path is exempt;
   - `403` for a state-changing request with a foreign `Origin`;
   - pass-through when `FARABI_HOST` is unset.
-- [ ] T014 Implement `src/proxy.ts`, following the Next 16 docs at
+- [X] T014 Implement `src/proxy.ts`, following the Next 16 docs at
   `node_modules/next/dist/docs/01-app/01-getting-started/16-proxy.md`, with the rules in
   contracts/launch-session.md. The session secret and port come from a server-only module that
   T011 fills on `hello`. Comparisons are constant-time. Add the response headers (the CSP draft
   from the contract) to every response.
-- [ ] T015 Implement `src/app/__farabi/session/route.ts`. `GET ?t=` checks `t` against the secret
+- [X] T015 Implement `src/app/__farabi/session/route.ts`. `GET ?t=` checks `t` against the secret
   in constant time. On a match it sets
   `farabi_session=<secret>; HttpOnly; SameSite=Strict; Path=/` and returns `303` to `/`, with
   `Cache-Control: no-store` and `Referrer-Policy: no-referrer`. Otherwise it returns `401` with an
@@ -142,7 +142,7 @@ gates G1–G3. No user story starts until this phase is done and all three gates
 
 ### Rust shell
 
-- [ ] T016 Implement `src-tauri/src/main.rs` and `src-tauri/src/paths.rs`:
+- [X] T016 Implement `src-tauri/src/main.rs` and `src-tauri/src/paths.rs`:
   - `paths.rs` resolves the data dir (`app_data_dir()`, overridden by `FARABI_DATA_DIR`) and the
     log dir, and creates both.
   - `main.rs` registers the plugins `single-instance` (focus the existing window), `window-state`,
@@ -152,7 +152,7 @@ gates G1–G3. No user story starts until this phase is done and all three gates
     Ctrl shortcuts work (FR-009).
   - It installs a navigation handler: any `http(s)` URL not on `127.0.0.1:<port>` opens in the
     default browser instead (launch-session.md, "Window behavior").
-- [ ] T017 [P] Create `src-tauri/assets/` with the built-in pages `starting.html`,
+- [X] T017 [P] Create `src-tauri/assets/` with the built-in pages `starting.html`,
   `blocked.html?screen=…` and `fatal.html`. They are plain HTML with inline CSS and follow the
   app's light and dark tokens. The texts are:
   - starting: "Starting Farabi…";
@@ -164,7 +164,7 @@ gates G1–G3. No user story starts until this phase is done and all three gates
   - `upgrade-failed`: "The upgrade failed. Your data was restored from the backup taken just
     before.";
   - `fatal`: "Farabi stopped", with **Restart** and **Open logs** buttons.
-- [ ] T018 Implement `src-tauri/src/sidecar.rs`:
+- [X] T018 Implement `src-tauri/src/sidecar.rs`:
   - bind `127.0.0.1:0`, read the port and drop the listener;
   - generate a 32-byte secret (OS RNG), base64url-encoded;
   - spawn the server:
@@ -179,7 +179,7 @@ gates G1–G3. No user story starts until this phase is done and all three gates
   - Keep a 20 s ready timeout, which shows `fatal.html`.
   - On an unexpected exit, show `fatal.html` and auto-restart at most once per 60 s.
   - On window close or quit, send `shutdown`, wait up to 5 s, then kill.
-- [ ] T019 Implement `src-tauri/src/bridge.rs`: serde types for the request, response and event
+- [X] T019 Implement `src-tauri/src/bridge.rs`: serde types for the request, response and event
   envelopes in contracts/host-bridge.md, a line reader and writer over the child's stdio, and a
   pending-request map with timeouts. It handles:
   - **incoming**: `ready` (navigate to `http://127.0.0.1:<port>/__farabi/session?t=<secret>`),
@@ -188,7 +188,7 @@ gates G1–G3. No user story starts until this phase is done and all three gates
 
   Requests from the server are dispatched to the handlers in T041 (credentials), T057 (dialog)
   and T058 (reveal). Until those exist, they answer `{ ok: false, error: { code: "unsupported" } }`.
-- [ ] T020 Wire the bridge into `src/instrumentation.ts`. When `NEXT_RUNTIME === "nodejs"` and
+- [X] T020 Wire the bridge into `src/instrumentation.ts`. When `NEXT_RUNTIME === "nodejs"` and
   `isDesktop()`, it calls `startBridge(process.stdin, process.stdout)`, waits for `hello`, runs
   the startup sequence (T029), and then emits `ready { port, schemaLevel }`. The existing
   `regenerateFeedbackFile()` call stays, and runs after the store is ready.
@@ -213,14 +213,14 @@ gates G1–G3. No user story starts until this phase is done and all three gates
 
 ### Store backend and gates G2 and G3
 
-- [ ] T024 [P] Implement `src/server/db/storeLock.ts`:
+- [X] T024 [P] Implement `src/server/db/storeLock.ts`:
   - `acquireStoreLock(dataDir)` creates `store.lock` with exclusive-create (`wx`), containing
     `{ pid, startedAt }`. If the file exists and its pid is alive, it throws `StoreLockedError`.
     If the pid is dead, it replaces the file.
   - `releaseStoreLock()` removes it.
 
   Unit tests go in `tests/unit/f11-store-lock.test.ts`: a live lock, a stale lock, and release.
-- [ ] T025 Change `src/server/db/client.ts` to a **backend switch only** (coordinator condition
+- [X] T025 Change `src/server/db/client.ts` to a **backend switch only** (coordinator condition
   (2); log it in STATUS.md when it lands):
   - `createDb(target)`, where `target` is `{ kind: "pg", url }` or
     `{ kind: "pglite", dataDir: string | "memory://" }`.
@@ -238,18 +238,18 @@ gates G1–G3. No user story starts until this phase is done and all three gates
     is set, otherwise it throws the existing error.
   - The instance stays cached on `globalThis`, so `next dev` hot reload never opens a second
     PGlite on the same directory (PGlite issue #1106).
-- [ ] T026 Make the Vitest setup backend-aware, in `vitest.config.ts`, `tests/integration/setup.ts`
+- [X] T026 Make the Vitest setup backend-aware, in `vitest.config.ts`, `tests/integration/setup.ts`
   and `tests/integration/helpers.ts`:
   - `STORE=pg` (default until cut-over) keeps today's `TEST_DATABASE_URL` behavior.
   - `STORE=pglite` uses a fresh `memory://` PGlite per test file, migrated through
     `migrationList.ts`.
 
   Add npm scripts `test:pg` and `test:pglite`.
-- [ ] T027 **Gate G3** (quickstart V3): run `npm run test:pg` and `npm run test:pglite`. Fix any
+- [X] T027 **Gate G3** (quickstart V3): run `npm run test:pg` and `npm run test:pglite`. Fix any
   parser or dialect difference in `client.ts` only, never by changing tests or SQL owned by
   another lane. Record identical pass counts in `gates.md`, then log in STATUS.md. Coordinator
   condition (3) is met when this holds at cut-over (T077).
-- [ ] T028 Write `scripts/desktop/durability.ts` (contracts/cli.md):
+- [X] T028 Write `scripts/desktop/durability.ts` (contracts/cli.md):
   - **`--kills N`** (G2a): spawn a child that opens a disk PGlite in a temp dir and, in a loop,
     inserts project, element and setting rows through `createDb`, appending each committed id to
     a side log with `fsync` after each commit. It also streams an answer through the fake
@@ -263,7 +263,7 @@ gates G1–G3. No user story starts until this phase is done and all three gates
   - **`--writer-only` / `--verify`** (G2c): the writer and checker halves of G2a, for VM resets.
 
   Exit 0 only if everything passed.
-- [ ] T029 Implement `src/server/db/startup.ts`, the desktop-mode startup sequence (data-model.md
+- [X] T029 Implement `src/server/db/startup.ts`, the desktop-mode startup sequence (data-model.md
   §6), for now without the backup step, which is added in T072:
   1. acquire the lock, or emit `blocked { screen: "store-locked" }`;
   2. compare the executed migrations with `migrationList.ts`. If any are unknown, emit
@@ -286,7 +286,7 @@ gates G1–G3. No user story starts until this phase is done and all three gates
   - **G2a passes but G2b or G2c fails**: log the owner's choice of R2 option (a) or (b) as
     "needs decision", and continue. Storage tasks don't depend on the choice. T074 implements
     option (b) only if chosen.
-- [ ] T031 [P] Add a Playwright `webkit` project to `playwright.config.ts`. It reuses the
+- [X] T031 [P] Add a Playwright `webkit` project to `playwright.config.ts`. It reuses the
   existing tests and `webServer` (production build, `next start`, Postgres), so 010's work is
   checked on WebKit as it lands (research R6). Run it once, and file each WebKit-only failure as a
   line in `gates.md` under "WebKit parity backlog". They are fixed in US2 (T042).
@@ -323,7 +323,7 @@ and a fake reply streams with nothing else installed.
 
 ### Implementation
 
-- [ ] T034 [US1] Make the desktop default provider `fake` until a key or provider is chosen: in
+- [X] T034 [US1] Make the desktop default provider `fake` until a key or provider is chosen: in
   `src/server/ai/index.ts`, resolve the provider through the config resolver (T055) when it
   exists. Until then, use `isDesktop() ? "fake" : process.env.AI_PROVIDER`. Note the dependency
   on T055 in the code comment.
@@ -430,7 +430,7 @@ provenance are kept, the import never merges, and repeating it is refused.
 
 ### Implementation
 
-- [ ] T046 [US3] Write migration `src/server/db/migrations/0012_desktop.ts` and register it as
+- [X] T046 [US3] Write migration `src/server/db/migrations/0012_desktop.ts` and register it as
   `"0012_desktop"` in `src/server/db/migrationList.ts`, after `0011_drill` if present. Log it in
   STATUS.md. It must:
   1. Drop and recreate the `setting_changes` key `CHECK` to allow
