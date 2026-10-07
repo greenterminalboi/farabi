@@ -444,7 +444,6 @@ body { display: flex; flex-direction: column; }
 .element-text .rt-code { font-family: ui-monospace, monospace; font-size: 0.9em; }
 /* Where text was cut to fit, a mark says so; nothing is drawn in place of it (FR-030, FR-032). */
 .element-text [data-clipped]::after { content: " …"; color: var(--muted); }
-.element-body.clipped { mask-image: linear-gradient(to bottom, #000 calc(100% - 1.6em), transparent); }
 
 .canvas-root { position: relative; flex: 1; min-width: 0; overflow: hidden; }
 .canvas-menu { position: absolute; top: 10px; left: 12px; z-index: 20; display: flex; gap: 10px; align-items: center; }

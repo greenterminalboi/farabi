@@ -527,6 +527,9 @@ A p95 of 16.7–16.8 ms is one refresh interval: no dropped frames at the 95th p
   finished its first render (more than 60 s).
 - **Measuring with Playwright tracing on.** Its snapshots cost frames, so the spec sets
   `trace: "off"`.
+- **A `mask-image` fade on clipped text (found 2026-10-07).** Zoomed out, every item is clipped,
+  and masking thousands of items took far-zoom pan p95 from 16.8 ms to about 400 ms. The cut is
+  marked with " …" only.
 - **Timing the very first gesture after load.** It also pays JIT and GPU start-up, so the spec
   warms up with a 1 s pan first. Steady-state repeats in one session all held p95 ≤ 16.8 ms.
 
