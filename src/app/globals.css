@@ -407,6 +407,10 @@ body { display: flex; flex-direction: column; }
 .element-text.with-footer { padding-bottom: calc(34px + 14px); }
 .element-text.question { padding: 11px 16px; }
 .element-text.question .element-body, .element-text.output .element-body { white-space: pre-wrap; }
+/* Feature 12: a drill card. Its first line is the domain. */
+.element-text.drill { padding: calc(30px + 12px) 16px 12px; font-size: 15px; }
+.element-text.drill .element-body { white-space: pre-wrap; user-select: none; cursor: default; }
+.element-text.drill .element-body::first-line { font-weight: 600; }
 .element-header, .element-footer {
   position: absolute; left: 0; right: 0; display: flex; align-items: center; gap: 8px;
   padding: 0 12px; font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden;

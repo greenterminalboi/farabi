@@ -178,7 +178,9 @@ export class ClaudeCodeProvider implements AIProvider {
   }
 
   async complete(input: CompletionInput): Promise<string> {
-    const text = (await runHeadless(input.system, input.prompt, { effort: "low", signal: input.signal })).trim();
+    const text = (
+      await runHeadless(input.system, input.prompt, { effort: input.effort ?? "low", model: input.model, signal: input.signal })
+    ).trim();
     if (!text) throw new AIUnavailableError(`Claude Code returned an empty ${input.tag}`);
     return text;
   }

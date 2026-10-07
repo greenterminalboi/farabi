@@ -30,6 +30,18 @@ type CanvasStore = {
   setDraft: (targetId: string, text: string) => void;
 };
 
+/**
+ * An element as the canvas draws it. Under a kind kept off the canvas (Feature 12), `drawnFrom`
+ * names the nearest drawn ancestor, and the canvas uses it as the parent for layout, connectors and
+ * walking. An action's returned row keeps the canvas's earlier `drawnFrom` and card.
+ */
+function drawn(e: Element, before?: Element): Element {
+  const from = e.drawnFrom ?? before?.drawnFrom;
+  const card = e.card ?? before?.card;
+  if (!from && !card) return e;
+  return { ...e, ...(from ? { drawnFrom: from, parentId: from } : {}), ...(card ? { card } : {}) };
+}
+
 export const useCanvasStore = create<CanvasStore>()(
   persist(
     (set, get) => ({
@@ -46,7 +58,7 @@ export const useCanvasStore = create<CanvasStore>()(
         const switched = get().projectId !== projectId;
         set((s) => ({
           projectId,
-          elements: new Map(canvas.elements.map((e) => [e.id, e])),
+          elements: new Map(canvas.elements.map((e) => [e.id, drawn(e)])),
           trees: canvas.trees,
           revision: s.revision + 1,
           ...(switched ? { focusId: null, selection: null, composingNewTree: false } : {}),
@@ -57,7 +69,7 @@ export const useCanvasStore = create<CanvasStore>()(
         set((s) => {
           const next = new Map(s.elements);
           for (const e of elements) {
-            next.set(e.id, e);
+            next.set(e.id, drawn(e, s.elements.get(e.id)));
             touched.add(e.treeId);
           }
           let nextTrees = s.trees;

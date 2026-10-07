@@ -81,7 +81,7 @@ export type FrameDragPhase = "start" | "move" | "end" | "cancel";
 type Point = { x: number; y: number };
 
 const DIM = 0.45;
-const RADIUS = { answer: 10, output: 10, question: 18, function_connector: 0 } as const;
+const RADIUS = { answer: 10, output: 10, drill: 10, question: 18, function_connector: 0 } as const;
 const REGION_PAD = 40;
 
 declare global {
@@ -427,6 +427,10 @@ export class CanvasRenderer {
         g.moveTo(x + 1, y + 30).lineTo(x + w - 1, y + 30).stroke({ width: 1, color: p.border, alpha: 0.6 });
         return;
       }
+      case "drill":
+        g.roundRect(x, y, w, h, RADIUS.drill).fill(p.surface).stroke({ width: 2, color: p.focus, alpha: 0.7 });
+        g.moveTo(x + 1, y + 30).lineTo(x + w - 1, y + 30).stroke({ width: 1, color: p.border, alpha: 0.6 });
+        return;
       case "output": {
         const rejected = el.review === "rejected";
         g.roundRect(x, y, w, h, RADIUS.output).fill({ color: p.aiFill, alpha: rejected ? 0.5 : 1 });

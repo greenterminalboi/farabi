@@ -11,7 +11,8 @@ export type ElementOrigin =
   | "reply"
   | "retry"
   | "regenerate"
-  | "run";
+  | "run"
+  | "drill";
 export type AnswerStatus = "pending" | "complete" | "incomplete" | "stopped" | "failed";
 export type OutputReviewKind = "confirmed" | "rejected";
 

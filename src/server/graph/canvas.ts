@@ -1,5 +1,6 @@
 // The canvas of one project (research R13): every element with full text, trees, the current
 // note of each edge, review state and the saved camera, in a handful of set-based queries.
+import { findKind } from "@/shared/kinds";
 import type { CanvasResponse, Review, Tree } from "@/shared/schemas";
 import { finalizeOrphan, isGenerating } from "../answers/generation";
 import { db } from "../db/client";
@@ -90,22 +91,40 @@ export async function getCanvas(projectId: string): Promise<CanvasResponse> {
     }
   }
 
+  // Kinds declared `onCanvas: false` (Feature 12's drill text) stay off the canvas. An element
+  // under one is drawn from its nearest drawn ancestor.
+  const hidden = new Set(elements.filter((e) => findKind(e.kind)?.onCanvas === false).map((e) => e.id));
+  const parentOf = new Map(elements.map((e) => [e.id, e.parent_id]));
+  const drawnFrom = (el: ElementRow): string | null => {
+    let p = el.parent_id;
+    while (p !== null && hidden.has(p)) p = parentOf.get(p) ?? null;
+    return p === el.parent_id ? null : p;
+  };
+
+  const canvasElement = (el: ElementRow) => {
+    if (el.kind === "question") {
+      return toElement(el, { newestAttempt: newestAttempt.get(el.id) ?? null, note: noteBy.get(el.id) ?? null });
+    }
+    if (el.origin === "run") {
+      const review = el.shape === "node" ? (reviewBy.get(el.id) ?? "proposed") : edgeReview(outputsOf.get(el.id) ?? []);
+      return toElement(el, { review });
+    }
+    return toElement(el);
+  };
+
   const originOf = new Map(elements.filter((e) => e.parent_id === null).map((e) => [e.tree_id, e.id]));
   return {
     trees: trees.map((t) => {
       const origin = originOf.get(t.id);
       return toTree(t, origin ? (earliestAnswer.get(origin)?.id ?? null) : null);
     }),
-    elements: elements.map((el) => {
-      if (el.kind === "question") {
-        return toElement(el, { newestAttempt: newestAttempt.get(el.id) ?? null, note: noteBy.get(el.id) ?? null });
-      }
-      if (el.origin === "run") {
-        const review = el.shape === "node" ? (reviewBy.get(el.id) ?? "proposed") : edgeReview(outputsOf.get(el.id) ?? []);
-        return toElement(el, { review });
-      }
-      return toElement(el);
-    }),
+    elements: elements
+      .filter((el) => !hidden.has(el.id))
+      .map((el) => {
+        const out = canvasElement(el);
+        const from = drawnFrom(el);
+        return from === null ? out : { ...out, drawnFrom: from };
+      }),
     camera: camera ? toCamera(camera) : null,
   };
 }

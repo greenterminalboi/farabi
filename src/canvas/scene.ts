@@ -118,6 +118,15 @@ export function chromeOf(el: Element, state: EdgeState | null, attempt: { n: num
       header.push({ action: "rerun", label: "Run again" });
       return { label: `AI ${el.functionName ?? el.kind}, ${el.review ?? "proposed"}`, header };
     }
+    case "drill":
+      // A card that opens its own screen (Feature 12). It is the user's, so it has no AI tag.
+      return {
+        label: `Drill${el.card ? `: ${el.card.title}` : ""}`,
+        header: [
+          { text: "Drill", className: "status" },
+          ...(el.card ? [{ action: "open-card", label: "Open", className: "chrome-right", testid: "card-open" }] : []),
+        ],
+      };
     case "function_connector":
       return {
         label: `${el.functionName ?? "Function"} applied`,

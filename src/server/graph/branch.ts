@@ -1,5 +1,6 @@
 // Branching from a span of any element's final text (FR-016, FR-017, FR-019). The branch is an
 // unsent edge anchored to the span; the AI is never called here (Article IV).
+import { findKind } from "@/shared/kinds";
 import type { BranchResponse, Span, SpanRequest } from "@/shared/schemas";
 import { db, type Trx } from "../db/client";
 import { ConflictError, InvalidSelectionError } from "../errors";
@@ -8,13 +9,20 @@ import { type ElementRow, insertElement, loadLive, toElement } from "./elements"
 
 const CONTEXT_CHARS = 32;
 
-/** An element whose text is final: a sent question edge, a complete answer, or a function output. */
+/**
+ * An element whose text is final: a conversation turn (by its kind's `contextRole`: a sent question
+ * edge, a complete answer, Feature 12's drill text) or a function output.
+ */
 function finalText(el: ElementRow): string | null {
-  if (el.kind === "question") return el.text;
-  if (el.kind === "answer") return el.status === "complete" ? el.text : null;
+  const role = findKind(el.kind)?.contextRole;
+  if (role === "user") return el.text;
+  if (role === "ai") return el.status === null || el.status === "complete" ? el.text : null;
   if (el.origin === "run" && el.shape === "node") return el.text;
   return null;
 }
+
+/** A function output: a leaf (R12). Run-made kinds that are conversation turns are not leaves. */
+const isLeafOutput = (el: ElementRow) => el.origin === "run" && el.shape === "node" && !findKind(el.kind)?.contextRole;
 
 /**
  * Checks that a span can anchor something on `elementId` (data-model.md "Branch, Define and
@@ -28,7 +36,7 @@ export async function validateSpan(
   options: { allowOutput: boolean } = { allowOutput: false },
 ): Promise<{ element: ElementRow; span: Span }> {
   const element = await loadLive(trx, elementId);
-  const isOutput = element.origin === "run" && element.shape === "node";
+  const isOutput = isLeafOutput(element);
   const text = finalText(element);
   if (text === null || (isOutput && !options.allowOutput)) {
     throw new ConflictError("not_branchable", "You can't branch from this text yet");

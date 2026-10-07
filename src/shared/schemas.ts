@@ -18,6 +18,8 @@ export const ElementOrigin = z.enum([
   "retry",
   "regenerate",
   "run",
+  // Feature 12: a drill started from an existing element.
+  "drill",
 ]);
 export type ElementOrigin = z.infer<typeof ElementOrigin>;
 export const EdgeState = z.enum(["unsent", "replying", "answered", "incomplete", "stopped", "failed"]);
@@ -79,6 +81,13 @@ export const Element = z.object({
   functionVersion: z.number().int().optional(),
   /** Outputs: newest review. Function edges: derived from their outputs. */
   review: Review.optional(),
+  /**
+   * Canvas only: the nearest drawn ancestor, when the parent is a kind kept off the canvas
+   * (`onCanvas: false`, Feature 12). The canvas draws the element from it.
+   */
+  drawnFrom: z.string().optional(),
+  /** Canvas only: what a card display (Feature 12's drill) shows, and where Open goes. */
+  card: z.object({ title: z.string(), lines: z.array(z.string()), href: z.string() }).optional(),
 });
 export type Element = z.infer<typeof Element>;
 
@@ -355,6 +364,12 @@ export const KindSettingsResponse = z.object({
   kinds: z.array(z.object({ kind: z.string(), label: z.string(), settings: z.array(ResolvedSetting) })),
 });
 export type KindSettingsResponse = z.infer<typeof KindSettingsResponse>;
-export const SaveKindSettingBody = z.object({ kind: z.string(), key: z.string(), value: z.string().nullable() });
+export const SaveKindSettingBody = z.object({
+  kind: z.string(),
+  key: z.string(),
+  value: z.string().nullable(),
+  /** An override on one element of that kind (Feature 12, C6); absent sets the kind-level value. */
+  nodeId: z.string().optional(),
+});
 export const SaveEdgeSettingBody = z.object({ key: z.string(), value: z.string().nullable() });
 export const SettingResponse = z.object({ setting: ResolvedSetting });
