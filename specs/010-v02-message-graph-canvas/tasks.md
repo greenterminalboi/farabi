@@ -1010,7 +1010,7 @@ and kind settings with per-edge overrides.
 
 ## Phase 12: Polish and cross-cutting
 
-- [ ] T109 Remove dead code (plan "Removed"):
+- [X] T109 Remove dead code (plan "Removed"):
   - `src/components/chat/{ChatView,NodeHeader,InheritedContext,Message,rehypeSourceOffsets,TermText}.tsx`
     (keep `Composer` only if still imported)
   - `src/components/map/*` and `src/map/*`
@@ -1021,26 +1021,26 @@ and kind settings with per-edge overrides.
   - the API routes listed as removed in contracts/http-api.md
 
   Drop `d3-hierarchy` and `react-markdown` from `package.json` if nothing imports them.
-- [ ] T110 [P] Retire the chat- and map-only suites that the f10 suites replace:
+- [X] T110 [P] Retire the chat- and map-only suites that the f10 suites replace:
   - `tests/e2e/{us1-root,us2-branch,us3-map,us4-roundtrip,us5-drift,scale,f2-us1-streaming,f2-us2-quick-branch,f2-us3-drag,f2-us5-edge-labels,f5-suggestions,f7-chat-visual,f8-branch-queue,f9-node-functions,f9-scale,feedback-round-1,regenerate-offline}.spec.ts`
   - `tests/integration/{us1-conversations,us2-branching,us3-forest,us5-summaries,f2-us1-streaming,f2-us2-quick-branch,f2-us3-positions,f2-us5-edge-labels,f9-functions,f9-settings}.test.ts`
   - `tests/unit/{layout,stack,f2-layout-manual,f9-satellites,f9-output-state,f9-kind-settings-ui}.test.ts`
 
   Before deleting each one, check that its behaviour is covered by an f10 test or is intentionally
   gone.
-- [ ] T111 [P] Delete the spike `src/app/dev/canvas-spike/page.tsx` and
+- [X] T111 [P] Delete the spike `src/app/dev/canvas-spike/page.tsx` and
   `tests/e2e/f10-m0-spike.spec.ts`, keeping the numbers in research R17. `f10-scale` now guards
   performance.
-- [ ] T112 [P] Update `README.md` "Using it" for the canvas:
+- [X] T112 [P] Update `README.md` "Using it" for the canvas:
   - ask, branch, `????` and park
   - pan with the wheel, Ctrl/Cmd+wheel to zoom, Alt+arrows to walk
   - drag a frame, Alt-drag a tree
   - minimap
   - functions
   - migration and backup (`npm run db:migrate`, `v1:verify`)
-- [ ] T113 [P] Add a note at the top of `specs/009-node-function-foundation/spec.md` saying it was
+- [X] T113 [P] Add a note at the top of `specs/009-node-function-foundation/spec.md` saying it was
   superseded by `specs/010-v02-message-graph-canvas/` (spec assumption "Feature 009 is folded in").
-- [ ] T114 Run `npm run typecheck`, `npm run lint`, `npm test` and `npx playwright test`, and fix
+- [X] T114 Run `npm run typecheck`, `npm run lint`, `npm test` and `npx playwright test`, and fix
   failures.
 - [ ] T115 **Owner step**: run quickstart §1 on the owner's real database (backup, migrate,
   `v1:verify`, rerun `v1:convert`) and then §3. Report the counts. Do not run this without the

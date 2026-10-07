@@ -141,7 +141,7 @@ body { display: flex; flex-direction: column; }
 }
 .term-card p { margin: 6px 0; }
 .term-card.locked { border-color: var(--accent); }
-.term-card-lock { display: flex; align-items: center; gap: 6px; margin-top: 8px; }
+.term-card-lock { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
 .term-card-lock-bar { flex: 1; height: 3px; border-radius: 2px; background: var(--accent); transform-origin: left; transform: scaleX(0); animation: lock-fill linear forwards; }
 .term-card-lock-circle circle { fill: transparent; stroke: var(--accent); stroke-width: 2; stroke-dasharray: 37.7; stroke-dashoffset: 37.7; }
 .term-card.locked .term-card-lock-circle circle { animation: lock-circle 250ms ease-out forwards; }

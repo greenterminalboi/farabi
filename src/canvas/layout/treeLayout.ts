@@ -1,5 +1,5 @@
 // A first-child-aligned tidy tree with variable box sizes (research R10). A run of question, answer,
-// question, answer reads as a column; every later child (a branch, a re-ask, another attempt, a
+// question, answer reads as a column, right-aligned like a chat; every later child (a branch, a re-ask, another attempt, a
 // function edge) fans out to the right, and subtree contours are kept apart, so nothing overlaps
 // and adding a branch never moves the column it leaves (FR-036).
 
@@ -148,8 +148,9 @@ function layoutAll(root: LayoutNode): { offsets: Map<string, { dx: number; dy: n
       maxY = Math.max(maxY, sub.maxY + dy);
     };
 
-    // The column: the first child centred directly below.
-    if (n.first) place(n.first, (n.width - n.first.width) / 2, n.height + gapBelow(n));
+    // The column: the first child directly below, right edges aligned, so the user's bubbles sit
+    // to the right of the answers like a chat.
+    if (n.first) place(n.first, n.width - n.first.width, n.height + gapBelow(n));
 
     // Everything else to the right, clear of all that is already placed.
     for (const child of n.others) {

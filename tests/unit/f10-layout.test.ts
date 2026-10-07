@@ -59,18 +59,18 @@ function column(prefix = "", treeId = "t1"): Element[] {
   return out;
 }
 
-const centre = (p: { x: number }, kind: "answer" | "question") => p.x + WIDTH[kind] / 2;
+const right = (p: { x: number }, kind: "answer" | "question") => p.x + WIDTH[kind];
 type Rect = { x: number; y: number; w: number; h: number };
 const intersects = (a: Rect, b: Rect) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
 
 describe("Feature 10 · tree layout", () => {
-  it("lays a 6-element run out as one centred column, top to bottom", () => {
+  it("lays a 6-element run out as one right-aligned column, top to bottom", () => {
     const { layout } = run(column(), [tree("t1")]);
     const p = (id: string) => layout.positions.get(id)!;
     expect(p("q0")).toEqual({ x: 0, y: 0 });
     for (const [q, a] of [["q0", "a0"], ["q1", "a1"], ["q2", "a2"]]) {
-      expect(centre(p(q), "question")).toBe(centre(p("q0"), "question"));
-      expect(centre(p(a), "answer")).toBe(centre(p("q0"), "question"));
+      expect(right(p(q), "question")).toBe(right(p("q0"), "question"));
+      expect(right(p(a), "answer")).toBe(right(p("q0"), "question"));
       expect(p(a).y).toBe(p(q).y + 46 + GAP_TO_ANSWER);
     }
     expect(p("q1").y).toBe(p("a0").y + 120 + GAP_TO_QUESTION);

@@ -85,6 +85,7 @@ export async function elementsOf(page: Page, kind: DebugElement["kind"]): Promis
  * really land on. Like a user, it first brings the element into view when no such point is visible.
  */
 export async function framePoint(page: Page, id: string): Promise<{ x: number; y: number }> {
+  await cameraSettled(page);
   const find = () =>
     page.evaluate((id) => {
       const item = document.querySelector<HTMLElement>(`[data-testid=element-text][data-node-id="${id}"]`);
@@ -113,6 +114,20 @@ export async function framePoint(page: Page, id: string): Promise<{ x: number; y
     pt = (await find())!;
   }
   return pt;
+}
+
+/** Waits until the camera has stopped moving (a glide after a send or a walk takes ~350 ms). */
+export async function cameraSettled(page: Page) {
+  let last = "";
+  await expect
+    .poll(async () => {
+      const c = await cameraState(page);
+      const now = `${c.x.toFixed(1)},${c.y.toFixed(1)},${c.scale}`;
+      const same = now === last;
+      last = now;
+      return same;
+    }, { intervals: [100], timeout: 5000 })
+    .toBe(true);
 }
 
 /** Clicks an element's frame, which focuses it without moving the camera. */

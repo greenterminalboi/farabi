@@ -354,7 +354,11 @@ export class CanvasRenderer {
     else if (el.anchorAt !== null) from = { x: parent.box.x + parent.box.w, y: parent.box.y + el.anchorAt * parent.box.h };
     else from = { x: parent.box.x + parent.box.w, y: parent.box.y + parent.box.h - 16 };
     if (el.column) {
-      g.moveTo(from.x, from.y).lineTo(top.x, top.y).stroke({ width: 1.5, color: p.connector });
+      // Columns are right-aligned: a straight line through the narrower box's centre, which always
+      // falls inside the wider one.
+      const narrow = el.box.w <= parent.box.w ? el.box : parent.box;
+      const x = narrow.x + narrow.w / 2;
+      g.moveTo(x, from.y).lineTo(x, top.y).stroke({ width: 1.5, color: p.connector });
       return;
     }
     const midY = from.y + Math.max(12, (top.y - from.y) / 2);
