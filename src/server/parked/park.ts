@@ -1,34 +1,28 @@
 import type { ParkRequest, ParkedTangent } from "@/shared/schemas";
 import { db } from "../db/client";
+import { validateSpan } from "../graph/branch";
 import { assertId } from "../ids";
-import { toParkedTangent } from "../mappers";
-import { validateAnchor } from "../forest/branch";
-import { lockNode } from "../messages/send";
-import { asConsumed, currentQuestion, lockTangent, normalizeQuestion } from "./state";
+import { asConsumed, currentQuestion, lockTangent, normalizeQuestion, toParkedTangent } from "./state";
 
 /**
- * Parks a tangent on a selection (FR-006, FR-007, FR-011). The anchor is validated exactly as for
- * Branch, but no node, marker or message is created.
+ * Parks a tangent on a span of any element's final text (Feature 8, FR-021). The span is
+ * validated exactly as for Branch, but no edge is created and no element changes.
  */
 export async function parkTangent(nodeId: string, body: ParkRequest): Promise<{ parked: ParkedTangent }> {
-  assertId(nodeId, "Node");
-  assertId(body.messageId, "Message");
+  assertId(nodeId, "Element");
   const question = normalizeQuestion(body.question);
 
   return db.transaction().execute(async (trx) => {
-    // Serializes with regenerate, which could otherwise replace the message mid-park (R6).
-    await lockNode(trx, nodeId);
-    await validateAnchor(trx, nodeId, body);
+    const { span } = await validateSpan(trx, nodeId, body);
     const row = await trx
       .insertInto("parked_tangents")
       .values({
         node_id: nodeId,
-        message_id: body.messageId,
-        start_offset: body.start,
-        end_offset: body.end,
-        anchor_text: body.text,
-        prefix: body.prefix,
-        suffix: body.suffix,
+        start_offset: span.start,
+        end_offset: span.end,
+        anchor_text: span.text,
+        prefix: span.prefix,
+        suffix: span.suffix,
       })
       .returningAll()
       .executeTakeFirstOrThrow();
@@ -39,7 +33,7 @@ export async function parkTangent(nodeId: string, body: ParkRequest): Promise<{ 
   });
 }
 
-/** Sets, changes or clears a live item's question (FR-015); an unchanged value writes nothing. */
+/** Sets, changes or clears a live item's question; an unchanged value writes nothing. */
 export async function setParkedQuestion(id: string, question: string | null): Promise<{ parked: ParkedTangent }> {
   assertId(id, "Parked item");
   const next = normalizeQuestion(question);
@@ -52,15 +46,16 @@ export async function setParkedQuestion(id: string, question: string | null): Pr
   });
 }
 
-/** Discards a live item (FR-015). It is recorded, not deleted, and never becomes a branch. */
-export async function discardParked(id: string): Promise<{ discarded: { id: string } }> {
+/** Discards a live item. It is recorded, not deleted, and never becomes a branch. */
+export async function discardParked(id: string): Promise<{ parked: ParkedTangent }> {
   assertId(id, "Parked item");
-  await db
+  return db
     .transaction()
     .execute(async (trx) => {
-      await lockTangent(trx, id);
+      const row = await lockTangent(trx, id);
+      const question = await currentQuestion(trx, id);
       await trx.insertInto("parked_tangent_events").values({ tangent_id: id, kind: "discarded" }).execute();
+      return { parked: toParkedTangent(row, question) };
     })
     .catch(asConsumed);
-  return { discarded: { id } };
 }

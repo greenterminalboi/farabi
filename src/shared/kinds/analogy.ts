@@ -4,10 +4,9 @@ import type { NodeKindDeclaration } from "./types";
 export const analogyKind: NodeKindDeclaration = {
   id: "analogy",
   label: "Analogy",
-  conversationBacked: false,
-  view: "output_beside_input",
-  mapLabel: "output_text",
-  acceptsInputKinds: ["conversation"],
+  shape: "node",
+  display: "output",
+  acceptsInputKinds: ["answer"],
   // Explicit instructions about the form of the analogy (research R7, Article VI carve-out).
   settings: [
     {

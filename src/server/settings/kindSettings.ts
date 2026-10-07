@@ -1,10 +1,12 @@
-// Settings declared by node kinds (Feature 9, research R7). Every change is a new user-authored
-// row, kind-level (node_id null) or a per-node override; the newest row per scope is in effect and
-// a null value means "not set here" (FR-030, FR-032, Article VI). Saving never runs a function.
+// Settings declared by kinds (FR-053, research R14). Every change is a new user-authored row,
+// kind-level (node_id null) or an override on one function edge; the newest row per scope is in
+// effect and a null value means "not set here" (Article VI). Saving never runs a function.
 import { findKind, getKind, kindsWithSettings, type SettingDeclaration } from "@/shared/kinds";
 import type { KindSettingsResponse, ResolvedSetting } from "@/shared/schemas";
 import { db } from "../db/client";
-import { InvalidRequestError, NotFoundError } from "../errors";
+import { ConflictError, InvalidRequestError } from "../errors";
+import { getFunction } from "../functions/definitions";
+import { loadLive } from "../graph/elements";
 import { assertId } from "../ids";
 
 type Row = { key: string; node_id: string | null; value: unknown; created_at: Date };
@@ -41,7 +43,7 @@ function resolve(decl: SettingDeclaration, rows: Row[], nodeId: string | null): 
   return { key: decl.key, value: decl.default, source: "default", kindValue: null, changedAt: null };
 }
 
-/** Each declared setting of a kind, resolved: node override, then kind value, then default. */
+/** Each declared setting of a kind, resolved: edge override, then kind value, then default. */
 export async function resolveKindSettings(kind: string, nodeId: string | null = null): Promise<ResolvedSetting[]> {
   const decl = getKind(kind);
   if (decl.settings.length === 0) return [];
@@ -56,7 +58,9 @@ export async function resolvedValues(kind: string, nodeId: string | null = null)
 export async function listKindSettings(): Promise<KindSettingsResponse> {
   const kinds = kindsWithSettings();
   return {
-    kinds: await Promise.all(kinds.map(async (k) => ({ kind: k.id, settings: await resolveKindSettings(k.id) }))),
+    kinds: await Promise.all(
+      kinds.map(async (k) => ({ kind: k.id, label: k.label, settings: await resolveKindSettings(k.id) })),
+    ),
   };
 }
 
@@ -78,20 +82,30 @@ async function record(kind: string, key: string, nodeId: string | null, value: s
     .execute();
 }
 
-/** Sets or clears (null) the value for every node of a kind (FR-031). */
-export async function setKindSetting(kind: string, key: string, value: string | null): Promise<KindSettingsResponse> {
-  if (!findKind(kind)) throw new InvalidRequestError(`Unknown node kind "${kind}"`);
-  declaration(kind, key, value);
-  await record(kind, key, null, value);
-  return listKindSettings();
+function settingOf(settings: ResolvedSetting[], key: string): ResolvedSetting {
+  return settings.find((s) => s.key === key)!;
 }
 
-/** Sets or clears (null) one node's override, for a setting its own kind declares (FR-033). */
-export async function setNodeSetting(nodeId: string, key: string, value: string | null): Promise<ResolvedSetting[]> {
-  assertId(nodeId, "Node");
-  const node = await db.selectFrom("nodes").select(["id", "kind"]).where("id", "=", nodeId).executeTakeFirst();
-  if (!node) throw new NotFoundError("Node not found");
-  declaration(node.kind, key, value);
-  await record(node.kind, key, nodeId, value);
-  return resolveKindSettings(node.kind, nodeId);
+/** Sets or clears (null) the value for every element of a kind. */
+export async function setKindSetting(kind: string, key: string, value: string | null): Promise<{ setting: ResolvedSetting }> {
+  if (!findKind(kind)) throw new InvalidRequestError(`Unknown kind "${kind}"`);
+  declaration(kind, key, value);
+  await record(kind, key, null, value);
+  return { setting: settingOf(await resolveKindSettings(kind), key) };
+}
+
+/**
+ * Sets or clears (null) the override on one function edge, for a setting its output kind declares
+ * (FR-053). It applies to that edge's next run only.
+ */
+export async function setEdgeSetting(edgeId: string, key: string, value: string | null): Promise<{ setting: ResolvedSetting }> {
+  assertId(edgeId, "Edge");
+  const edge = await loadLive(db, edgeId);
+  if (edge.origin !== "run" || edge.shape !== "edge" || edge.function_id === null) {
+    throw new ConflictError("wrong_kind", "Only a function edge has settings", { kind: edge.kind });
+  }
+  const kind = getFunction(edge.function_id).outputKind;
+  declaration(kind, key, value);
+  await record(kind, key, edgeId, value);
+  return { setting: settingOf(await resolveKindSettings(kind, edgeId), key) };
 }

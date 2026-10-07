@@ -8,7 +8,7 @@ import { regenerateFeedbackFile } from "@/server/feedback/exportFile";
 import { feedbackDir, feedbackFilePath } from "@/server/feedback/paths";
 import { markAddressed } from "@/server/feedback/state";
 import { PNG_1PX } from "./fixtures";
-import { call, createFeedback, readFeedbackFile } from "./helpers";
+import { call, newProject, startTree, createFeedback, readFeedbackFile } from "./helpers";
 
 const run = promisify(execFile);
 const root = path.resolve(import.meta.dirname, "../..");
@@ -39,12 +39,13 @@ async function snapshot(id: string) {
 
 describe("US3: Claude Code reads and acts on feedback", () => {
   it("regenerates FEEDBACK.md on create with everything needed to act on the item", async () => {
-    const tree = await call("POST", "/api/trees", {});
-    const nodeId = tree.body.node.id;
+    const projectId = await newProject();
+    const tree = await startTree(projectId, "Pods please");
+    const elementId = tree.edge.id;
     const res = await createFeedback({
       text: "Edge labels overlap\nafter dragging",
-      view: "chat",
-      nodeId,
+      view: "canvas",
+      elementId,
       tags: ["map", "layout"],
       images: [{ bytes: PNG_1PX }],
     });
@@ -55,7 +56,7 @@ describe("US3: Claude Code reads and acts on feedback", () => {
     expect(file).toContain(`### ${item.id}`);
     expect(file).toContain("> Edge labels overlap\n> after dragging");
     expect(file).toContain("- Tags: map, layout");
-    expect(file).toContain(`view: chat · node: ${nodeId} ("New conversation")`);
+    expect(file).toContain(`view: canvas · project: ${projectId} · element: ${elementId} (question: "Pods please")`);
     expect(file).toContain(`  - ${item.attachments[0].path}`);
     expect(file).toMatch(/1 open · 0 addressed · 0 resolved/);
   });

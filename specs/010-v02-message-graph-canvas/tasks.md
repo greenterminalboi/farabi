@@ -116,7 +116,7 @@ uses. **No story work starts until this phase is done, and M0 (T004–T011) must
 
 ### Schema and declarations
 
-- [ ] T012 Create `src/server/db/migrations/0010_message_graph.ts`, forward-only with a `down()`
+- [X] T012 Create `src/server/db/migrations/0010_message_graph.ts`, forward-only with a `down()`
   that throws, following `0009_node_functions.ts`. Steps, in order (contracts/migration.md "Order
   inside the migration transaction"):
   1. **Freeze the originals.**
@@ -170,13 +170,13 @@ uses. **No story work starts until this phase is done, and M0 (T004–T011) must
   8. **Backfills and report.** Backfill `definitions` and `feedback_items` (T068 in US4). Then
      replace `feedback_items_rank_only()` so it also freezes `project_id` and `element_id`. Print
      the report.
-- [ ] T013 Create `src/server/db/v1/convert.ts` with
+- [X] T013 Create `src/server/db/v1/convert.ts` with
   `export async function convertV1(trx): Promise<ConversionReport>`. For now it returns an empty
   report when every `v1.*` table is empty, and throws `"v1 conversion is not implemented yet"`
   otherwise. This makes running 0010 on real data impossible until US4 lands. Create
   `src/server/db/v1/schema.ts` with `V1Database` types copied from today's `schema.ts` for the
   moved tables.
-- [ ] T014 Rewrite `src/server/db/schema.ts` for v2:
+- [X] T014 Rewrite `src/server/db/schema.ts` for v2:
   - **`NodesTable`**: every column in data-model.md, with `ColumnType` rules. `text` is insertable
     and updatable only through the guard paths, and `properties` is inserted as a JSON string.
   - **New table types**: `TreesTable` (`layout_origin_x`, `layout_origin_y`, `user_placed`),
@@ -189,7 +189,7 @@ uses. **No story work starts until this phase is done, and M0 (T004–T011) must
   - **Remove** `MessagesTable`, `BranchMarkersTable`, `NodeSummariesTable`, `EdgeLabelVersionsTable`,
     `PipesTable`, `FunctionOutputVersionsTable` and `FunctionOutputEventsTable` from `Database`.
     They now live only in `V1Database`.
-- [ ] T015 [P] Rewrite the kind registry (contracts/declarations.md):
+- [X] T015 [P] Rewrite the kind registry (contracts/declarations.md):
   - `src/shared/kinds/types.ts`: add `shape` and `display`, and drop `conversationBacked`, `view`
     and `mapLabel`.
   - `src/shared/kinds/index.ts`: registration also checks that display matches shape.
@@ -197,7 +197,7 @@ uses. **No story work starts until this phase is done, and M0 (T004–T011) must
   - Update `src/shared/kinds/analogy.ts` (`shape: "node"`, `display: "output"`,
     `acceptsInputKinds: ["answer"]`).
   - Delete `src/shared/kinds/{conversation,pipe}.ts`.
-- [ ] T016 [P] Rewrite `src/shared/schemas.ts` with zod shapes from contracts/http-api.md "Shared
+- [X] T016 [P] Rewrite `src/shared/schemas.ts` with zod shapes from contracts/http-api.md "Shared
   shapes":
   - `Element`, `EdgeState`, `Review`, `Span`, `Tree`, `Camera`, `CanvasResponse`
   - every request and response body of the routes in http-api.md
@@ -207,7 +207,7 @@ uses. **No story work starts until this phase is done, and M0 (T004–T011) must
 
   Remove `MapNode`, `MapPipe`, `NodeView`, `Message`, `Marker`, `Summary`, `OutputVersion` and the
   forest shapes.
-- [ ] T017 Update `tests/integration/setup.ts`:
+- [X] T017 Update `tests/integration/setup.ts`:
   - The `TRUNCATE` list becomes the v2 tables plus `definitions` and the feedback tables plus every
     `v1.*` table.
   - Add a fixture helper `seedV1(fixture)` in `tests/integration/fixtures.ts` that inserts into
@@ -218,7 +218,7 @@ uses. **No story work starts until this phase is done, and M0 (T004–T011) must
 
 ### Server core
 
-- [ ] T018 Create `src/server/graph/elements.ts`:
+- [X] T018 Create `src/server/graph/elements.ts`:
   - **Inserts**: `insertElement(trx, { kind, parentId, treeId, projectId, origin, provenance, text?, … })`
     reads `shape` from the kind declaration and validates `properties` with `validateProperties`.
   - **Mapping**: `toElement(row, extras)` maps a row to `Element`.
@@ -231,7 +231,7 @@ uses. **No story work starts until this phase is done, and M0 (T004–T011) must
     - `loadLive(trx, id)` joins trees and projects and refuses trashed projects with 404.
     - `newestAttempt(trx, edgeId)` returns the newest answer by `created_at`, then id.
   - `lockElement(trx, id)` does `SELECT … FOR UPDATE`.
-- [ ] T019 Create `src/server/answers/generation.ts` from `src/server/messages/generation.ts`,
+- [X] T019 Create `src/server/answers/generation.ts` from `src/server/messages/generation.ts`,
   keyed by answer id:
   - finalize writes `status`, `text` and `partial_text = null` through the guard's finalize path
   - the checkpoint writes `partial_text` while pending
@@ -240,7 +240,7 @@ uses. **No story work starts until this phase is done, and M0 (T004–T011) must
 
   Add `insertPendingAnswer(trx, edge)`, which records `pressure_level` and `reply_model` from
   `getSettings` (Feature 6) with `origin` `reply`, `retry` or `regenerate`.
-- [ ] T020 Create `src/server/graph/context.ts`:
+- [X] T020 Create `src/server/graph/context.ts`:
   - `buildReplyInput(answerId)` uses a recursive CTE over `nodes.parent_id` from the answer's edge
     up to the origin (research R6).
   - **Turns**: a question edge becomes a user turn, and an answer becomes an AI turn only if its
@@ -248,14 +248,14 @@ uses. **No story work starts until this phase is done, and M0 (T004–T011) must
   - Fill `messages` in order with `inheritedContext: []`, and set `anchorText` from the edge's
     anchor.
   - Set `pressureLevel` and `model` from the answer row.
-- [ ] T021 Unit and integration tests for context in `tests/integration/f10-context.test.ts`:
+- [X] T021 Unit and integration tests for context in `tests/integration/f10-context.test.ts`:
   - a linear path
   - a branch from an answer span (anchor passed)
   - a branch from a question-edge span (the path includes that edge but not its answer)
   - two edges in a row
   - an incomplete answer excluded
   - a sibling attempt and a sibling branch never included (FR-007)
-- [ ] T022 Create `src/server/graph/canvas.ts` and `src/app/api/canvas/route.ts`.
+- [X] T022 Create `src/server/graph/canvas.ts` and `src/app/api/canvas/route.ts`.
   `GET /api/canvas?projectId=` returns `{ trees, elements, camera }` per http-api.md. Each element
   carries:
   - the derived `state`, `review` and current `note`
@@ -264,14 +264,14 @@ uses. **No story work starts until this phase is done, and M0 (T004–T011) must
 
   Pending answers with no live generator are finalized through `finalizeOrphan` first. Use 4
   set-based queries: elements, newest notes, newest reviews, camera.
-- [ ] T023 [P] Update `src/server/errors.ts` and `src/server/http/withApi.ts` for the new 409
+- [X] T023 [P] Update `src/server/errors.ts` and `src/server/http/withApi.ts` for the new 409
   codes:
   - `reply_in_progress`, `not_askable`, `not_branchable`, `already_sent`
   - `not_retryable`, `not_regenerable`, `not_an_edge`, `origin_edge`, `wrong_kind`
   - plus 503 `function_unavailable`
 
   Keep the error body shape.
-- [ ] T024 Rewrite `tests/integration/constitution.test.ts` with these guards:
+- [X] T024 Rewrite `tests/integration/constitution.test.ts` with these guards:
   1. No DELETE or PATCH route handlers (kept).
   2. Every write path of `nodes_guard`: send twice → error; changing text after finalize → error;
      changing `parent_id`, `kind`, `anchor_*` or `provenance` → error; any DELETE → error; a
@@ -287,18 +287,18 @@ uses. **No story work starts until this phase is done, and M0 (T004–T011) must
 
 ### Client core
 
-- [ ] T025 [P] Create `src/canvas/store.ts`, a zustand store with:
+- [X] T025 [P] Create `src/canvas/store.ts`, a zustand store with:
   - `elements: Map`, `trees`, `projectId`
   - `focusId`, `selection` (element id and span)
   - `drafts: Record<targetId, string>`, persisted to localStorage as `farabi.drafts`
   - `showRejected` and `minimapHidden`, persisted under `farabi.settings`
   - actions `load(canvas)`, `merge(elements)`, `focus(id)` and `setDraft`
-- [ ] T026 [P] Create `src/canvas/graph.ts`:
+- [X] T026 [P] Create `src/canvas/graph.ts`:
   - build a graphology `DirectedGraph` from elements (`parent → child`)
   - `merge` adds elements incrementally and reports `changedTreeIds`
   - `ancestors(id)` and `children(id)`, ordered by `createdAt` then id
   - `firstChild(id)`: the earliest child that isn't an anchored branch
-- [ ] T027 [P] Create `src/canvas/layout/heights.ts`:
+- [X] T027 [P] Create `src/canvas/layout/heights.ts`:
   - `estimateHeight(element)` uses canvas `measureText` with the canvas font
     (OpenDyslexic, sizes from `globals.css`) at the kind's width:
     - answer: 480
@@ -308,7 +308,7 @@ uses. **No story work starts until this phase is done, and M0 (T004–T011) must
   - `recordMeasured(id, px)` stores into memory and into localStorage under
     `farabi.heights.v1:<id>`.
   - `heightOf(id)` prefers the measured value. Function edges have no box.
-- [ ] T028 Rewrite `src/canvas/layout/treeLayout.ts` as a first-child-aligned tidy tree (research
+- [X] T028 Rewrite `src/canvas/layout/treeLayout.ts` as a first-child-aligned tidy tree (research
   R10):
   - variable box sizes from `heights` and kind widths
   - the first child sits directly below its parent (gap 24 between bubble and answer, 40 between
@@ -320,7 +320,7 @@ uses. **No story work starts until this phase is done, and M0 (T004–T011) must
 
   Move `src/map/layout/forestLayout.ts` to `src/canvas/layout/forestLayout.ts` unchanged in its
   tree-placement rules (Feature 2 FR-020, FR-023).
-- [ ] T029 [P] Unit tests in `tests/unit/f10-layout.test.ts`:
+- [X] T029 [P] Unit tests in `tests/unit/f10-layout.test.ts`:
   - a 6-element run is one column
   - a sibling edge goes to the right and the column doesn't move
   - deep fan-outs never overlap
@@ -328,7 +328,7 @@ uses. **No story work starts until this phase is done, and M0 (T004–T011) must
   - adding to one tree leaves every other tree's positions and every hand-placed element
     unchanged (SC-009)
   - a streaming height change moves only later elements of the same column
-- [ ] T030 Create `src/canvas/renderer/CanvasRenderer.ts` from `src/map/MapRenderer.ts`:
+- [X] T030 Create `src/canvas/renderer/CanvasRenderer.ts` from `src/map/MapRenderer.ts`:
   - Keep the Pixi Application and pixi-viewport setup and palettes.
   - Draw frames per display (canvas-ui.md "Elements as drawn") with no text: no BitmapText
     anywhere.
@@ -341,7 +341,7 @@ uses. **No story work starts until this phase is done, and M0 (T004–T011) must
     - `worldToScreen` and `screenToWorld`
     - `onCameraChange(cb)`, fired in the same frame as the render
   - Expose the test hooks `__farabiCanvasDebug` and `__farabiScreenPoint`.
-- [ ] T031 Create `src/canvas/camera.ts`, the follow and free state machine (research R11):
+- [X] T031 Create `src/canvas/camera.ts`, the follow and free state machine (research R11):
   - `follow(targetId)` glides with `viewport.animate` (350 ms, or instant with reduced motion) to
     fit the target's box.
   - While following a streaming answer, it re-fits on height change.
@@ -350,13 +350,13 @@ uses. **No story work starts until this phase is done, and M0 (T004–T011) must
   - The clamp is 0.02..4, and the project bounds stay ≥ ¼ of the screen.
   - `moves` counter.
   - The test hook `__farabiCamera()`.
-- [ ] T032 [P] Unit tests in `tests/unit/f10-camera.test.ts`:
+- [X] T032 [P] Unit tests in `tests/unit/f10-camera.test.ts`:
   - a send or walk → follow and one glide
   - a manual wheel → free
   - while free, elements added, a relayout, a function output or another tree changing → 0
     moves (SC-008)
   - the next walk → follow again
-- [ ] T033 Create `src/canvas/input.ts` (canvas-ui.md "Pointer, wheel and keyboard"):
+- [X] T033 Create `src/canvas/input.ts` (canvas-ui.md "Pointer, wheel and keyboard"):
   - **Wheel**: a plain wheel pans and Ctrl or Cmd plus wheel zooms at the pointer. Wheel events on
     the text layer are forwarded to the viewport with `preventDefault`.
   - **Drag**: background drag pans, frame drag moves the element (Alt moves the tree), and a
@@ -365,7 +365,7 @@ uses. **No story work starts until this phase is done, and M0 (T004–T011) must
   - **Camera**: every manual input calls `camera.onManual()`.
   - **Keys**: `Alt+↑`, `Alt+↓`, `Alt+←` and `Alt+→` walk, `Esc` clears the selection and `/`
     focuses the composer.
-- [ ] T034 Create `src/canvas/CanvasHost.tsx`, a client component that:
+- [X] T034 Create `src/canvas/CanvasHost.tsx`, a client component that:
   - mounts `CanvasRenderer`, `TextLayer`, the camera and input
   - loads `GET /api/canvas`
   - lays out with `forestLayout` and `treeLayout`, and feeds boxes to the renderer and text layer
@@ -374,11 +374,11 @@ uses. **No story work starts until this phase is done, and M0 (T004–T011) must
     `__farabiCanvasDrift()`
   - refetches on window focus and every 10 s while visible (research R13)
   - renders the overlays slot
-- [ ] T035 Rewrite `src/app/page.tsx`: resolve the project from the cookie (as today) and render
+- [X] T035 Rewrite `src/app/page.tsx`: resolve the project from the cookie (as today) and render
   `<CanvasHost projectId focus={searchParams.focus} span={searchParams.span} />`. Update
   `src/app/layout.tsx`: remove `ViewToggle`, `NewConversationButton` and `MapHost`, and keep
   `ProjectMenu`, `SettingsLink` and `Feedback*`.
-- [ ] T036 [P] Rewrite `src/lib/api.ts` with client methods for every route in
+- [X] T036 [P] Rewrite `src/lib/api.ts` with client methods for every route in
   contracts/http-api.md, and remove the chat and map methods. Update `src/lib/replyStream.ts` to
   stream by answer id (`/api/answers/{id}/stream`).
 
@@ -398,7 +398,7 @@ following (quickstart §3.1).
 
 ### Tests (write first)
 
-- [ ] T037 [P] [US1] Integration tests in `tests/integration/f10-graph.test.ts` (asking part):
+- [X] T037 [P] [US1] Integration tests in `tests/integration/f10-graph.test.ts` (asking part):
   - `POST /api/trees` creates a tree, an origin edge (parent null, `user_authored`) and a pending
     answer (`ai_suggested`).
   - `?wait=1` → answered.
@@ -409,7 +409,7 @@ following (quickstart §3.1).
   - Fake offline mode → the answer becomes failed, and the edge text is stored.
   - Stop keeps text as `stopped`.
   - Any text is accepted for an origin edge (FR-014).
-- [ ] T038 [P] [US1] E2E `tests/e2e/f10-us1-ask.spec.ts` (story 1, scenarios 1–5):
+- [X] T038 [P] [US1] E2E `tests/e2e/f10-us1-ask.spec.ts` (story 1, scenarios 1–5):
   - In an empty project, type and send. An origin bubble and an answer are visible, and `[data-testid=streaming]`
     shows progressive text and Stop.
   - Follow-up from the answer composer.
@@ -419,7 +419,7 @@ following (quickstart §3.1).
 
 ### Implementation
 
-- [ ] T039 [US1] Create `src/server/graph/ask.ts`:
+- [X] T039 [US1] Create `src/server/graph/ask.ts`:
   - `startTree(projectId, content)` allocates the tree origin as `createRootTree` does in
     `src/server/forest/trees.ts`, inserts the tree, the origin edge (sent at insert) and a pending
     answer in one transaction, then starts generation after commit.
@@ -429,12 +429,12 @@ following (quickstart §3.1).
     - refused with `not_askable` for an output or an unsent edge
     - inserts the edge (`origin: "ask"`) and a pending answer, then starts generation
     - `????` is delegated to `tryQuickBranch` (T055), falling back to an ordinary ask
-- [ ] T040 [US1] Add the routes `src/app/api/trees/route.ts` (POST) and
+- [X] T040 [US1] Add the routes `src/app/api/trees/route.ts` (POST) and
   `src/app/api/nodes/[nodeId]/ask/route.ts`. Both support `?wait=1` as today.
-- [ ] T041 [US1] Add `src/app/api/answers/[answerId]/stop/route.ts` and
+- [X] T041 [US1] Add `src/app/api/answers/[answerId]/stop/route.ts` and
   `src/app/api/answers/[answerId]/stream/route.ts`, ported from `src/app/api/messages/[messageId]/{stop,stream}`
   with the same SSE events `snapshot`, `delta` and `end`.
-- [ ] T042 [US1] Create `src/canvas/overlays/Composer.tsx` from `src/components/chat/Composer.tsx`
+- [X] T042 [US1] Create `src/canvas/overlays/Composer.tsx` from `src/components/chat/Composer.tsx`
   (canvas-ui.md "Composer"):
   - **Position**: a screen-space overlay pinned below `renderer.elementScreenRect(focusId)`, docked
     to the viewport edge with `data-docked="true"` when the element is off-screen.
@@ -446,22 +446,22 @@ following (quickstart §3.1).
   - **Calls**: `api.startTree` when there is no focus or tree, and `api.ask` otherwise. Then merge
     the results, focus the new answer and call `camera.follow` (FR-010, FR-025).
   - **Pinning**: pins its target in `TextLayer` while the draft is non-empty (FR-034).
-- [ ] T043 [US1] Wire streaming in `src/canvas/CanvasHost.tsx`:
+- [X] T043 [US1] Wire streaming in `src/canvas/CanvasHost.tsx`:
   - For each pending answer in the store, subscribe with `useReplyStream`.
   - Feed text to `TextLayer` (re-parse at most every 100 ms) and `heights` (updates at most every
     100 ms).
   - Relayout only that tree, and pin the answer while it streams.
   - On `end`, merge the final answer and unpin.
-- [ ] T044 [US1] Answer frame states in `src/canvas/renderer/CanvasRenderer.ts`:
+- [X] T044 [US1] Answer frame states in `src/canvas/renderer/CanvasRenderer.ts`:
   - pending header dots
   - incomplete or stopped footer with Retry
   - failed stub with Retry, wired to `api.attempts(edgeId, "retry")` (the service comes in US7,
     T088, and is stubbed to 409 until then)
   - the AI tag on answers and outputs (FR-060)
-- [ ] T045 [US1] Create `src/canvas/overlays/EmptyState.tsx`, "Ask anything to start a tree", with
+- [X] T045 [US1] Create `src/canvas/overlays/EmptyState.tsx`, "Ask anything to start a tree", with
   the composer targeting a new tree. Add a "New tree" entry to the canvas menu that sets the
   composer target to a new tree.
-- [ ] T046 [US1] Add canvas styles in `src/app/globals.css`:
+- [X] T046 [US1] Add canvas styles in `src/app/globals.css`:
   - text layer and items (answer markdown typography from Feature 7)
   - question bubble colours
   - composer overlay with the rounded input and icon Send and Stop (Feature 7)
@@ -484,7 +484,7 @@ Text outside the viewport is not mounted (quickstart §3.2).
 
 ### Tests (write first)
 
-- [ ] T047 [P] [US2] Unit tests in `tests/unit/f10-selection.test.ts`. Adapt `tests/unit/selection.test.ts`:
+- [X] T047 [P] [US2] Unit tests in `tests/unit/f10-selection.test.ts`. Adapt `tests/unit/selection.test.ts`:
   - `selectionToAnchor` on `[data-node-id]` roots returns `{ nodeId, start, end, text, prefix, suffix }`
   - a cross-element selection → null
   - a selection ending at a clipped item's last mounted span maps to the visible portion only
@@ -503,7 +503,7 @@ Text outside the viewport is not mounted (quickstart §3.2).
 
 ### Implementation
 
-- [ ] T049 [US2] Update `src/components/chat/selection.ts`: the root attribute becomes
+- [X] T049 [US2] Update `src/components/chat/selection.ts`: the root attribute becomes
   `data-node-id`, the result type returns `nodeId` instead of `messageId`, and `rangeForOffsets`
   takes the item element. Move it to `src/canvas/text/selection.ts` and update imports.
 - [ ] T050 [US2] Create `src/canvas/text/render.ts`, which renders `RichText` runs into an item:
@@ -549,7 +549,7 @@ Text outside the viewport is not mounted (quickstart §3.2).
 
 ### Tests (write first)
 
-- [ ] T054 [P] [US3] Integration tests in `tests/integration/f10-graph.test.ts` (branching part):
+- [X] T054 [P] [US3] Integration tests in `tests/integration/f10-graph.test.ts` (branching part):
   - **Branch from an answer span**: an unsent edge with the anchor and computed prefix and suffix,
     no AI call.
   - **Branch from a question-edge span**: the parent is the edge.
@@ -563,7 +563,7 @@ Text outside the viewport is not mounted (quickstart §3.2).
   - **`????` on an origin-edge answer** → an ordinary message.
   - **Context**: the quick-branch context excludes the re-asked edge (FR-020).
   - **Overlapping markers** on one element: several branches with no limit (FR-019).
-- [ ] T055 [P] [US3] Adapt `tests/integration/f8-parked.test.ts` to v2:
+- [X] T055 [P] [US3] Adapt `tests/integration/f8-parked.test.ts` to v2:
   - park on an answer span and on an edge span
   - question edit, discard, fire with a question (auto send) and fire without one (preload draft
     with the anchor text)
@@ -576,7 +576,7 @@ Text outside the viewport is not mounted (quickstart §3.2).
 
 ### Implementation
 
-- [ ] T057 [US3] Create `src/server/graph/branch.ts` from `src/server/forest/branch.ts`.
+- [X] T057 [US3] Create `src/server/graph/branch.ts` from `src/server/forest/branch.ts`.
   `validateSpan(trx, elementId, span)`:
   - **Allowed**: a sent question edge, or an answer with `status = 'complete'`.
   - **Checks**: `0 <= start < end <= length(text)`, `text.slice(start, end) === span.text`, and
@@ -586,11 +586,11 @@ Text outside the viewport is not mounted (quickstart §3.2).
   `insertBranchEdge(trx, parent, span, origin: "branch"|"parked")` sets the anchor with 32
   characters of prefix and suffix. Add `src/app/api/nodes/[nodeId]/branches/route.ts` (FR-017). The
   AI is never called.
-- [ ] T058 [US3] Create `src/server/graph/sendUnsent.ts` (or a function in `ask.ts`):
+- [X] T058 [US3] Create `src/server/graph/sendUnsent.ts` (or a function in `ask.ts`):
   `sendUnsent(edgeId, content)` sets `text` and `sent_at` through the guard's send path, inserts a
   pending answer and starts generation. A second send → 409 `already_sent`. Add
   `src/app/api/edges/[edgeId]/send/route.ts`.
-- [ ] T059 [US3] Create `src/server/graph/quickBranch.ts` from `src/server/messages/quickBranch.ts`.
+- [X] T059 [US3] Create `src/server/graph/quickBranch.ts` from `src/server/messages/quickBranch.ts`.
   `tryQuickBranch(answerId)` returns null unless all of these hold:
   - the focused element is an answer
   - its edge is a `question` with `parent_id` not null
@@ -599,7 +599,7 @@ Text outside the viewport is not mounted (quickstart §3.2).
   Otherwise it inserts a sibling edge under the edge's parent with the same text,
   `origin: "quick_branch"` and `requery_of`, sent at insert, plus a pending answer, then starts
   generation. Return `{ kind: "quick_branch", edge, answer }`.
-- [ ] T060 [US3] Re-target `src/server/parked/{park,fire,state}.ts` to v2:
+- [X] T060 [US3] Re-target `src/server/parked/{park,fire,state}.ts` to v2:
   - the anchor is validated with `validateSpan` on any element
   - `fire` uses `insertBranchEdge(…, "parked")`, plus a sent edge and a pending answer when there
     is a question
@@ -698,7 +698,7 @@ passes every invariant, and a rerun inserts 0 rows (quickstart §1).
   3. Refuse to migrate on failure unless `--no-backup` is given (research R3; FR-063).
 
   Skip it for `--test`.
-- [ ] T071 [US4] Create `src/app/n/[nodeId]/page.tsx` as a redirect. Look the id up in
+- [X] T071 [US4] Create `src/app/n/[nodeId]/page.tsx` as a redirect. Look the id up in
   `v1_conversion`: a v1 conversation id → its first edge, and an element id → itself. Then
   `redirect("/?focus=<id>")`. Unknown → `notFound()`. Rewrite `src/app/map/page.tsx` to
   `redirect("/")` (research R18). Reading `v1_conversion` is allowed. It isn't the `v1` schema.
@@ -804,11 +804,11 @@ connection changed (quickstart §3.5).
 
 ### Implementation
 
-- [ ] T082 [US6] Create `src/server/graph/positions.ts` and
+- [X] T082 [US6] Create `src/server/graph/positions.ts` and
   `src/app/api/nodes/[nodeId]/position/route.ts`: PUT `{ x, y }` relative to the tree origin,
   refused for an origin edge with 409 `origin_edge`. Port `src/app/api/trees/[treeId]/origin/route.ts`
   to the v2 `trees` table, which sets `user_placed` (FR-037, FR-038).
-- [ ] T083 [US6] Create `src/server/graph/notes.ts` and `src/app/api/edges/[edgeId]/note/route.ts`:
+- [X] T083 [US6] Create `src/server/graph/notes.ts` and `src/app/api/edges/[edgeId]/note/route.ts`:
   - PUT `{ text: string | null }`
   - trim and collapse whitespace
   - empty → NULL
@@ -838,7 +838,7 @@ its branch remain unedited (quickstart §3.6).
 
 ### Tests (write first)
 
-- [ ] T086 [P] [US7] Integration tests in `tests/integration/f10-graph.test.ts` (attempts part):
+- [X] T086 [P] [US7] Integration tests in `tests/integration/f10-graph.test.ts` (attempts part):
   - retry after stopped, incomplete or failed → a new sibling answer, and the old row is unchanged
   - retry when the newest is complete → 409 `not_retryable`
   - regenerate with a complete attempt → a sibling, allowed when that answer has a branch, and the
@@ -848,7 +848,7 @@ its branch remain unedited (quickstart §3.6).
 
 ### Implementation
 
-- [ ] T088 [US7] Create `src/server/graph/attempts.ts` and
+- [X] T088 [US7] Create `src/server/graph/attempts.ts` and
   `src/app/api/edges/[edgeId]/attempts/route.ts`. POST `{ mode }`:
   - **`retry`**: the newest attempt must be `incomplete`, `stopped` or `failed`.
   - **`regenerate`**: some attempt must be `complete`.
@@ -876,17 +876,17 @@ SC-016).
 
 ### Tests (write first)
 
-- [ ] T090 [P] [US9] Adapt `tests/integration/f2-us4-definitions.test.ts`:
+- [X] T090 [P] [US9] Adapt `tests/integration/f2-us4-definitions.test.ts`:
   - capture from an answer span and from a question-edge span sets `source_id`
   - a duplicate term → the existing entry (FR-055)
   - the source link is `{ elementId, excerpt }`
   - pending, failed or unsent sources → 409
-- [ ] T091 [P] [US9] Adapt `tests/integration/f3-*.test.ts`:
+- [X] T091 [P] [US9] Adapt `tests/integration/f3-*.test.ts`:
   - feedback with `view: "canvas"`, `projectId` and `elementId`
   - a legacy item keeps `view` and `node_id` and gets `element_id`
   - `project_id` and `element_id` can't change after insert (trigger)
   - the export file prints the element kind and an excerpt
-- [ ] T092 [P] [US9] Adapt `tests/integration/f4-projects.test.ts` and `f6-settings.test.ts`:
+- [X] T092 [P] [US9] Adapt `tests/integration/f4-projects.test.ts` and `f6-settings.test.ts`:
   - the canvas loads only the open project's trees
   - trashed projects are hidden
   - a reply streaming in project A finishes and is stored while B is open (FR-012)
@@ -901,7 +901,7 @@ SC-016).
 
 ### Implementation
 
-- [ ] T094 [US9] Re-target `src/server/definitions/capture.ts` and `src/server/definitions/list.ts`:
+- [X] T094 [US9] Re-target `src/server/definitions/capture.ts` and `src/server/definitions/list.ts`:
   - capture validates with `validateSpan`, extended to accept outputs for Define only, and sets
     `source_id`
   - the project comes from the element
@@ -912,7 +912,7 @@ SC-016).
 
   Update `src/components/definitions/DefinitionsList.tsx` links to
   `/?focus=<elementId>&span=<start>-<end>`.
-- [ ] T095 [US9] Feedback context:
+- [X] T095 [US9] Feedback context:
   - `src/lib/feedbackContext.ts` returns `{ view: "canvas", projectId, elementId }` from the canvas
     store
   - `src/server/feedback/create.ts` validates `elementId` exists in the project
@@ -937,12 +937,12 @@ and kind settings with per-edge overrides.
 
 ### Tests (write first)
 
-- [ ] T098 [P] [US8] Unit tests in `tests/unit/f10-registries.test.ts`, adapting
+- [X] T098 [P] [US8] Unit tests in `tests/unit/f10-registries.test.ts`, adapting
   `tests/unit/f9-registries.test.ts`:
   - shape and display consistency is enforced
   - a function whose `outputKind` isn't shape `node`, or doesn't accept its inputs, is refused
   - registering a test kind and a test function needs no runner change (SC-013)
-- [ ] T099 [P] [US8] Integration tests in `tests/integration/f10-functions.test.ts`, adapting
+- [X] T099 [P] [US8] Integration tests in `tests/integration/f10-functions.test.ts`, adapting
   `f9-functions.test.ts`:
   - **Menu** lists only accepting functions.
   - **Run** creates a function edge (parent = answer) and an output (parent = edge), both
@@ -953,7 +953,7 @@ and kind settings with per-edge overrides.
   - **Wrong kind** → 409.
   - **SC-013**: register `restate` and `summary_card` in the test and run them through the route.
   - **No AI on load**: `GET /api/canvas` makes 0 provider calls (SC-014).
-- [ ] T100 [P] [US8] Adapt `tests/integration/f9-settings.test.ts` to
+- [X] T100 [P] [US8] Adapt `tests/integration/f9-settings.test.ts` to
   `tests/integration/f10-settings.test.ts`:
   - kind-level set and override on a function edge
   - resolution is edge, then kind, then default
@@ -963,13 +963,13 @@ and kind settings with per-edge overrides.
 
 ### Implementation
 
-- [ ] T102 [US8] Update `src/server/functions/definitions/{types,analogy}.ts` (contracts/declarations.md):
+- [X] T102 [US8] Update `src/server/functions/definitions/{types,analogy}.ts` (contracts/declarations.md):
   - `reads: "text"`, `edgeKind: "function"`
   - Analogy `version: 2` and `accepts: ["answer"]`
   - instruction text per the declarations contract, with the no-new-claims rule kept
 
   Registration checks that `outputKind` has shape `node` and accepts the inputs.
-- [ ] T103 [US8] Rewrite `src/server/functions/runner.ts` (contracts/declarations.md "Runner"):
+- [X] T103 [US8] Rewrite `src/server/functions/runner.ts` (contracts/declarations.md "Runner"):
   - `runFunction` loads the live input, checks kind, resolves settings at kind level, reads its
     text, calls `provider.complete`, then inserts the function edge and output in one
     transaction.
@@ -978,12 +978,12 @@ and kind settings with per-edge overrides.
 
   Delete `src/server/functions/{state,readers,views}.ts`. A `text` reader stays inline as the input
   row's `text`.
-- [ ] T104 [US8] Create `src/server/functions/review.ts`: `confirm(outputId)` appends `confirmed`
+- [X] T104 [US8] Create `src/server/functions/review.ts`: `confirm(outputId)` appends `confirmed`
   `user_confirmed`, and `reject(outputId)` appends `rejected` `user_authored`. Only outputs are
   accepted (`origin = 'run'`, shape node), otherwise 409 `wrong_kind`.
-- [ ] T105 [US8] Update `src/server/settings/kindSettings.ts`: overrides are keyed by a function
+- [X] T105 [US8] Update `src/server/settings/kindSettings.ts`: overrides are keyed by a function
   edge id, and resolution is the edge override, then the kind value, then the default.
-- [ ] T106 [US8] Add these routes per contracts/http-api.md:
+- [X] T106 [US8] Add these routes per contracts/http-api.md:
   - `src/app/api/nodes/[nodeId]/functions/route.ts` (GET)
   - `src/app/api/nodes/[nodeId]/functions/[functionId]/run/route.ts`
   - `src/app/api/edges/[edgeId]/rerun/route.ts`

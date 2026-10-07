@@ -23,7 +23,7 @@ function parseTags(raw: string | undefined): unknown {
   }
 }
 
-/** Multipart: text, view, nodeId?, tags? (JSON), image* with a matching thumb* each (research R5). */
+/** Multipart: text, view, projectId?, elementId?, tags? (JSON), image* with a matching thumb* each (research R5). */
 export const POST = withApi(async (req: Request) => {
   let form: FormData;
   try {
@@ -47,7 +47,8 @@ export const POST = withApi(async (req: Request) => {
   const fields = {
     text: field(form, "text") ?? "",
     view: field(form, "view"),
-    nodeId: field(form, "nodeId") || null,
+    projectId: field(form, "projectId") || null,
+    elementId: field(form, "elementId") || null,
     tags: parseTags(field(form, "tags")),
   } as FeedbackCreateFields;
   const item = await createFeedback(fields, uploads);

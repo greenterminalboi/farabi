@@ -1,28 +1,12 @@
 import { cookies } from "next/headers";
-import { redirect } from "next/navigation";
-import { NewConversationButton } from "@/components/common/NewConversationButton";
-import { db } from "@/server/db/client";
+import { CanvasHost } from "@/canvas/CanvasHost";
 import { PROJECT_COOKIE, resolveProject } from "@/server/projects/projects";
 
 export const dynamic = "force-dynamic";
 
-export default async function Home() {
+/** The open project's canvas (FR-023). `?focus=<id>` walks to an element (R18). */
+export default async function Home({ searchParams }: { searchParams: Promise<{ focus?: string | string[] }> }) {
   const projectId = await resolveProject((await cookies()).get(PROJECT_COOKIE)?.value);
-  const latest = await db
-    .selectFrom("nodes")
-    .innerJoin("trees", "trees.id", "nodes.tree_id")
-    .select("nodes.id")
-    .where("trees.project_id", "=", projectId)
-    .where("nodes.kind", "=", "conversation")
-    .orderBy("nodes.created_at", "desc")
-    .limit(1)
-    .executeTakeFirst();
-  if (latest) redirect(`/n/${latest.id}`);
-  return (
-    <div className="empty-state">
-      <h1>Start exploring</h1>
-      <p>Begin a conversation. Highlight anything in it to branch off on a tangent.</p>
-      <NewConversationButton label="Start a conversation" />
-    </div>
-  );
+  const { focus } = await searchParams;
+  return <CanvasHost key={projectId} projectId={projectId} focus={typeof focus === "string" ? focus : null} />;
 }

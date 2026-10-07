@@ -68,7 +68,8 @@ export function KindSettingsSections() {
     setStatus(null);
     clearTimeout(timer.current);
     try {
-      setData(await api.saveKindSetting(kind, key, value));
+      await api.saveKindSetting(kind, key, value);
+      setData(await api.getKindSettings());
       setStatus({ kind: "saved" });
       timer.current = setTimeout(() => setStatus(null), 2000);
     } catch {

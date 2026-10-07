@@ -13,9 +13,16 @@ import { getFeedbackItem } from "./list";
  */
 export async function createFeedback(input: FeedbackCreateFields, uploads: Upload[] = []): Promise<FeedbackItem> {
   const fields = FeedbackCreateFields.parse(input);
-  if (fields.nodeId) {
-    const node = await db.selectFrom("nodes").select("id").where("id", "=", fields.nodeId).executeTakeFirst();
-    if (!node) throw new InvalidRequestError("That conversation does not exist");
+  // The open project and the focused element, from the canvas (FR-058).
+  if (fields.elementId) {
+    const el = await db.selectFrom("nodes").select("project_id").where("id", "=", fields.elementId).executeTakeFirst();
+    if (!el) throw new InvalidRequestError("That element does not exist");
+    if (fields.projectId && fields.projectId !== el.project_id) throw new InvalidRequestError("That element is in another project");
+    fields.projectId ??= el.project_id;
+  }
+  if (fields.projectId) {
+    const project = await db.selectFrom("projects").select("id").where("id", "=", fields.projectId).executeTakeFirst();
+    if (!project) throw new InvalidRequestError("That project does not exist");
   }
   const tags = new Map<string, string>();
   for (const tag of fields.tags) {
@@ -30,7 +37,14 @@ export async function createFeedback(input: FeedbackCreateFields, uploads: Uploa
     await db.transaction().execute(async (trx) => {
       await trx
         .insertInto("feedback_items")
-        .values({ id, text: fields.text.trim(), view: fields.view, node_id: fields.nodeId, provenance: "user_authored" })
+        .values({
+          id,
+          text: fields.text.trim(),
+          view: fields.view,
+          project_id: fields.projectId,
+          element_id: fields.elementId,
+          provenance: "user_authored",
+        })
         .execute();
       for (const [key, text] of tags) {
         await trx.insertInto("feedback_tags").values({ item_id: id, text, tag_key: key, provenance: "user_authored" }).execute();

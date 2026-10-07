@@ -1,4 +1,6 @@
-// The map itself is rendered once by <MapHost/> in the root layout and stays mounted (research R7).
-export default function MapPage() {
-  return null;
+import { permanentRedirect } from "next/navigation";
+
+/** The map view became the canvas (FR-023, research R18). */
+export default function MapRedirect() {
+  permanentRedirect("/");
 }

@@ -1,16 +1,21 @@
 import { analogyKind } from "./analogy";
-import { conversationKind } from "./conversation";
-import { pipeKind } from "./pipe";
-import type { NodeKindDeclaration } from "./types";
+import { answerKind } from "./answer";
+import { functionKind } from "./function";
+import { questionKind } from "./question";
+import { DISPLAY_SHAPE, type NodeKindDeclaration } from "./types";
 
-export type { NodeKindDeclaration, SettingDeclaration, ViewId } from "./types";
+export type { Display, NodeKindDeclaration, SettingDeclaration, Shape } from "./types";
 
-// Node kinds (Feature 9, research R2). Adding a kind means adding a declaration here.
+// Element kinds (Feature 9, research R14). Adding a kind means adding a declaration here.
 const registry = new Map<string, NodeKindDeclaration>();
 
 /** Adds a kind. Used for the built-in kinds below and by tests (SC-007). */
 export function registerKind(decl: NodeKindDeclaration): void {
   if (registry.has(decl.id)) throw new Error(`Node kind "${decl.id}" is already registered`);
+  if (DISPLAY_SHAPE[decl.display] !== decl.shape) {
+    const drawn = DISPLAY_SHAPE[decl.display] === "edge" ? "an edge" : "a node";
+    throw new Error(`Node kind "${decl.id}" has shape "${decl.shape}", but display "${decl.display}" draws ${drawn}`);
+  }
   const keys = new Set<string>();
   for (const s of decl.settings) {
     if (keys.has(s.key)) throw new Error(`Node kind "${decl.id}" declares "${s.key}" twice`);
@@ -22,7 +27,7 @@ export function registerKind(decl: NodeKindDeclaration): void {
   registry.set(decl.id, decl);
 }
 
-for (const kind of [conversationKind, analogyKind, pipeKind]) registerKind(kind);
+for (const kind of [questionKind, answerKind, functionKind, analogyKind]) registerKind(kind);
 
 export function findKind(id: string): NodeKindDeclaration | undefined {
   return registry.get(id);

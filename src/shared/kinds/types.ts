@@ -1,6 +1,6 @@
 import type { z } from "zod";
 
-/** A setting a kind declares (FR-029). Values are chosen from a bounded list. */
+/** A setting a kind declares (FR-053). Values are chosen from a bounded list. */
 export type SettingDeclaration = {
   key: string;
   label: string;
@@ -10,21 +10,30 @@ export type SettingDeclaration = {
   default: string;
 };
 
-/** The views a kind can open with (research R9). A new kind reuses one by declaration. */
-export type ViewId = "chat" | "output_beside_input" | "pipe";
+/** Content (node) or act (edge) (FR-001, FR-043). */
+export type Shape = "node" | "edge";
 
-/** A node kind (FR-002). Plain data, shared by the server and the client. */
+/** How the canvas draws a kind (contracts/canvas-ui.md). A new kind reuses one by declaration. */
+export type Display = "answer" | "question" | "function_connector" | "output";
+
+/** The shape each display draws. */
+export const DISPLAY_SHAPE: Record<Display, Shape> = {
+  answer: "node",
+  output: "node",
+  question: "edge",
+  function_connector: "edge",
+};
+
+/** An element kind (FR-043). Plain data, shared by the server and the client. */
 export type NodeKindDeclaration = {
   id: string;
   label: string;
-  /** Backed by a conversation: has messages, and offers Branch, Define and Park (FR-005). */
-  conversationBacked: boolean;
-  view: ViewId;
-  /** How its map label is produced (FR-006). */
-  mapLabel: "summary" | "output_text" | "none";
+  /** Copied into nodes.shape on insert. */
+  shape: Shape;
+  display: Display;
   settings: SettingDeclaration[];
-  /** For kinds produced by a function: which kinds may be its inputs. */
+  /** For function outputs: which kinds may be the input of the function that makes it. */
   acceptsInputKinds?: string[];
-  /** Declared properties; strict, so undeclared keys are rejected (FR-035). */
+  /** Declared properties; strict, so undeclared keys are rejected (FR-054). */
   properties: z.ZodObject;
 };

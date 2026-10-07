@@ -6,7 +6,15 @@ import { allocate, FLOOR_CHARS, TOTAL_CHARS } from "./budget";
 import { type Decorate, renderBlocks } from "./render";
 import { clip, richTextPrefix } from "./richText";
 
-/** One element's text box, in world units. */
+/** A piece of an item's frame chrome: a label, or a button that the host handles by `action`. */
+export type ChromePart =
+  | { text: string; className?: string; testid?: string; title?: string }
+  | { action: string; label: string; className?: string; title?: string };
+
+/**
+ * One element's box, in world units. Its frame's labels and buttons (the AI tag, the state, Retry)
+ * are real text too (FR-030), so they render here, around the element's own text.
+ */
 export type TextItem = {
   id: string;
   x: number;
@@ -21,6 +29,12 @@ export type TextItem = {
   /** Bumps when the item's text or decorations change, so a mounted item re-renders. */
   version: number;
   decorate?: Decorate | null;
+  /** Accessible name: "Your message" or "AI answer" plus its state. */
+  label?: string;
+  header?: ChromePart[];
+  footer?: ChromePart[];
+  /** Shown, muted and unselectable, when there is no text yet (an unsent edge, a pending reply). */
+  placeholder?: string;
 };
 
 export type Camera = { scale: number; x: number; y: number; screenWidth: number; screenHeight: number };
@@ -246,16 +260,29 @@ export class TextLayer {
       el.dataset.testid = "element-text";
       el.dataset.nodeId = id;
       el.setAttribute("role", "article");
+      const body = this.world.ownerDocument.createElement("div");
+      body.className = "element-body";
+      el.appendChild(body);
       this.world.appendChild(el);
       m = { el, chars: 0, clipped: false, version: -1 };
       this.mounted.set(id, m);
     }
     m.el.className = `element-text ${item.className}`;
+    if (item.label) m.el.setAttribute("aria-label", item.label);
     this.place(m.el, item);
+    const body = m.el.querySelector<HTMLElement>(":scope > .element-body")!;
     const { rich, partial } = richTextPrefix(id, item.source, item.markdown, want);
     const cut = clip(rich, want);
     const clipped = cut.clipped || partial;
-    renderBlocks(m.el, cut.blocks, clipped, item.decorate ?? null);
+    renderBlocks(body, cut.blocks, clipped, item.decorate ?? null);
+    if (!item.source && item.placeholder) {
+      const ph = body.ownerDocument.createElement("span");
+      ph.className = "element-placeholder";
+      ph.textContent = item.placeholder;
+      body.appendChild(ph);
+    }
+    renderChrome(m.el, "header", item.header, body);
+    renderChrome(m.el, "footer", item.footer, null);
     m.chars = cut.chars;
     m.clipped = clipped;
     m.version = item.version;
@@ -283,4 +310,32 @@ export class TextLayer {
     this.filled = true;
     for (const cb of this.idleListeners) cb();
   }
+}
+
+/** Replaces an item's header or footer with `parts`, before `before` (or at the end). */
+function renderChrome(el: HTMLElement, where: "header" | "footer", parts: ChromePart[] | undefined, before: HTMLElement | null): void {
+  el.querySelector(`:scope > .element-${where}`)?.remove();
+  if (!parts?.length) return;
+  const doc = el.ownerDocument;
+  const bar = doc.createElement("div");
+  bar.className = `element-${where}`;
+  for (const part of parts) {
+    if ("action" in part) {
+      const button = doc.createElement("button");
+      button.type = "button";
+      button.dataset.action = part.action;
+      button.className = `chrome-btn ${part.className ?? ""}`.trim();
+      button.textContent = part.label;
+      if (part.title) button.title = part.title;
+      bar.appendChild(button);
+    } else {
+      const span = doc.createElement("span");
+      if (part.className) span.className = part.className;
+      if (part.testid) span.dataset.testid = part.testid;
+      if (part.title) span.title = part.title;
+      span.textContent = part.text;
+      bar.appendChild(span);
+    }
+  }
+  el.insertBefore(bar, before);
 }

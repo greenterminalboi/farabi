@@ -1,59 +1,38 @@
 import { termKey } from "@/shared/termKey";
 import type { Definition } from "@/shared/schemas";
 import { db } from "../db/client";
-import { ConflictError, InvalidSelectionError, NotFoundError } from "../errors";
+import { InvalidSelectionError, NotFoundError } from "../errors";
+import { validateSpan } from "../graph/branch";
 import { assertId } from "../ids";
-import { assertConversationNode } from "../nodes/kinds";
 import { enqueueDraft } from "./draftQueue";
 import { getDefinition } from "./list";
 
 const MAX_TERM = 120;
 
 /**
- * Captures a highlighted term (FR-027). A term that already has an entry (same key) returns that
- * entry and creates nothing (FR-034); a new one starts an AI draft (FR-028).
+ * Captures a highlighted term from any element with final text, outputs included (FR-055). A term
+ * that already has an entry (same key) returns that entry and creates nothing; a new one starts an
+ * AI draft (Feature 2).
  */
 export async function captureDefinition(input: {
   nodeId: string;
-  messageId: string;
   start: number;
   end: number;
   text: string;
 }): Promise<{ definition: Definition; created: boolean }> {
-  assertId(input.nodeId, "Node");
-  assertId(input.messageId, "Message");
-  await assertConversationNode(input.nodeId);
-  const message = await db.selectFrom("messages").selectAll().where("id", "=", input.messageId).executeTakeFirst();
-  if (!message || message.node_id !== input.nodeId) {
-    throw new InvalidSelectionError("The selection must be inside a message of this conversation");
-  }
-  if (message.status !== "complete" || message.replaced_at !== null) {
-    throw new ConflictError("message_not_branchable", "Terms can only be taken from completed messages");
-  }
-  const { start, end, text } = input;
-  if (!(start >= 0 && start < end && end <= message.content.length) || message.content.slice(start, end) !== text) {
-    throw new InvalidSelectionError("The selected text doesn't match the message");
-  }
-  const term = text.trim().replace(/\s+/g, " ");
+  assertId(input.nodeId, "Element");
+  const { element } = await db
+    .transaction()
+    .execute((trx) => validateSpan(trx, input.nodeId, input, { allowOutput: true }));
+  const term = input.text.trim().replace(/\s+/g, " ");
   if (!term) throw new InvalidSelectionError("The selection is empty");
   if (term.length > MAX_TERM) throw new InvalidSelectionError(`Terms are limited to ${MAX_TERM} characters`);
 
-  // A term belongs to the project of the conversation it came from (Feature 4, plan D4).
-  const { project_id: projectId } = await db
-    .selectFrom("nodes")
-    .innerJoin("trees", "trees.id", "nodes.tree_id")
-    .select("trees.project_id")
-    .where("nodes.id", "=", input.nodeId)
-    .executeTakeFirstOrThrow();
+  // A term belongs to the project of the element it came from (Feature 4).
+  const projectId = element.project_id;
   const inserted = await db
     .insertInto("definitions")
-    .values({
-      project_id: projectId,
-      term,
-      term_key: termKey(term),
-      source_node_id: input.nodeId,
-      source_message_id: input.messageId,
-    })
+    .values({ project_id: projectId, term, term_key: termKey(term), source_id: element.id })
     .onConflict((oc) => oc.columns(["project_id", "term_key"]).doNothing())
     .returning("id")
     .executeTakeFirst();

@@ -2,7 +2,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { db } from "@/server/db/client";
-import { call, createFeedback } from "./helpers";
+import { call, createFeedback, newProject, startTree } from "./helpers";
 
 const root = path.resolve(import.meta.dirname, "../..");
 
@@ -14,25 +14,37 @@ describe("US1: capture feedback from anywhere", () => {
     expect(item.state).toBe("open");
     expect(item.history).toHaveLength(1);
     expect(item.history[0]).toMatchObject({ state: "open", provenance: "user_authored" });
-    expect(item.context).toEqual({ view: "map", nodeId: null });
+    expect(item.context).toEqual({ view: "map", nodeId: null, projectId: null, elementId: null, element: null });
     expect(item.tags).toEqual([]);
     expect(item.attachments).toEqual([]);
     const row = await db.selectFrom("feedback_items").selectAll().executeTakeFirstOrThrow();
     expect(row.provenance).toBe("user_authored");
   });
 
-  it("records the open node when captured from a conversation", async () => {
-    const tree = await call("POST", "/api/trees", {});
-    const nodeId = tree.body.node.id;
-    const res = await createFeedback({ text: "Reply overflows", view: "chat", nodeId });
+  it("records the open project and the focused element from the canvas (FR-058)", async () => {
+    const projectId = await newProject();
+    const tree = await startTree(projectId, "Pods");
+    const res = await createFeedback({ text: "Reply overflows", view: "canvas", projectId, elementId: tree.answer.id });
     expect(res.status).toBe(201);
-    expect(res.body.item.context).toEqual({ view: "chat", nodeId });
+    expect(res.body.item.context).toMatchObject({
+      view: "canvas",
+      nodeId: null,
+      projectId,
+      elementId: tree.answer.id,
+      element: { kind: "answer", excerpt: tree.answer.text.replace(/\s+/g, " ") },
+    });
+    const onlyProject = await createFeedback({ text: "Canvas is slow", view: "canvas", projectId });
+    expect(onlyProject.body.item.context).toMatchObject({ projectId, elementId: null });
   });
 
-  it("refuses a node outside the chat view, an unknown node, and blank text", async () => {
-    const tree = await call("POST", "/api/trees", {});
-    expect((await createFeedback({ text: "x", view: "map", nodeId: tree.body.node.id })).status).toBe(422);
-    expect((await createFeedback({ text: "x", view: "chat", nodeId: crypto.randomUUID() })).status).toBe(422);
+  it("refuses an element outside the canvas, an unknown element or project, and blank text", async () => {
+    const projectId = await newProject();
+    const tree = await startTree(projectId, "Pods");
+    expect((await createFeedback({ text: "x", view: "map", elementId: tree.edge.id })).status).toBe(422);
+    expect((await createFeedback({ text: "x", view: "canvas", elementId: crypto.randomUUID() })).status).toBe(422);
+    expect((await createFeedback({ text: "x", view: "canvas", projectId: crypto.randomUUID() })).status).toBe(422);
+    const other = await newProject("Other");
+    expect((await createFeedback({ text: "x", view: "canvas", projectId: other, elementId: tree.edge.id })).status).toBe(422);
     expect((await createFeedback({ text: "   \n\t ", view: "map" })).status).toBe(422);
     expect((await createFeedback({ text: "", view: "map" })).status).toBe(422);
     expect(await db.selectFrom("feedback_items").select("id").execute()).toHaveLength(0);
