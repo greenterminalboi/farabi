@@ -7,12 +7,15 @@ type SettingsStore = {
   /** Underline bold text in AI replies as places to branch (Feature 5, FR-012). On by default. */
   showSuggestions: boolean;
   setShowSuggestions: (show: boolean) => void;
-  /** Branch panel beside the chat is open (Feature 8, research R7). Open by default. */
+  /** The side panel beside the canvas is open (Feature 8, FR-022). Open by default. */
   branchPanelOpen: boolean;
   setBranchPanelOpen: (open: boolean) => void;
-  /** Draw rejected function outputs on the map, faded (Feature 9, FR-027). Off by default. */
+  /** Draw rejected function outputs, faded (FR-050). Off by default. */
   showRejected: boolean;
   setShowRejected: (show: boolean) => void;
+  /** The minimap is hidden (FR-027). Shown by default. */
+  minimapHidden: boolean;
+  setMinimapHidden: (hidden: boolean) => void;
 };
 
 export const useSettingsStore = create<SettingsStore>()(
@@ -24,6 +27,8 @@ export const useSettingsStore = create<SettingsStore>()(
       setBranchPanelOpen: (branchPanelOpen) => set({ branchPanelOpen }),
       showRejected: false,
       setShowRejected: (showRejected) => set({ showRejected }),
+      minimapHidden: false,
+      setMinimapHidden: (minimapHidden) => set({ minimapHidden }),
     }),
     {
       name: "farabi.settings",
@@ -32,6 +37,7 @@ export const useSettingsStore = create<SettingsStore>()(
         showSuggestions: s.showSuggestions,
         branchPanelOpen: s.branchPanelOpen,
         showRejected: s.showRejected,
+        minimapHidden: s.minimapHidden,
       }),
       skipHydration: true,
     },

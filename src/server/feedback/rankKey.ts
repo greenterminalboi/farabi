@@ -23,7 +23,7 @@ export function effectiveKey(item: { rank: string | null; created_at: Date }): s
  * The same effective key, computed in SQL for ordering. `floor` matches JavaScript, whose Date
  * drops the microseconds Postgres stores (a plain ::bigint cast would round them).
  */
-export const SQL_EFFECTIVE_KEY = sql<string>`COALESCE(rank, lpad(floor(extract(epoch FROM created_at) * 1000)::bigint::text, 15, '0'))`;
+export const SQL_EFFECTIVE_KEY = sql<string>`COALESCE(feedback_items.rank, lpad(floor(extract(epoch FROM feedback_items.created_at) * 1000)::bigint::text, 15, '0'))`;
 
 function parse(key: string): { scaled: bigint; digits: number } {
   const [int, frac = ""] = key.split(".");

@@ -2,27 +2,36 @@ import { describe, expect, it } from "vitest";
 import { getFakeCalls, setFakeMode } from "@/server/ai/fake";
 import { db } from "@/server/db/client";
 import { drainDrafts } from "@/server/definitions/draftQueue";
-import { call, sendAndWait } from "./helpers";
+import { askAndWait, call, startTree } from "./helpers";
+
+// Feature 2 definitions, re-targeted to v2 elements (Feature 10, FR-055, T090).
+
+/** The open (cookie-less default) project, which the definitions list reads. */
+async function openProject(): Promise<string> {
+  return (await call("GET", "/api/projects")).body.currentId;
+}
 
 async function conversationWith(text = "Tell me about Pods") {
-  const t = await call("POST", "/api/trees", {});
-  const nodeId = t.body.node.id as string;
-  const ai = (await sendAndWait(nodeId, text)).body.aiMessage;
-  return { nodeId, ai };
+  const t = await startTree(await openProject(), text);
+  return { nodeId: t.answer.id as string, ai: t.answer, edge: t.edge };
 }
 
-function select(ai: { id: string; content: string }, phrase: string, nodeId: string) {
-  const start = ai.content.indexOf(phrase);
-  return { nodeId, messageId: ai.id, start, end: start + phrase.length, text: phrase };
+function select(ai: { text: string }, phrase: string, nodeId: string) {
+  const start = ai.text.indexOf(phrase);
+  return { nodeId, start, end: start + phrase.length, text: phrase };
 }
 
-describe("Feature 2 · US4 definitions", () => {
+describe("Feature 2 (v2) · definitions", () => {
   it("captures a term and drafts a two-part ai_suggested definition", async () => {
     const { nodeId, ai } = await conversationWith();
     const res = await call("POST", "/api/definitions", select(ai, "Containers", nodeId));
     expect(res.status).toBe(201);
     expect(res.body.created).toBe(true);
-    expect(res.body.definition).toMatchObject({ term: "Containers", termKey: "containers", source: { nodeId, messageId: ai.id } });
+    expect(res.body.definition).toMatchObject({
+      term: "Containers",
+      termKey: "containers",
+      source: { elementId: nodeId, kind: "answer", excerpt: ai.text.replace(/\s+/g, " ") },
+    });
     await drainDrafts();
     const got = await call("GET", `/api/definitions/${res.body.definition.id}`);
     expect(got.body.definition.status).toBe("draft");
@@ -33,18 +42,29 @@ describe("Feature 2 · US4 definitions", () => {
     });
   });
 
-  it("drafts from the source node's own messages only", async () => {
-    const { nodeId, ai } = await conversationWith("parent only text");
-    const start = ai.content.indexOf("Containers");
-    const branch = await call("POST", `/api/nodes/${nodeId}/branches`, {
-      messageId: ai.id, start, end: start + 10, text: "Containers", prefix: "", suffix: "",
-    });
-    const childAi = (await sendAndWait(branch.body.node.id, "branch talk")).body.aiMessage;
-    await call("POST", "/api/definitions", select(childAi, "mentioned", branch.body.node.id));
+  it("drafts from the source element and its path, never a sibling", async () => {
+    const { nodeId } = await conversationWith("the path");
+    await askAndWait(nodeId, "sibling only text");
+    const other = (await askAndWait(nodeId, "branch talk")).body.answer;
+    await call("POST", "/api/definitions", select(other, "mentioned", other.id));
     await drainDrafts();
     const input = getFakeCalls().lastDefine!;
     expect(input.term).toBe("mentioned");
-    expect(input.messages.map((m) => m.content).join(" ")).not.toContain("parent only text");
+    expect(input.sourceMessage).toEqual({ role: "ai", content: other.text });
+    const said = input.messages.map((m) => m.content).join(" ");
+    expect(said).toContain("the path");
+    expect(said).not.toContain("sibling only text");
+  });
+
+  it("captures from a question edge's own words and from a function output (FR-055)", async () => {
+    const { nodeId, edge } = await conversationWith("Tell me about Pods");
+    const fromEdge = await call("POST", "/api/definitions", select(edge, "Pods", edge.id));
+    expect(fromEdge.status).toBe(201);
+    expect(fromEdge.body.definition.source).toMatchObject({ elementId: edge.id, kind: "question" });
+    const out = (await call("POST", `/api/nodes/${nodeId}/functions/analogy/run`)).body.output;
+    const fromOutput = await call("POST", "/api/definitions", select(out, "Fake", out.id));
+    expect(fromOutput.status).toBe(201);
+    expect(fromOutput.body.definition.source.kind).toBe("analogy");
   });
 
   it("never duplicates a term, whatever its case, spacing or conversation", async () => {
@@ -55,7 +75,7 @@ describe("Feature 2 · US4 definitions", () => {
     expect(again.status).toBe(200);
     expect(again.body.created).toBe(false);
     expect(again.body.definition.id).toBe(first.body.definition.id);
-    expect(again.body.definition.source.nodeId).toBe(a.nodeId); // first capture wins
+    expect(again.body.definition.source.elementId).toBe(a.nodeId); // first capture wins
     expect(await db.selectFrom("definitions").selectAll().execute()).toHaveLength(1);
   });
 
@@ -93,11 +113,16 @@ describe("Feature 2 · US4 definitions", () => {
     expect((await call("POST", `/api/definitions/${id}/redraft`, {})).status).toBe(409);
   });
 
-  it("refuses selections that don't match a completed message", async () => {
+  it("refuses selections that don't match the element's final text", async () => {
     const { nodeId, ai } = await conversationWith();
     expect((await call("POST", "/api/definitions", { ...select(ai, "Containers", nodeId), text: "Other" })).status).toBe(422);
     const other = await conversationWith("x");
     expect((await call("POST", "/api/definitions", select(ai, "Containers", other.nodeId))).status).toBe(422);
+    setFakeMode({ mode: "stall" });
+    const cut = (await askAndWait(nodeId, "cut")).body.answer;
+    const res = await call("POST", "/api/definitions", { nodeId: cut.id, start: 0, end: 4, text: cut.text.slice(0, 4) });
+    expect(res.status).toBe(409);
+    expect(res.body.error.code).toBe("not_branchable");
   });
 
   it("lists entries newest first and serves a compact index", async () => {

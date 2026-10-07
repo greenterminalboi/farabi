@@ -1,166 +1,109 @@
-// The generic node-function runner (Feature 9, research R3). It executes any registered definition
-// and holds nothing specific to one function: adding a function never changes this file (FR-008).
-// A function runs only when the user asks (FR-024). The AI is called before anything is written,
-// so a failed run leaves no trace (FR-012).
-import type { Selectable } from "kysely";
-import type { MapNode, MapPipe, OutputVersion } from "@/shared/schemas";
+// The generic function runner (contracts/declarations.md "Runner", research R14). It executes any
+// registered definition and holds nothing specific to one function or kind: adding either never
+// changes this file (SC-013). A function runs only when the user asks. The AI is called before
+// anything is written, so a failed run leaves no trace (FR-052).
+import type { Element, RunFunctionResponse } from "@/shared/schemas";
 import { getAIProvider } from "../ai";
 import { AIUnavailableError } from "../ai/provider";
 import { db } from "../db/client";
-import type { NodesTable } from "../db/schema";
-import { ConflictError, FunctionUnavailableError, NotFoundError } from "../errors";
+import { ConflictError, FunctionUnavailableError } from "../errors";
+import { type ElementRow, insertElement, loadLive, toElement } from "../graph/elements";
 import { assertId } from "../ids";
-import { NO_SUMMARY, toMapNode, toMapPipe, toOutputVersion } from "../mappers";
-import { validateProperties } from "../nodes/kinds";
 import { resolvedValues } from "../settings/kindSettings";
 import { type FunctionDefinition, getFunction, listFunctionsFor } from "./definitions";
-import { READERS } from "./readers";
-import { outputStates, toOutputSummary } from "./state";
 
-/** A node in a project that isn't in the trash (FR-013). */
-async function loadLiveNode(nodeId: string): Promise<Selectable<NodesTable>> {
-  assertId(nodeId, "Node");
-  const node = await db
-    .selectFrom("nodes")
-    .innerJoin("trees", "trees.id", "nodes.tree_id")
-    .innerJoin("projects", "projects.id", "trees.project_id")
-    .selectAll("nodes")
-    .where("nodes.id", "=", nodeId)
-    .where("projects.trashed_at", "is", null)
-    .executeTakeFirst();
-  if (!node) throw new NotFoundError("Node not found");
-  return node;
+/** The input's own immutable text (`reads: "text"`); refuses text that isn't final yet. */
+function readText(input: ElementRow): string {
+  if (input.text === null || input.text.trim() === "" || (input.status !== null && input.status !== "complete")) {
+    throw new ConflictError("not_runnable", "This text isn't finished yet");
+  }
+  return input.text;
 }
 
-/** Reads the declared part of the input, then asks the AI; nothing is stored here. */
-async function generate(def: FunctionDefinition, inputNodeId: string, settings: Record<string, string>) {
-  // The version is captured before the AI call: if the source changes meanwhile, the result is
-  // correctly stale as soon as it lands (spec edge case).
-  const source = await READERS[def.reads].read(inputNodeId);
-  if (!source.ok) throw new ConflictError("function_unavailable", source.reason);
+/** Asks the AI; nothing is stored here. */
+async function generate(def: FunctionDefinition, input: ElementRow, settings: Record<string, string>): Promise<string> {
+  const text = readText(input);
   try {
     const raw = await getAIProvider().complete({
       tag: def.id,
       system: def.instruction.system(settings),
-      prompt: def.instruction.prompt({ text: source.text }, settings),
+      prompt: def.instruction.prompt({ text }, settings),
     });
-    return { text: def.parse(raw), sourceVersion: source.version };
+    return def.parse(raw);
   } catch (err) {
     if (err instanceof AIUnavailableError) throw new FunctionUnavailableError(err.message);
     throw err;
   }
 }
 
-async function outputNode(outputId: string): Promise<MapNode> {
-  const [node, states] = await Promise.all([
-    db.selectFrom("nodes").selectAll().where("id", "=", outputId).executeTakeFirstOrThrow(),
-    outputStates([outputId]),
-  ]);
-  const state = states.get(outputId);
-  return toMapNode(node, null, NO_SUMMARY, null, 0, state ? toOutputSummary(state) : null);
+function outputValues(def: FunctionDefinition, edge: Pick<ElementRow, "id" | "tree_id" | "project_id">, text: string) {
+  return {
+    kind: def.outputKind,
+    parentId: edge.id,
+    treeId: edge.tree_id,
+    projectId: edge.project_id,
+    origin: "run" as const,
+    provenance: "ai_suggested" as const,
+    text,
+    functionId: def.id,
+    functionVersion: def.version,
+  };
 }
 
-/** Runs a function on a node at the user's request: a new output node, its pipe and version 1. */
-export async function runFunction(functionId: string, inputNodeId: string): Promise<{ output: MapNode; pipe: MapPipe }> {
-  const input = await loadLiveNode(inputNodeId);
+/** Runs a function on an element at the user's request: a function edge and its first output. */
+export async function runFunction(functionId: string, inputId: string): Promise<RunFunctionResponse> {
+  assertId(inputId, "Element");
+  const input = await loadLive(db, inputId);
   const def = getFunction(functionId);
   if (!def.accepts.includes(input.kind)) {
-    throw new ConflictError("wrong_kind", `${def.name} can't run on this kind of node`, { kind: input.kind });
+    throw new ConflictError("wrong_kind", `${def.name} can't run on this kind of element`, { kind: input.kind });
   }
-  // A new output has no override yet: the kind-level value or the default applies (research R7).
+  // A first run has no override yet: the kind-level value or the default applies (FR-053).
   const settings = await resolvedValues(def.outputKind);
-  const { text, sourceVersion } = await generate(def, input.id, settings);
+  const text = await generate(def, input, settings);
 
-  const { outputId, pipeNode, pipe } = await db.transaction().execute(async (trx) => {
-    const common = {
-      tree_id: input.tree_id,
-      parent_id: null,
-      provenance: "ai_suggested" as const,
-      origin: "function" as const,
-      function_id: def.id,
-      function_version: def.version,
-    };
-    const output = await trx
-      .insertInto("nodes")
-      .values({ ...common, kind: def.outputKind, properties: JSON.stringify(validateProperties(def.outputKind, {})) })
-      .returning("id")
-      .executeTakeFirstOrThrow();
-    const pipeNode = await trx
-      .insertInto("nodes")
-      .values({ ...common, kind: "pipe", properties: JSON.stringify(validateProperties("pipe", {})) })
-      .returningAll()
-      .executeTakeFirstOrThrow();
-    const pipe = await trx
-      .insertInto("pipes")
-      .values({
-        node_id: pipeNode.id,
-        input_node_id: input.id,
-        output_node_id: output.id,
-        reads: def.reads,
-        function_id: def.id,
-        function_version: def.version,
-      })
-      .returningAll()
-      .executeTakeFirstOrThrow();
-    await trx
-      .insertInto("function_output_versions")
-      .values({
-        output_node_id: output.id,
-        text,
-        source_version: sourceVersion,
-        function_version: def.version,
-        settings: JSON.stringify(settings),
-      })
-      .execute();
-    return { outputId: output.id, pipeNode, pipe };
+  const { edge, output } = await db.transaction().execute(async (trx) => {
+    const edge = await insertElement(trx, {
+      kind: def.edgeKind,
+      parentId: input.id,
+      treeId: input.tree_id,
+      projectId: input.project_id,
+      origin: "run",
+      provenance: "ai_suggested",
+      functionId: def.id,
+      functionVersion: def.version,
+    });
+    const output = await insertElement(trx, outputValues(def, edge, text));
+    return { edge, output };
   });
-
-  return { output: await outputNode(outputId), pipe: toMapPipe(pipeNode, pipe, def.name, "proposed") };
+  return { edge: toElement(edge, { review: "proposed" }), output: toElement(output, { review: "proposed" }) };
 }
 
-/**
- * Makes a new version of an output from its input's current state, at the user's request (FR-025).
- * The review is untouched: a confirmed text stays displayed until the user confirms this one.
- */
-export async function regenerateOutput(outputNodeId: string): Promise<{ output: MapNode; version: OutputVersion }> {
-  const node = await loadLiveNode(outputNodeId);
-  const pipe = await db.selectFrom("pipes").selectAll().where("output_node_id", "=", node.id).executeTakeFirst();
-  if (!pipe) throw new ConflictError("wrong_kind", "Only a function output can be regenerated", { kind: node.kind });
-  const def = getFunction(pipe.function_id);
-  // This node's own override applies here (FR-030).
-  const settings = await resolvedValues(node.kind, node.id);
-  const { text, sourceVersion } = await generate(def, pipe.input_node_id, settings);
-  const version = await db
-    .insertInto("function_output_versions")
-    .values({
-      output_node_id: node.id,
-      text,
-      source_version: sourceVersion,
-      function_version: def.version,
-      settings: JSON.stringify(settings),
-    })
-    .returningAll()
-    .executeTakeFirstOrThrow();
-  const output = await outputNode(node.id);
-  const state = (await outputStates([node.id])).get(node.id);
-  return { output, version: toOutputVersion(version, state?.confirmedVersionId ?? null) };
+/** Another output under an existing function edge, with that edge's override (FR-051, FR-053). */
+export async function rerunFunction(edgeId: string): Promise<{ output: Element }> {
+  assertId(edgeId, "Edge");
+  const edge = await loadLive(db, edgeId);
+  if (edge.origin !== "run" || edge.shape !== "edge" || edge.function_id === null || edge.parent_id === null) {
+    throw new ConflictError("wrong_kind", "Only a function edge can run again", { kind: edge.kind });
+  }
+  const def = getFunction(edge.function_id);
+  const input = await loadLive(db, edge.parent_id);
+  const settings = await resolvedValues(def.outputKind, edge.id);
+  const text = await generate(def, input, settings);
+  const output = await insertElement(db, outputValues(def, edge, text));
+  return { output: toElement(output, { review: "proposed" }) };
 }
 
-/** The function menu for a node: what accepts its kind, and whether it can run now (FR-009, FR-010). */
-export async function listAvailableFunctions(nodeId: string) {
-  const node = await loadLiveNode(nodeId);
-  const functions = await Promise.all(
-    listFunctionsFor(node.kind).map(async (def) => {
-      const source = await READERS[def.reads].read(node.id);
-      return {
-        id: def.id,
-        name: def.name,
-        version: def.version,
-        outputKind: def.outputKind,
-        available: source.ok,
-        reason: source.ok ? null : source.reason,
-      };
-    }),
-  );
-  return { functions };
+/** The function menu for an element: only functions that accept its kind (story 8). */
+export async function listAvailableFunctions(elementId: string) {
+  assertId(elementId, "Element");
+  const el = await loadLive(db, elementId);
+  return {
+    functions: listFunctionsFor(el.kind).map((def) => ({
+      id: def.id,
+      name: def.name,
+      version: def.version,
+      outputKind: def.outputKind,
+    })),
+  };
 }

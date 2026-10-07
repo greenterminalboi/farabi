@@ -8,14 +8,17 @@ import type {
   FeedbackTagsTable,
 } from "../db/schema";
 import { NotFoundError } from "../errors";
+import { excerptOf } from "../definitions/list";
 import { assertId } from "../ids";
 import { attachmentAbsPath, repoRelative } from "./paths";
 import { SQL_EFFECTIVE_KEY } from "./rankKey";
 
 const iso = (d: Date) => d.toISOString();
 
+type ItemRow = Selectable<FeedbackItemsTable> & { element_kind: string | null; element_text: string | null };
+
 export function toFeedbackItem(
-  item: Selectable<FeedbackItemsTable>,
+  item: ItemRow,
   tags: Selectable<FeedbackTagsTable>[],
   attachments: Selectable<FeedbackAttachmentsTable>[],
   events: Selectable<FeedbackStateEventsTable>[],
@@ -24,7 +27,13 @@ export function toFeedbackItem(
   return {
     id: item.id,
     text: item.text,
-    context: { view: item.view, nodeId: item.node_id },
+    context: {
+      view: item.view,
+      nodeId: item.node_id,
+      projectId: item.project_id,
+      elementId: item.element_id,
+      element: item.element_kind ? { kind: item.element_kind, excerpt: excerptOf(item.element_text) } : null,
+    },
     tags: tags.map((t) => ({ text: t.text, key: t.tag_key })),
     attachments: attachments.map((a) => ({
       id: a.id,
@@ -55,10 +64,12 @@ function groupBy<T extends { item_id: string }>(rows: T[]): Map<string, T[]> {
 async function load(db: DB, onlyId?: string): Promise<FeedbackItem[]> {
   let itemsQuery = db
     .selectFrom("feedback_items")
-    .selectAll()
+    .leftJoin("nodes", "nodes.id", "feedback_items.element_id")
+    .selectAll("feedback_items")
+    .select(["nodes.kind as element_kind", "nodes.text as element_text"])
     .orderBy(SQL_EFFECTIVE_KEY, "desc")
-    .orderBy("id", "desc");
-  if (onlyId) itemsQuery = itemsQuery.where("id", "=", onlyId);
+    .orderBy("feedback_items.id", "desc");
+  if (onlyId) itemsQuery = itemsQuery.where("feedback_items.id", "=", onlyId);
   const items = await itemsQuery.execute();
   if (items.length === 0) return [];
   const ids = items.map((i) => i.id);

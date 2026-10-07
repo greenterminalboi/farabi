@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { db } from "@/server/db/client";
-import { call, createFeedback, sendAndWait } from "./helpers";
+import { call, createFeedback, startTree } from "./helpers";
 
 const as = (projectId: string) => ({ cookie: `farabi_project=${projectId}` });
 const cookieOf = (res: Response) => /farabi_project=([^;]+)/.exec(res.headers.get("set-cookie") ?? "")?.[1];
@@ -12,11 +12,12 @@ async function create(name: string) {
   return { status: res.status, project: body.project, cookie: cookieOf(res), body };
 }
 
-async function capture(projectId: string, nodeId: string, word: string) {
-  const ai = (await sendAndWait(nodeId, "Pods")).body.aiMessage;
-  const start = ai.content.indexOf(word);
-  return call("POST", "/api/definitions", { nodeId, messageId: ai.id, start, end: start + word.length, text: word }, as(projectId));
+async function capture(projectId: string, answer: { id: string; text: string }, word: string) {
+  const start = answer.text.indexOf(word);
+  return call("POST", "/api/definitions", { nodeId: answer.id, start, end: start + word.length, text: word }, as(projectId));
 }
+
+const canvasOf = async (projectId: string) => (await call("GET", `/api/canvas?projectId=${projectId}`)).body;
 
 describe("Feature 4: projects", () => {
   it("creates a default project on first use", async () => {
@@ -36,31 +37,33 @@ describe("Feature 4: projects", () => {
     expect((await create("x".repeat(81))).status).toBe(422);
   });
 
-  it("scopes the map and new trees to the open project", async () => {
+  it("scopes the canvas and new trees to their project (FR-023)", async () => {
     const a = (await call("GET", "/api/projects")).body.currentId;
     const b = (await create("B")).project.id;
-    const inA = await call("POST", "/api/trees", {}, as(a));
-    const inB = await call("POST", "/api/trees", {}, as(b));
-    expect(inB.body.tree.origin.x).toBe(0); // each project's map starts at the origin
-    const forestA = (await call("GET", "/api/forest", undefined, as(a))).body;
-    const forestB = (await call("GET", "/api/forest", undefined, as(b))).body;
-    expect(forestA.trees.map((t: { id: string }) => t.id)).toEqual([inA.body.tree.id]);
-    expect(forestB.trees.map((t: { id: string }) => t.id)).toEqual([inB.body.tree.id]);
-    expect(forestB.nodes.map((n: { id: string }) => n.id)).toEqual([inB.body.node.id]);
+    const inA = await startTree(a, "in A");
+    const inB = await startTree(b, "in B");
+    expect(inB.tree.origin.x).toBe(0); // each project's canvas starts at the origin
+    expect((await startTree(b, "again")).tree.origin.x).toBeGreaterThan(0);
+    const canvasA = await canvasOf(a);
+    expect(canvasA.trees.map((t: { id: string }) => t.id)).toEqual([inA.tree.id]);
+    expect(canvasA.elements.map((n: { id: string }) => n.id).sort()).toEqual([inA.edge.id, inA.answer.id].sort());
+    // The cookie picks the canvas when no project is named.
+    expect((await call("GET", "/api/canvas", undefined, as(b))).body.trees).toHaveLength(2);
+    expect((await canvasOf(b)).elements.map((n: { id: string }) => n.id)).toContain(inB.edge.id);
   });
 
   it("keeps definitions per project", async () => {
     const a = (await call("GET", "/api/projects")).body.currentId;
     const b = (await create("B")).project.id;
-    const nodeA = (await call("POST", "/api/trees", {}, as(a))).body.node.id;
-    const nodeB = (await call("POST", "/api/trees", {}, as(b))).body.node.id;
+    const nodeA = (await startTree(a, "Pods")).answer;
+    const nodeB = (await startTree(b, "Pods")).answer;
     expect((await capture(a, nodeA, "Containers")).body.created).toBe(true);
     expect((await capture(b, nodeB, "Containers")).body.created).toBe(true); // same term, other project
     expect((await capture(a, nodeA, "Containers")).body.created).toBe(false);
     const listA = (await call("GET", "/api/definitions", undefined, as(a))).body.definitions;
     const indexB = (await call("GET", "/api/definitions?index=1", undefined, as(b))).body.terms;
     expect(listA).toHaveLength(1);
-    expect(listA[0].source.nodeId).toBe(nodeA);
+    expect(listA[0].source).toMatchObject({ elementId: nodeA.id, projectId: a });
     expect(indexB).toHaveLength(1);
   });
 
@@ -78,10 +81,9 @@ describe("Feature 4: projects", () => {
   it("trash hides a project and keeps all its data; restore brings it back", async () => {
     const a = (await call("GET", "/api/projects")).body.currentId;
     const b = (await create("B")).project.id;
-    const node = (await call("POST", "/api/trees", {}, as(b))).body.node.id;
-    await sendAndWait(node, "hello");
-    const fb = (await createFeedback({ text: "about B", view: "chat", nodeId: node })).body.item;
-    const before = (await call("GET", "/api/forest", undefined, as(b))).body;
+    const node = (await startTree(b, "hello")).answer.id;
+    const fb = (await createFeedback({ text: "about B", view: "canvas", projectId: b, elementId: node })).body.item;
+    const before = await canvasOf(b);
 
     // Trashing the open project moves the cookie to another one.
     const { callRaw } = await import("./helpers");
@@ -93,12 +95,14 @@ describe("Feature 4: projects", () => {
     expect(list.projects.map((p: { id: string }) => p.id)).toEqual([a]);
     expect(list.trashed.map((p: { id: string }) => p.id)).toEqual([b]);
 
-    // Nothing was removed: the conversation and the feedback link still work.
-    expect((await call("GET", `/api/nodes/${node}`)).status).toBe(200);
-    expect((await call("GET", "/api/feedback")).body.items[0].context.nodeId).toBe(fb.context.nodeId);
+    // Hidden, not removed (FR-059): its canvas is refused, its rows and the feedback link remain.
+    expect((await call("GET", `/api/canvas?projectId=${b}`)).status).toBe(404);
+    expect((await call("POST", `/api/nodes/${node}/ask`, { content: "x" })).status).toBe(404);
+    expect(await db.selectFrom("nodes").select("id").where("id", "=", node).executeTakeFirst()).toBeDefined();
+    expect((await call("GET", "/api/feedback")).body.items[0].context.elementId).toBe(fb.context.elementId);
 
     expect((await call("POST", `/api/projects/${b}/restore`, {})).body.project.trashedAt).toBeNull();
-    expect((await call("GET", "/api/forest", undefined, as(b))).body).toEqual(before);
+    expect(await canvasOf(b)).toEqual(before);
   });
 
   it("trashing the last project creates an empty Untitled project", async () => {

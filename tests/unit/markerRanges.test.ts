@@ -1,9 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { segmentAttributes, splitByMarkers } from "@/components/chat/markerRanges";
+import { segmentAttributes, splitByMarkers } from "@/canvas/text/markerRanges";
 
-const m = (id: string, start: number, end: number) => ({
-  id, start, end, messageId: "x", anchorText: "", childNodeId: `c-${id}`, kind: "selection" as const,
-});
+const m = (id: string, start: number, end: number) => ({ id, start, end });
 
 describe("splitByMarkers", () => {
   it("splits overlapping markers into layered segments", () => {

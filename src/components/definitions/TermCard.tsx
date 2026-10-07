@@ -110,6 +110,13 @@ export function TermCard({ containerRef }: { containerRef: RefObject<HTMLElement
       onPointerEnter={() => hideTimer.current && clearTimeout(hideTimer.current)}
       onPointerLeave={() => !lockedRef.current && close()}
     >
+      {/* Fills while the hover is held; at the end the circle fills and the card is locked. It sits at the top, where the eye already is. */}
+      <div className="term-card-lock" key={shown.id} aria-hidden="true">
+        <div className="term-card-lock-bar" style={{ animationDuration: `${LOCK_AFTER_MS}ms` }} />
+        <svg className="term-card-lock-circle" viewBox="0 0 16 16" width="14" height="14">
+          <circle cx="8" cy="8" r="6" />
+        </svg>
+      </div>
       {!def ? (
         <p className="muted">Loading…</p>
       ) : (
@@ -118,13 +125,6 @@ export function TermCard({ containerRef }: { containerRef: RefObject<HTMLElement
       <Link href={`/definitions#${shown.id}`} className="term-card-link">
         Open in Definitions
       </Link>
-      {/* Fills while the hover is held; at the end the circle fills and the card is locked. */}
-      <div className="term-card-lock" key={shown.id} aria-hidden="true">
-        <div className="term-card-lock-bar" style={{ animationDuration: `${LOCK_AFTER_MS}ms` }} />
-        <svg className="term-card-lock-circle" viewBox="0 0 16 16" width="14" height="14">
-          <circle cx="8" cy="8" r="6" />
-        </svg>
-      </div>
       {shown.locked && <span className="sr-only">Locked. Click elsewhere to close.</span>}
     </div>
   );

@@ -1,12 +1,13 @@
 import type { FeedbackView } from "@/shared/schemas";
 
-const NODE_ROUTE = /^\/n\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\/?$/i;
+export type FeedbackContext = { view: FeedbackView; projectId: string | null; elementId: string | null };
 
-/** Where the user is when they submit feedback (research R2, FR-006). */
-export function feedbackContext(pathname: string): { view: FeedbackView; nodeId: string | null } {
-  const node = NODE_ROUTE.exec(pathname);
-  if (node) return { view: "chat", nodeId: node[1] };
-  if (pathname === "/map") return { view: "map", nodeId: null };
-  if (pathname === "/definitions") return { view: "definitions", nodeId: null };
-  return { view: "chat", nodeId: null };
+/**
+ * Where the user is when they submit feedback (FR-058): the open project and, on the canvas, the
+ * focused element, in place of Feature 3's view and conversation.
+ */
+export function feedbackContext(pathname: string, canvas: { projectId: string | null; focusId: string | null }): FeedbackContext {
+  if (pathname === "/definitions") return { view: "definitions", projectId: canvas.projectId, elementId: null };
+  if (pathname === "/") return { view: "canvas", projectId: canvas.projectId, elementId: canvas.focusId };
+  return { view: "canvas", projectId: canvas.projectId, elementId: null };
 }

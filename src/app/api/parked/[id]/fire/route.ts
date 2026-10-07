@@ -1,5 +1,5 @@
+import { waitFor } from "@/server/answers/generation";
 import { withApi } from "@/server/http/withApi";
-import { waitFor } from "@/server/messages/generation";
 import { fireParked } from "@/server/parked/fire";
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -9,7 +9,7 @@ export const POST = withApi(async (req: Request, { params }: Ctx) => {
   const result = await fireParked(id);
   // ?wait=1 answers only once the reply has ended (tests and scripts).
   if (result.kind === "sent" && new URL(req.url).searchParams.get("wait") === "1") {
-    result.aiMessage = await waitFor(result.aiMessage.id);
+    result.answer = await waitFor(result.answer.id);
   }
   return Response.json(result, { status: 201 });
 });

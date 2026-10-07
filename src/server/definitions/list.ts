@@ -7,6 +7,17 @@ import { NotFoundError } from "../errors";
 import { assertId } from "../ids";
 import { isDrafting } from "./draftQueue";
 
+/** The definition row with its source element's kind and text, when it resolves (FR-055). */
+type DefinitionRow = Selectable<DefinitionsTable> & { source_kind: string | null; source_text: string | null };
+
+const EXCERPT = 160;
+
+export function excerptOf(text: string | null): string {
+  if (!text) return "";
+  const flat = text.replace(/\s+/g, " ").trim();
+  return flat.length > EXCERPT ? `${flat.slice(0, EXCERPT - 1)}…` : flat;
+}
+
 type VersionRow = Pick<Selectable<DefinitionVersionsTable>, "general_text" | "usage_text" | "provenance" | "created_at">;
 
 export function toVersion(v: VersionRow): DefinitionVersion {
@@ -18,7 +29,7 @@ export function toVersion(v: VersionRow): DefinitionVersion {
   };
 }
 
-export function toDefinition(d: Selectable<DefinitionsTable>, latest: VersionRow | undefined): Definition {
+export function toDefinition(d: DefinitionRow, latest: VersionRow | undefined): Definition {
   let status: Definition["status"];
   if (latest) status = latest.provenance === "user_confirmed" ? "confirmed" : "draft";
   // No version yet: drafting, unless it failed or the job was lost (e.g. a restart).
@@ -27,7 +38,12 @@ export function toDefinition(d: Selectable<DefinitionsTable>, latest: VersionRow
     id: d.id,
     term: d.term,
     termKey: d.term_key,
-    source: { nodeId: d.source_node_id, messageId: d.source_message_id },
+    source: {
+      elementId: d.source_kind === null ? null : d.source_id,
+      kind: d.source_kind,
+      excerpt: excerptOf(d.source_text),
+      projectId: d.project_id,
+    },
     status,
     current: latest ? toVersion(latest) : null,
     createdAt: d.created_at.toISOString(),
@@ -46,12 +62,18 @@ async function latestVersions(ids: string[]): Promise<Map<string, VersionRow>> {
 }
 
 /** Every entry of a project, newest first (FR-031). */
-export async function listDefinitions(projectId: string): Promise<Definition[]> {
-  const defs = await db
+function definitionRows() {
+  return db
     .selectFrom("definitions")
-    .selectAll()
-    .where("project_id", "=", projectId)
-    .orderBy("created_at", "desc")
+    .leftJoin("nodes", "nodes.id", "definitions.source_id")
+    .selectAll("definitions")
+    .select(["nodes.kind as source_kind", "nodes.text as source_text"]);
+}
+
+export async function listDefinitions(projectId: string): Promise<Definition[]> {
+  const defs = await definitionRows()
+    .where("definitions.project_id", "=", projectId)
+    .orderBy("definitions.created_at", "desc")
     .execute();
   const latest = await latestVersions(defs.map((d) => d.id));
   return defs.map((d) => toDefinition(d, latest.get(d.id)));
@@ -69,7 +91,7 @@ export async function termIndex(projectId: string): Promise<TermIndexEntry[]> {
 
 export async function getDefinition(id: string): Promise<{ definition: Definition; versions: DefinitionVersion[] }> {
   assertId(id, "Definition");
-  const def = await db.selectFrom("definitions").selectAll().where("id", "=", id).executeTakeFirst();
+  const def = await definitionRows().where("definitions.id", "=", id).executeTakeFirst();
   if (!def) throw new NotFoundError("Definition not found");
   const versions = await db
     .selectFrom("definition_versions")

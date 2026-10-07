@@ -12,10 +12,13 @@ const WHO = { user_authored: "you", user_confirmed: "you", ai_suggested: "Claude
 function ContextLabel({ context }: { context: FeedbackItem["context"] }) {
   if (context.view === "map") return <>Map</>;
   if (context.view === "definitions") return <>Definitions</>;
-  if (!context.nodeId) return <>Chat</>;
+  // The focused element on the canvas (FR-058), or a v0.1 conversation, which /n/ still opens.
+  const target = context.elementId ? `/?focus=${context.elementId}` : context.nodeId ? `/n/${context.nodeId}` : null;
+  const label = context.view === "chat" ? "Chat" : "Canvas";
+  if (!target) return <>{label}</>;
   return (
     <>
-      Chat · <Link href={`/n/${context.nodeId}`}>open conversation</Link>
+      {label} · <Link href={target}>{context.element ? `open ${context.element.kind}` : "open"}</Link>
     </>
   );
 }

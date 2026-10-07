@@ -1,5 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
-import { resetDb, startConversation } from "./helpers";
+import { elementsOf, openCanvas, resetDb, startTree } from "./helpers";
 
 test.beforeEach(resetDb);
 
@@ -13,15 +13,18 @@ async function submitFeedback(page: Page, text: string) {
   await expect(drawer.getByTestId("feedback-card").first()).toContainText(text);
 }
 
-test("capture from a conversation and from the map without navigating away", async ({ page }) => {
-  const nodeId = await startConversation(page);
-  const url = page.url();
+test("capture from the canvas and from Definitions without navigating away (FR-058)", async ({ page }) => {
+  await openCanvas(page);
+  await startTree(page, "Pods");
+  const [answer] = await elementsOf(page, "answer");
 
   // The button is on every view.
-  for (const path of ["/", "/map", "/definitions", `/n/${nodeId}`]) {
+  for (const path of ["/definitions", "/settings", "/"]) {
     await page.goto(path);
     await expect(feedbackButton(page)).toBeVisible();
   }
+  await openCanvas(page, `/?focus=${answer.id}`);
+  const url = page.url();
 
   await feedbackButton(page).click();
   const drawer = page.getByRole("complementary", { name: "Feedback" });
@@ -33,21 +36,22 @@ test("capture from a conversation and from the map without navigating away", asy
   await expect(drawer.getByRole("button", { name: "Submit feedback" })).toBeDisabled();
 
   const t0 = Date.now();
-  await submitFeedback(page, "chat test");
+  await submitFeedback(page, "canvas test");
   expect(Date.now() - t0).toBeLessThan(1000); // SC-002
   expect(page.url()).toBe(url);
-  const chatCard = drawer.getByTestId("feedback-card").first();
-  await expect(chatCard).toContainText("Open");
-  await expect(chatCard.getByRole("link", { name: "open conversation" })).toHaveAttribute("href", `/n/${nodeId}`);
+  const canvasCard = drawer.getByTestId("feedback-card").first();
+  await expect(canvasCard).toContainText("Open");
+  // It records the open project and the focused element.
+  await expect(canvasCard.getByRole("link", { name: "open answer" })).toHaveAttribute("href", `/?focus=${answer.id}`);
 
-  // Switch to the map with the drawer open; it stays open over the map.
-  await page.getByRole("link", { name: "Map" }).click();
-  await page.waitForURL(/\/map$/);
+  // Switch to Definitions with the drawer open; it stays open.
+  await page.getByRole("link", { name: "Definitions", exact: true }).click();
+  await page.waitForURL(/\/definitions$/);
   await expect(drawer).toBeVisible();
-  await submitFeedback(page, "map test");
-  const mapCard = drawer.getByTestId("feedback-card").first();
-  await expect(mapCard.locator(".feedback-meta")).toContainText("Map");
-  await expect(mapCard.getByRole("link")).toHaveCount(0);
+  await submitFeedback(page, "definitions test");
+  const defCard = drawer.getByTestId("feedback-card").first();
+  await expect(defCard.locator(".feedback-meta")).toContainText("Definitions");
+  await expect(defCard.getByRole("link")).toHaveCount(0);
 
   // Esc closes the drawer; the count in the button reflects open items.
   await page.keyboard.press("Escape");

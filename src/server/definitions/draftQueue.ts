@@ -1,7 +1,8 @@
-// Background drafting of definitions (Feature 2, research R8). Same shape as the summary queue.
+// Background drafting of definitions (Feature 2, research R8).
 import { getAIProvider } from "../ai";
-import { AIUnavailableError } from "../ai/provider";
+import { AIUnavailableError, type ChatTurn } from "../ai/provider";
 import { db } from "../db/client";
+import { ancestorPath } from "../graph/context";
 
 const MAX_CONCURRENT = 2;
 
@@ -13,19 +14,18 @@ const q = g.__farabiDraftQueue;
 async function run(definitionId: string): Promise<void> {
   try {
     const def = await db.selectFrom("definitions").selectAll().where("id", "=", definitionId).executeTakeFirst();
-    if (!def) return;
-    const [source, messages] = await Promise.all([
-      db.selectFrom("messages").select(["role", "content"]).where("id", "=", def.source_message_id).executeTakeFirstOrThrow(),
-      // Only the source node's own messages, never inherited context (FR-029).
-      db
-        .selectFrom("messages")
-        .select(["role", "content"])
-        .where("node_id", "=", def.source_node_id)
-        .where("status", "=", "complete")
-        .where("replaced_at", "is", null)
-        .orderBy("seq", "asc")
-        .execute(),
-    ]);
+    if (!def?.source_id) throw new AIUnavailableError("The source of this term isn't in the graph");
+    // The source element and the path that led to it: in v0.2 that path is its conversation.
+    const path = await ancestorPath(def.source_id);
+    const turn = (el: (typeof path)[number]): ChatTurn | null => {
+      if (el.text === null) return null;
+      if (el.kind === "question") return { role: "user", content: el.text };
+      if (el.kind === "answer") return el.status === "complete" ? { role: "ai", content: el.text } : null;
+      return { role: "ai", content: el.text };
+    };
+    const source = turn(path[path.length - 1]);
+    if (!source) throw new AIUnavailableError("The source of this term has no text");
+    const messages = path.map(turn).filter((t): t is ChatTurn => t !== null);
     const draft = await getAIProvider().define({ term: def.term, sourceMessage: source, messages });
     await db.transaction().execute(async (trx) => {
       await trx

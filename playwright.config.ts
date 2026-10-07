@@ -25,7 +25,6 @@ export default defineConfig({
     env: {
       DATABASE_URL: TEST_DATABASE_URL,
       AI_PROVIDER: "fake",
-      SUMMARY_TRIGGER: "reply",
       FARABI_TEST_HOOKS: "1",
       NEXT_PUBLIC_FARABI_TEST_HOOKS: "1",
       NEXT_DIST_DIR: ".next-test",

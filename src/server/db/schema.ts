@@ -1,11 +1,19 @@
 import type { ColumnType, Generated } from "kysely";
 
 export type Provenance = "ai_suggested" | "user_confirmed" | "user_authored";
-export type MessageRole = "user" | "ai";
-export type MessageStatus = "pending" | "complete" | "failed" | "incomplete" | "stopped";
-export type MarkerKind = "selection" | "whole_message";
-export type NodeOrigin = "root" | "branch" | "quick_branch" | "parked" | "function";
-export type SourcePart = "summary" | "conversation" | "anchor";
+export type Shape = "node" | "edge";
+export type ElementOrigin =
+  | "origin"
+  | "ask"
+  | "branch"
+  | "quick_branch"
+  | "parked"
+  | "reply"
+  | "retry"
+  | "regenerate"
+  | "run";
+export type AnswerStatus = "pending" | "complete" | "incomplete" | "stopped" | "failed";
+export type OutputReviewKind = "confirmed" | "rejected";
 
 type CreatedAt = ColumnType<Date, never, never>;
 
@@ -19,78 +27,93 @@ export interface ProjectsTable {
 export interface TreesTable {
   id: Generated<string>;
   project_id: string;
-  root_node_id: string;
+  /** World position of the origin edge's box. Presentation data, mutable (Feature 2). */
   layout_origin_x: number;
   layout_origin_y: number;
+  /** Set once the user drags the tree; it then never moves automatically (FR-038). */
   user_placed: Generated<boolean>;
   created_at: CreatedAt;
 }
 
+/**
+ * Every graph element (data-model.md, research R1). `nodes_guard` allows exactly four updates:
+ * send (question text and sent_at, once), checkpoint (partial_text while pending), finalize
+ * (status, text, partial_text cleared) and placement (manual_x/y). The column types keep
+ * everything else insert-only.
+ */
 export interface NodesTable {
   id: Generated<string>;
-  tree_id: string;
-  parent_id: string | null;
-  provenance: Provenance;
-  manual_x: number | null;
-  manual_y: number | null;
-  /** A registered node kind (Feature 9); "conversation" for every node before it. */
-  kind: string;
-  origin: NodeOrigin;
+  project_id: ColumnType<string, string, never>;
+  tree_id: ColumnType<string, string, never>;
+  parent_id: ColumnType<string | null, string | null, never>;
+  kind: ColumnType<string, string, never>;
+  shape: ColumnType<Shape, Shape, never>;
+  origin: ColumnType<ElementOrigin, ElementOrigin, never>;
+  provenance: ColumnType<Provenance, Provenance, never>;
+  text: ColumnType<string | null, string | null | undefined, string>;
+  status: ColumnType<AnswerStatus | null, AnswerStatus | null | undefined, AnswerStatus>;
+  partial_text: ColumnType<string | null, string | null | undefined, string | null>;
+  pressure_level: ColumnType<number | null, number | null | undefined, never>;
+  reply_model: ColumnType<string | null, string | null | undefined, never>;
+  anchor_start: ColumnType<number | null, number | null | undefined, never>;
+  anchor_end: ColumnType<number | null, number | null | undefined, never>;
+  anchor_text: ColumnType<string | null, string | null | undefined, never>;
+  anchor_prefix: ColumnType<string | null, string | null | undefined, never>;
+  anchor_suffix: ColumnType<string | null, string | null | undefined, never>;
+  requery_of: ColumnType<string | null, string | null | undefined, never>;
   function_id: ColumnType<string | null, string | null | undefined, never>;
   function_version: ColumnType<number | null, number | null | undefined, never>;
-  /** Keys declared by the kind (FR-035). Inserted as a JSON string; read back parsed. */
+  /** Keys declared by the kind (FR-054). Inserted as a JSON string; read back parsed. */
   properties: ColumnType<Record<string, unknown>, string | undefined, never>;
-  created_at: CreatedAt;
+  manual_x: ColumnType<number | null, number | null | undefined, number | null>;
+  manual_y: ColumnType<number | null, number | null | undefined, number | null>;
+  sent_at: ColumnType<Date | null, Date | string | null | undefined, Date | string>;
+  created_at: ColumnType<Date, Date | string | undefined, never>;
 }
 
-export interface BranchMarkersTable {
+/** One short note per edge, kept as history; the newest row is current (FR-040). */
+export interface EdgeNotesTable {
   id: Generated<string>;
-  parent_node_id: string;
-  message_id: string;
-  child_node_id: string;
-  start_offset: number;
-  end_offset: number;
-  anchor_text: string;
-  prefix: string;
-  suffix: string;
-  kind: Generated<MarkerKind>;
-  provenance: Provenance;
-  created_at: CreatedAt;
-}
-
-export interface MessagesTable {
-  id: Generated<string>;
-  node_id: string;
-  seq: number;
-  role: MessageRole;
-  content: string;
-  status: MessageStatus;
-  provenance: Provenance;
-  replaced_at: Date | null;
-  replaced_by: string | null;
-  partial_content: string | null;
-  /** Information pressure level the reply started with (Feature 6); set once, at insert. */
-  pressure_level: ColumnType<number | null, number | null | undefined, never>;
-  /** Resolved model the reply was requested from (Feature 6); set once, at insert. */
-  reply_model: ColumnType<string | null, string | null | undefined, never>;
-  created_at: CreatedAt;
-}
-
-export interface NodeSummariesTable {
-  id: Generated<string>;
-  node_id: string;
-  text: string;
-  provenance: Provenance;
-  through_message_id: string;
-  created_at: CreatedAt;
-}
-
-export interface EdgeLabelVersionsTable {
-  id: Generated<string>;
-  child_node_id: string;
+  edge_id: string;
   text: string | null;
+  provenance: ColumnType<Provenance, never, never>;
+  created_at: CreatedAt;
+}
+
+/** The user's review of a function output (FR-050); append-only, the newest row wins. */
+export interface OutputReviewsTable {
+  id: Generated<string>;
+  node_id: string;
+  kind: OutputReviewKind;
   provenance: Provenance;
   created_at: CreatedAt;
+}
+
+/** Saved camera per project, written after 500 ms idle (FR-028). Presentation, mutable. */
+export interface ProjectCamerasTable {
+  project_id: string;
+  x: number;
+  y: number;
+  scale: number;
+  updated_at: Generated<Date>;
+}
+
+/** How each v1 row became v2 rows (contracts/migration.md); append-only. */
+export interface V1ConversionTable {
+  id: Generated<string>;
+  v1_table: string;
+  v1_id: string;
+  v2_id: string | null;
+  detail: ColumnType<Record<string, unknown>, string | undefined, never>;
+  created_at: CreatedAt;
+}
+
+/** Row count and digest of each frozen v1 table, taken at migration start (SC-003). */
+export interface V1ChecksumsTable {
+  table_name: string;
+  row_count: ColumnType<string, number, never>;
+  digest: string;
+  taken_at: CreatedAt;
 }
 
 export interface DefinitionsTable {
@@ -98,8 +121,11 @@ export interface DefinitionsTable {
   project_id: string;
   term: string;
   term_key: string;
-  source_node_id: string;
-  source_message_id: string;
+  /** The element the term was captured from (FR-055). */
+  source_id: string | null;
+  /** v1 conversation and message, kept on definitions captured before v0.2. */
+  source_node_id: ColumnType<string | null, never, never>;
+  source_message_id: ColumnType<string | null, never, never>;
   draft_failed_at: Date | null;
   created_at: CreatedAt;
 }
@@ -125,11 +151,10 @@ export interface SettingChangesTable {
   created_at: CreatedAt;
 }
 
-/** A tangent parked from a node (Feature 8); insert-only, its state lives in its events. */
+/** A tangent parked from an element's text (Feature 8); insert-only, its state lives in its events. */
 export interface ParkedTangentsTable {
   id: Generated<string>;
   node_id: string;
-  message_id: string;
   start_offset: number;
   end_offset: number;
   anchor_text: string;
@@ -147,49 +172,13 @@ export interface ParkedTangentEventsTable {
   tangent_id: string;
   kind: ParkedEventKind;
   question: string | null;
-  child_node_id: string | null;
+  /** The edge a `fired` event created. */
+  edge_id: string | null;
   provenance: ColumnType<Provenance, never, never>;
   created_at: CreatedAt;
 }
 
-/** The directed link from a function's input node to its output node (Feature 9); insert-only. */
-export interface PipesTable {
-  node_id: string;
-  input_node_id: string;
-  output_node_id: string;
-  reads: SourcePart;
-  function_id: string;
-  function_version: number;
-  created_at: CreatedAt;
-}
-
-/** One generated text for a function output (Feature 9); insert-only, always ai_suggested. */
-export interface FunctionOutputVersionsTable {
-  id: Generated<string>;
-  output_node_id: string;
-  text: string;
-  /** Version of the input part that was read; for a summary, its node_summaries id. */
-  source_version: string;
-  function_version: number;
-  /** Resolved settings used. Inserted as a JSON string; read back parsed. */
-  settings: ColumnType<Record<string, string>, string, never>;
-  provenance: ColumnType<Provenance, never, never>;
-  created_at: CreatedAt;
-}
-
-export type OutputEventKind = "confirmed" | "rejected";
-
-/** The user's review of a function output (Feature 9); insert-only, the newest event wins. */
-export interface FunctionOutputEventsTable {
-  id: Generated<string>;
-  output_node_id: string;
-  kind: OutputEventKind;
-  version_id: string | null;
-  provenance: Provenance;
-  created_at: CreatedAt;
-}
-
-/** History of kind settings (Feature 9): kind-level when node_id is null, else a node override. */
+/** History of kind settings (Feature 9): kind-level when node_id is null, else a function edge override. */
 export interface KindSettingChangesTable {
   id: Generated<string>;
   kind: string;
@@ -201,14 +190,18 @@ export interface KindSettingChangesTable {
   created_at: CreatedAt;
 }
 
-export type FeedbackView = "chat" | "map" | "definitions";
+export type FeedbackView = "chat" | "map" | "definitions" | "canvas";
 export type FeedbackState = "open" | "addressed" | "resolved";
 
 export interface FeedbackItemsTable {
   id: Generated<string>;
   text: string;
   view: FeedbackView;
-  node_id: string | null;
+  /** v1 conversation, on items captured before v0.2. */
+  node_id: ColumnType<string | null, never, never>;
+  project_id: string | null;
+  /** The focused element when the item was captured (FR-058). */
+  element_id: string | null;
   rank: string | null;
   provenance: Provenance;
   created_at: CreatedAt;
@@ -248,18 +241,16 @@ export interface Database {
   projects: ProjectsTable;
   trees: TreesTable;
   nodes: NodesTable;
-  branch_markers: BranchMarkersTable;
-  messages: MessagesTable;
-  node_summaries: NodeSummariesTable;
-  edge_label_versions: EdgeLabelVersionsTable;
+  edge_notes: EdgeNotesTable;
+  output_reviews: OutputReviewsTable;
+  project_cameras: ProjectCamerasTable;
+  v1_conversion: V1ConversionTable;
+  v1_checksums: V1ChecksumsTable;
   definitions: DefinitionsTable;
   definition_versions: DefinitionVersionsTable;
   setting_changes: SettingChangesTable;
   parked_tangents: ParkedTangentsTable;
   parked_tangent_events: ParkedTangentEventsTable;
-  pipes: PipesTable;
-  function_output_versions: FunctionOutputVersionsTable;
-  function_output_events: FunctionOutputEventsTable;
   kind_setting_changes: KindSettingChangesTable;
   feedback_items: FeedbackItemsTable;
   feedback_tags: FeedbackTagsTable;

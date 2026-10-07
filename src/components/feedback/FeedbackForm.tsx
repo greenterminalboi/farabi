@@ -2,6 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import { useState } from "react";
+import { useCanvasStore } from "@/canvas/store";
 import { feedbackContext } from "@/lib/feedbackContext";
 import { useFeedbackStore } from "@/state/feedbackStore";
 
@@ -28,7 +29,8 @@ export function FeedbackForm() {
     }
     setBusy(true);
     try {
-      await submit(feedbackContext(pathname));
+      const { projectId, focusId } = useCanvasStore.getState();
+      await submit(feedbackContext(pathname, { projectId, focusId }));
     } finally {
       setBusy(false);
     }

@@ -1,215 +1,169 @@
 import { z } from "zod";
 
-// Shapes from specs/001-branching-chat-map/contracts/http-api.md
+// Shapes from the features' contracts/http-api.md. The graph and canvas shapes are Feature 10's
+// (specs/010-v02-message-graph-canvas/contracts/http-api.md).
 
 export const Provenance = z.enum(["ai_suggested", "user_confirmed", "user_authored"]);
 export type Provenance = z.infer<typeof Provenance>;
 
-export const Summary = z.discriminatedUnion("kind", [
-  z.object({ kind: z.literal("placeholder"), text: z.string() }),
-  z.object({
-    kind: z.literal("summary"),
-    text: z.string(),
-    provenance: Provenance,
-    throughMessageId: z.string(),
-    createdAt: z.string(),
-  }),
+export const Shape = z.enum(["node", "edge"]);
+export type Shape = z.infer<typeof Shape>;
+export const ElementOrigin = z.enum([
+  "origin",
+  "ask",
+  "branch",
+  "quick_branch",
+  "parked",
+  "reply",
+  "retry",
+  "regenerate",
+  "run",
 ]);
-export type Summary = z.infer<typeof Summary>;
+export type ElementOrigin = z.infer<typeof ElementOrigin>;
+export const EdgeState = z.enum(["unsent", "replying", "answered", "incomplete", "stopped", "failed"]);
+export type EdgeState = z.infer<typeof EdgeState>;
+export const AnswerStatus = z.enum(["pending", "complete", "incomplete", "stopped", "failed"]);
+export type AnswerStatus = z.infer<typeof AnswerStatus>;
+export const Review = z.enum(["proposed", "confirmed", "rejected"]);
+export type Review = z.infer<typeof Review>;
 
-export const Anchor = z.object({
-  messageId: z.string().uuid(),
+/** A span of an element's text: raw offsets, the exact text and 32 characters on each side. */
+export const Span = z.object({
   start: z.number().int().min(0),
   end: z.number().int().min(1),
   text: z.string(),
   prefix: z.string().max(32),
   suffix: z.string().max(32),
 });
-export type Anchor = z.infer<typeof Anchor>;
+export type Span = z.infer<typeof Span>;
 
-// Feature 9: node kinds and functions (specs/009-node-function-foundation/contracts/http-api.md)
-
-export const NodeOrigin = z.enum(["root", "branch", "quick_branch", "parked", "function"]);
-export type NodeOrigin = z.infer<typeof NodeOrigin>;
-export const Review = z.enum(["proposed", "confirmed", "rejected"]);
-export type Review = z.infer<typeof Review>;
-export const SourcePart = z.enum(["summary", "conversation", "anchor"]);
-export type SourcePart = z.infer<typeof SourcePart>;
-
-/** What the map and views need about a function output (Feature 9, research R5). */
-export const OutputSummary = z.object({
-  functionId: z.string(),
-  pipeId: z.string(),
-  inputNodeId: z.string(),
-  /** The confirmed version if confirmed, otherwise the latest. */
-  displayedText: z.string(),
-  provenance: z.enum(["ai_suggested", "user_confirmed"]),
-  review: Review,
-  /** The latest version was made from an older version of the input (no AI call, FR-022). */
-  stale: z.boolean(),
-  /** Confirmed, with a newer ai_suggested version waiting for review (FR-026). */
-  pendingDraft: z.boolean(),
-  versionCount: z.number().int(),
+/** A span as a client sends it; the server computes prefix and suffix. */
+export const SpanRequest = z.object({
+  start: z.number().int().min(0),
+  end: z.number().int().min(1),
+  text: z.string(),
 });
-export type OutputSummary = z.infer<typeof OutputSummary>;
+export type SpanRequest = z.infer<typeof SpanRequest>;
 
-export const MapNode = z.object({
+/** Every graph element: a node (answer, function output) or an edge (question, function). */
+export const Element = z.object({
   id: z.string(),
   treeId: z.string(),
   parentId: z.string().nullable(),
-  isRoot: z.boolean(),
-  anchorText: z.string().nullable(),
-  summary: Summary,
-  createdAt: z.string(),
-  /** Hand-placed position relative to the tree origin (Feature 2). */
-  manual: z.object({ x: z.number(), y: z.number() }).nullable(),
-  /** Label on the edge from this node to its parent (Feature 2). */
-  edgeLabel: z.string().nullable(),
-  /** Live messages in the conversation; the map draws deep ones as a stack. */
-  messageCount: z.number().int(),
-  /** A registered node kind (Feature 9). */
   kind: z.string(),
-  origin: NodeOrigin,
-  /** Set for function outputs; null for conversation-backed kinds. */
-  output: OutputSummary.nullable(),
-});
-export type MapNode = z.infer<typeof MapNode>;
-
-/** A pipe: the directed link from a function's input node to its output node (FR-014). */
-export const MapPipe = z.object({
-  id: z.string(),
-  treeId: z.string(),
-  inputNodeId: z.string(),
-  outputNodeId: z.string(),
-  reads: SourcePart,
-  functionId: z.string(),
-  functionName: z.string(),
-  functionVersion: z.number().int(),
-  /** The output's review state. */
-  state: Review,
+  shape: Shape,
+  origin: ElementOrigin,
+  /** Creation provenance. Review state is always shown through `review` (Article I). */
+  provenance: Provenance,
+  /** Null for an unsent question edge and for a function edge. */
+  text: z.string().nullable(),
   createdAt: z.string(),
+  /** Hand placement relative to the tree origin (FR-037). */
+  manual: z.object({ x: z.number(), y: z.number() }).nullable(),
+  // question edges
+  state: EdgeState.optional(),
+  /** Where a branch or parked edge leaves its parent's text. */
+  anchor: Span.nullable().optional(),
+  requeryOf: z.string().nullable().optional(),
+  /** Current edge note (FR-040). */
+  note: z.string().nullable().optional(),
+  sentAt: z.string().nullable().optional(),
+  // answers
+  status: AnswerStatus.optional(),
+  partialText: z.string().nullable().optional(),
+  pressureLevel: z.number().int().nullable().optional(),
+  replyModel: z.string().nullable().optional(),
+  // function edges and outputs
+  functionId: z.string().optional(),
+  functionName: z.string().optional(),
+  functionVersion: z.number().int().optional(),
+  /** Outputs: newest review. Function edges: derived from their outputs. */
+  review: Review.optional(),
 });
-export type MapPipe = z.infer<typeof MapPipe>;
+export type Element = z.infer<typeof Element>;
 
-export const MapTree = z.object({
+export const Tree = z.object({
   id: z.string(),
-  rootNodeId: z.string(),
   origin: z.object({ x: z.number(), y: z.number() }),
   userPlaced: z.boolean(),
+  /** The origin edge's earliest answer (FR-005). */
+  rootAnswerId: z.string().nullable(),
 });
-export type MapTree = z.infer<typeof MapTree>;
+export type Tree = z.infer<typeof Tree>;
 
-export const Message = z.object({
-  id: z.string(),
-  seq: z.number().int(),
-  role: z.enum(["user", "ai"]),
-  content: z.string(),
-  status: z.enum(["pending", "complete", "failed", "incomplete", "stopped"]),
-  provenance: Provenance,
-  createdAt: z.string(),
-  /** Text so far while a reply is streaming (Feature 2). */
-  partialContent: z.string().nullable(),
-  /** Information pressure level an AI reply started with; null for user messages and older replies (Feature 6). */
-  pressureLevel: z.number().int().nullable(),
-  /** Model an AI reply was requested from; null when "Default" couldn't be resolved (Feature 6). */
-  replyModel: z.string().nullable(),
-});
-export type Message = z.infer<typeof Message>;
-
-export const Marker = z.object({
-  id: z.string(),
-  messageId: z.string(),
-  start: z.number().int(),
-  end: z.number().int(),
-  anchorText: z.string(),
-  childNodeId: z.string(),
-  kind: z.enum(["selection", "whole_message"]),
-});
-export type Marker = z.infer<typeof Marker>;
-
-// Endpoint payloads
-
-export const ForestResponse = z.object({ trees: z.array(MapTree), nodes: z.array(MapNode), pipes: z.array(MapPipe) });
-export type ForestResponse = z.infer<typeof ForestResponse>;
-
-export const CreateTreeResponse = z.object({ tree: MapTree, node: MapNode });
-export type CreateTreeResponse = z.infer<typeof CreateTreeResponse>;
-
-export const OriginRequest = z.object({
+export const Camera = z.object({
   x: z.number().finite(),
   y: z.number().finite(),
-  byUser: z.boolean().optional(),
+  scale: z.number().min(0.02).max(4),
 });
+export type Camera = z.infer<typeof Camera>;
+
+export const CanvasResponse = z.object({
+  trees: z.array(Tree),
+  elements: z.array(Element),
+  camera: Camera.nullable(),
+});
+export type CanvasResponse = z.infer<typeof CanvasResponse>;
+
+export const CameraResponse = z.object({ camera: Camera });
+export const OriginRequest = z.object({ x: z.number().finite(), y: z.number().finite() });
+export const OriginResponse = z.object({ tree: Tree });
 export const PositionRequest = z.object({ x: z.number().finite(), y: z.number().finite() });
-export const NodeResponse = z.object({ node: MapNode });
-export const EdgeLabelRequest = z.object({ text: z.string().nullable() });
-export const OriginResponse = z.object({ tree: MapTree });
+export const ElementResponse = z.object({ element: Element });
 
-export const InheritedContextEntry = z.object({ nodeId: z.string(), messages: z.array(Message) });
-export type InheritedContextEntry = z.infer<typeof InheritedContextEntry>;
+// Asking
 
-/** A tangent parked from a node, not yet a branch (Feature 8). */
+export const StartTreeRequest = z.object({ projectId: z.string().uuid(), content: z.string() });
+export const StartTreeResponse = z.object({ tree: Tree, edge: Element, answer: Element });
+export type StartTreeResponse = z.infer<typeof StartTreeResponse>;
+
+export const AskRequest = z.object({ content: z.string() });
+export const AskResponse = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("message"), edge: Element, answer: Element }),
+  z.object({ kind: z.literal("quick_branch"), edge: Element, answer: Element }),
+]);
+export type AskResponse = z.infer<typeof AskResponse>;
+
+export const BranchRequest = SpanRequest;
+export const BranchResponse = z.object({ edge: Element });
+export type BranchResponse = z.infer<typeof BranchResponse>;
+
+export const SendRequest = z.object({ content: z.string() });
+export const SendResponse = z.object({ edge: Element, answer: Element });
+export type SendResponse = z.infer<typeof SendResponse>;
+
+export const AttemptRequest = z.object({ mode: z.enum(["retry", "regenerate"]) });
+export const AnswerResponse = z.object({ answer: Element });
+export type AnswerResponse = z.infer<typeof AnswerResponse>;
+
+// Notes, the side panel and parked tangents
+
+export const NoteRequest = z.object({ text: z.string().nullable() });
+export const EdgeResponse = z.object({ edge: Element });
+
+/** A tangent parked from an element's text, not yet a branch (Feature 8). */
 export const ParkedTangent = z.object({
   id: z.string(),
   nodeId: z.string(),
-  anchor: Anchor,
+  anchor: Span,
   /** The typed question exactly as typed; null when there is none. */
   question: z.string().nullable(),
   createdAt: z.string(),
 });
 export type ParkedTangent = z.infer<typeof ParkedTangent>;
 
-export const NodeView = z.object({
-  node: MapNode,
-  anchor: Anchor.nullable(),
-  inheritedContext: z.array(InheritedContextEntry),
-  messages: z.array(Message),
-  markers: z.array(Marker),
-  canRegenerate: z.object({ messageId: z.string() }).nullable(),
-  /** Direct children, newest first (Feature 8, FR-002). */
-  children: z.array(MapNode),
-  /** Live tangents parked from this node, newest first (Feature 8, FR-003). */
-  parked: z.array(ParkedTangent),
-});
-export type NodeView = z.infer<typeof NodeView>;
+export const PanelResponse = z.object({ children: z.array(Element), parked: z.array(ParkedTangent) });
+export type PanelResponse = z.infer<typeof PanelResponse>;
 
-export const BranchResponse = z.object({ node: MapNode, marker: Marker });
-export type BranchResponse = z.infer<typeof BranchResponse>;
-
-export const ParkRequest = Anchor.extend({ question: z.string().nullable().optional() });
+export const ParkRequest = SpanRequest.extend({ question: z.string().nullable().optional() });
 export type ParkRequest = z.infer<typeof ParkRequest>;
 export const ParkedQuestionRequest = z.object({ question: z.string().nullable() });
 export const ParkedResponse = z.object({ parked: ParkedTangent });
-export const DiscardParkedResponse = z.object({ discarded: z.object({ id: z.string() }) });
 export const FireParkedResponse = z.discriminatedUnion("kind", [
-  z.object({ kind: z.literal("sent"), node: MapNode, marker: Marker, userMessage: Message, aiMessage: Message }),
-  z.object({ kind: z.literal("preload"), node: MapNode, marker: Marker, draft: z.string() }),
+  z.object({ kind: z.literal("sent"), edge: Element, answer: Element }),
+  z.object({ kind: z.literal("preload"), edge: Element, draft: z.string() }),
 ]);
 export type FireParkedResponse = z.infer<typeof FireParkedResponse>;
-
-export const SendMessageRequest = z.object({ content: z.string() });
-export const SendMessageResponse = z.discriminatedUnion("kind", [
-  z.object({ kind: z.literal("message"), userMessage: Message, aiMessage: Message }),
-  z.object({
-    kind: z.literal("quick_branch"),
-    node: MapNode,
-    marker: Marker,
-    userMessage: Message,
-    aiMessage: Message,
-  }),
-]);
-export type SendMessageResponse = z.infer<typeof SendMessageResponse>;
-export const StopResponse = z.object({ message: Message });
-
-export const RetryResponse = z.object({ aiMessage: Message });
-export const RegenerateResponse = z.object({
-  aiMessage: Message,
-  replaced: z.object({ id: z.string(), replacedAt: z.string() }),
-});
-
-export const RefreshResponse = z.object({ queued: z.literal(true) });
-
-export const RefreshStaleResponse = z.object({ queued: z.number().int() });
 
 export const ErrorBody = z.object({
   error: z.object({ code: z.string(), message: z.string() }),
@@ -229,7 +183,13 @@ export const Definition = z.object({
   id: z.string(),
   term: z.string(),
   termKey: z.string(),
-  source: z.object({ nodeId: z.string(), messageId: z.string() }),
+  /** Where the term was captured (FR-055). The element is null on an old row that couldn't be resolved. */
+  source: z.object({
+    elementId: z.string().nullable(),
+    kind: z.string().nullable(),
+    excerpt: z.string(),
+    projectId: z.string(),
+  }),
   status: z.enum(["drafting", "failed", "draft", "confirmed"]),
   current: DefinitionVersion.nullable(),
   createdAt: z.string(),
@@ -238,7 +198,6 @@ export type Definition = z.infer<typeof Definition>;
 
 export const CaptureRequest = z.object({
   nodeId: z.string().uuid(),
-  messageId: z.string().uuid(),
   start: z.number().int().min(0),
   end: z.number().int().min(1),
   text: z.string(),
@@ -259,7 +218,7 @@ export const EditDefinitionRequest = z.object({ generalText: z.string(), usageTe
 
 export const FeedbackState = z.enum(["open", "addressed", "resolved"]);
 export type FeedbackState = z.infer<typeof FeedbackState>;
-export const FeedbackView = z.enum(["chat", "map", "definitions"]);
+export const FeedbackView = z.enum(["chat", "map", "definitions", "canvas"]);
 export type FeedbackView = z.infer<typeof FeedbackView>;
 
 export const FeedbackStateEvent = z.object({ state: FeedbackState, provenance: Provenance, at: z.string() });
@@ -280,7 +239,15 @@ export type FeedbackAttachment = z.infer<typeof FeedbackAttachment>;
 export const FeedbackItem = z.object({
   id: z.string(),
   text: z.string(),
-  context: z.object({ view: FeedbackView, nodeId: z.string().nullable() }),
+  context: z.object({
+    view: FeedbackView,
+    /** v1 conversation, on items captured before v0.2. */
+    nodeId: z.string().nullable(),
+    projectId: z.string().nullable(),
+    elementId: z.string().nullable(),
+    /** The element's kind and the start of its text (FR-058). */
+    element: z.object({ kind: z.string(), excerpt: z.string() }).nullable(),
+  }),
   tags: z.array(z.object({ text: z.string(), key: z.string() })),
   attachments: z.array(FeedbackAttachment),
   state: FeedbackState,
@@ -310,12 +277,13 @@ export const FeedbackCreateFields = z
       .max(FEEDBACK_TEXT_MAX)
       .refine((t) => t.trim().length > 0, "Feedback text is required"),
     view: FeedbackView,
-    nodeId: z.string().uuid().nullable().default(null),
+    projectId: z.string().uuid().nullable().default(null),
+    elementId: z.string().uuid().nullable().default(null),
     tags: z
       .array(z.string().trim().min(1).max(FEEDBACK_TAG_MAX))
       .default([]),
   })
-  .refine((f) => f.nodeId === null || f.view === "chat", "A node can only be recorded from the chat view");
+  .refine((f) => f.elementId === null || f.view === "canvas", "An element can only be recorded from the canvas");
 export type FeedbackCreateFields = z.input<typeof FeedbackCreateFields>;
 
 // Feature 4: projects (specs/004-projects/plan.md)
@@ -360,20 +328,7 @@ export const SaveSettingsBody = z
   });
 export type SaveSettingsBody = z.infer<typeof SaveSettingsBody>;
 
-// Feature 9: functions, outputs and kind settings (contracts/http-api.md)
-
-export const OutputVersion = z.object({
-  id: z.string(),
-  text: z.string(),
-  sourceVersion: z.string(),
-  functionVersion: z.number().int(),
-  settings: z.record(z.string(), z.string()),
-  provenance: z.literal("ai_suggested"),
-  /** Named by the newest confirm event. */
-  confirmed: z.boolean(),
-  createdAt: z.string(),
-});
-export type OutputVersion = z.infer<typeof OutputVersion>;
+// Feature 9: functions, reviews and kind settings, re-expressed on edges (Feature 10)
 
 export const ResolvedSetting = z.object({
   key: z.string(),
@@ -387,49 +342,19 @@ export const ResolvedSetting = z.object({
 export type ResolvedSetting = z.infer<typeof ResolvedSetting>;
 
 export const FunctionsResponse = z.object({
-  functions: z.array(
-    z.object({
-      id: z.string(),
-      name: z.string(),
-      version: z.number().int(),
-      outputKind: z.string(),
-      available: z.boolean(),
-      reason: z.string().nullable(),
-    }),
-  ),
+  functions: z.array(z.object({ id: z.string(), name: z.string(), version: z.number().int(), outputKind: z.string() })),
 });
 export type FunctionsResponse = z.infer<typeof FunctionsResponse>;
 
-export const RunFunctionResponse = z.object({ output: MapNode, pipe: MapPipe });
+export const RunFunctionResponse = z.object({ edge: Element, output: Element });
 export type RunFunctionResponse = z.infer<typeof RunFunctionResponse>;
-
-export const OutputViewResponse = z.object({
-  node: MapNode,
-  pipe: MapPipe,
-  /** Newest first; every version is kept (FR-025). */
-  versions: z.array(OutputVersion),
-  input: z.object({ node: MapNode, messages: z.array(Message) }),
-  settings: z.array(ResolvedSetting),
-});
-export type OutputViewResponse = z.infer<typeof OutputViewResponse>;
-
-export const RegenerateOutputResponse = z.object({ output: MapNode, version: OutputVersion });
-export const ConfirmOutputRequest = z.object({ versionId: z.string().uuid() });
-export const OutputResponse = z.object({ output: MapNode });
-
-export const PipeViewResponse = z.object({
-  pipe: MapPipe,
-  input: MapNode,
-  output: MapNode,
-  versionCount: z.number().int(),
-  stale: z.boolean(),
-});
-export type PipeViewResponse = z.infer<typeof PipeViewResponse>;
+export const OutputResponse = z.object({ output: Element });
+export type OutputResponse = z.infer<typeof OutputResponse>;
 
 export const KindSettingsResponse = z.object({
-  kinds: z.array(z.object({ kind: z.string(), settings: z.array(ResolvedSetting) })),
+  kinds: z.array(z.object({ kind: z.string(), label: z.string(), settings: z.array(ResolvedSetting) })),
 });
 export type KindSettingsResponse = z.infer<typeof KindSettingsResponse>;
 export const SaveKindSettingBody = z.object({ kind: z.string(), key: z.string(), value: z.string().nullable() });
-export const SaveNodeSettingBody = z.object({ key: z.string(), value: z.string().nullable() });
-export const NodeSettingsResponse = z.object({ settings: z.array(ResolvedSetting) });
+export const SaveEdgeSettingBody = z.object({ key: z.string(), value: z.string().nullable() });
+export const SettingResponse = z.object({ setting: ResolvedSetting });

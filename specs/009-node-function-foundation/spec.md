@@ -1,5 +1,10 @@
 # Feature Specification: Node Function Foundation
 
+> **Superseded** by [`specs/010-v02-message-graph-canvas/`](../010-v02-message-graph-canvas/spec.md).
+> v0.2 folds this feature in: kinds, function definitions, the generic runner, Analogy and kind
+> settings carry over, re-expressed on function edges (FR-043–FR-054). Output versions, pipes and
+> summary-based staleness are gone. This document is kept as history.
+
 **Feature Branch**: `009-node-function-foundation`
 
 **Created**: 2026-09-28

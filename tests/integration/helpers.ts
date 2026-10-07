@@ -1,191 +1,27 @@
+/// <reference types="vite/client" />
 /* eslint-disable @typescript-eslint/no-explicit-any -- test helper returns loosely typed JSON */
 type RouteModule = Record<string, unknown>;
 
 type Handler = (req: Request, ctx: { params: Promise<Record<string, string>> }) => Promise<Response>;
 
-const routes: Array<{ pattern: RegExp; keys: string[]; load: () => Promise<RouteModule> }> = [
-  { pattern: /^\/api\/forest$/, keys: [], load: () => import("@/app/api/forest/route") },
-  { pattern: /^\/api\/trees$/, keys: [], load: () => import("@/app/api/trees/route") },
-  { pattern: /^\/api\/settings$/, keys: [], load: () => import("@/app/api/settings/route") },
-  { pattern: /^\/api\/kind-settings$/, keys: [], load: () => import("@/app/api/kind-settings/route") },
-  {
-    pattern: /^\/api\/nodes\/([^/]+)\/settings$/,
-    keys: ["nodeId"],
-    load: () => import("@/app/api/nodes/[nodeId]/settings/route"),
-  },
-  {
-    pattern: /^\/api\/nodes\/([^/]+)\/output\/confirm$/,
-    keys: ["nodeId"],
-    load: () => import("@/app/api/nodes/[nodeId]/output/confirm/route"),
-  },
-  {
-    pattern: /^\/api\/nodes\/([^/]+)\/output\/reject$/,
-    keys: ["nodeId"],
-    load: () => import("@/app/api/nodes/[nodeId]/output/reject/route"),
-  },
-  {
-    pattern: /^\/api\/nodes\/([^/]+)\/output\/regenerate$/,
-    keys: ["nodeId"],
-    load: () => import("@/app/api/nodes/[nodeId]/output/regenerate/route"),
-  },
-  {
-    pattern: /^\/api\/nodes\/([^/]+)\/output$/,
-    keys: ["nodeId"],
-    load: () => import("@/app/api/nodes/[nodeId]/output/route"),
-  },
-  {
-    pattern: /^\/api\/nodes\/([^/]+)\/pipe$/,
-    keys: ["nodeId"],
-    load: () => import("@/app/api/nodes/[nodeId]/pipe/route"),
-  },
-  {
-    pattern: /^\/api\/nodes\/([^/]+)\/functions$/,
-    keys: ["nodeId"],
-    load: () => import("@/app/api/nodes/[nodeId]/functions/route"),
-  },
-  {
-    pattern: /^\/api\/nodes\/([^/]+)\/functions\/([^/]+)\/run$/,
-    keys: ["nodeId", "functionId"],
-    load: () => import("@/app/api/nodes/[nodeId]/functions/[functionId]/run/route"),
-  },
-  {
-    pattern: /^\/api\/summaries\/refresh-stale$/,
-    keys: [],
-    load: () => import("@/app/api/summaries/refresh-stale/route"),
-  },
-  {
-    pattern: /^\/api\/trees\/([^/]+)\/origin$/,
-    keys: ["treeId"],
-    load: () => import("@/app/api/trees/[treeId]/origin/route"),
-  },
-  {
-    pattern: /^\/api\/nodes\/([^/]+)$/,
-    keys: ["nodeId"],
-    load: () => import("@/app/api/nodes/[nodeId]/route"),
-  },
-  {
-    pattern: /^\/api\/nodes\/([^/]+)\/messages$/,
-    keys: ["nodeId"],
-    load: () => import("@/app/api/nodes/[nodeId]/messages/route"),
-  },
-  {
-    pattern: /^\/api\/nodes\/([^/]+)\/branches$/,
-    keys: ["nodeId"],
-    load: () => import("@/app/api/nodes/[nodeId]/branches/route"),
-  },
-  {
-    pattern: /^\/api\/nodes\/([^/]+)\/summary\/refresh$/,
-    keys: ["nodeId"],
-    load: () => import("@/app/api/nodes/[nodeId]/summary/refresh/route"),
-  },
-  {
-    pattern: /^\/api\/messages\/([^/]+)\/stream$/,
-    keys: ["messageId"],
-    load: () => import("@/app/api/messages/[messageId]/stream/route"),
-  },
-  {
-    pattern: /^\/api\/messages\/([^/]+)\/stop$/,
-    keys: ["messageId"],
-    load: () => import("@/app/api/messages/[messageId]/stop/route"),
-  },
-  {
-    pattern: /^\/api\/nodes\/([^/]+)\/position$/,
-    keys: ["nodeId"],
-    load: () => import("@/app/api/nodes/[nodeId]/position/route"),
-  },
-  { pattern: /^\/api\/definitions$/, keys: [], load: () => import("@/app/api/definitions/route") },
-  {
-    pattern: /^\/api\/definitions\/([^/]+)$/,
-    keys: ["id"],
-    load: () => import("@/app/api/definitions/[id]/route"),
-  },
-  {
-    pattern: /^\/api\/definitions\/([^/]+)\/confirm$/,
-    keys: ["id"],
-    load: () => import("@/app/api/definitions/[id]/confirm/route"),
-  },
-  {
-    pattern: /^\/api\/definitions\/([^/]+)\/versions$/,
-    keys: ["id"],
-    load: () => import("@/app/api/definitions/[id]/versions/route"),
-  },
-  {
-    pattern: /^\/api\/definitions\/([^/]+)\/redraft$/,
-    keys: ["id"],
-    load: () => import("@/app/api/definitions/[id]/redraft/route"),
-  },
-  {
-    pattern: /^\/api\/nodes\/([^/]+)\/edge-label$/,
-    keys: ["nodeId"],
-    load: () => import("@/app/api/nodes/[nodeId]/edge-label/route"),
-  },
-  {
-    pattern: /^\/api\/messages\/([^/]+)\/retry$/,
-    keys: ["messageId"],
-    load: () => import("@/app/api/messages/[messageId]/retry/route"),
-  },
-  {
-    pattern: /^\/api\/messages\/([^/]+)\/regenerate$/,
-    keys: ["messageId"],
-    load: () => import("@/app/api/messages/[messageId]/regenerate/route"),
-  },
-  { pattern: /^\/api\/feedback$/, keys: [], load: () => import("@/app/api/feedback/route") },
-  { pattern: /^\/api\/projects$/, keys: [], load: () => import("@/app/api/projects/route") },
-  {
-    pattern: /^\/api\/projects\/([^/]+)\/(open|trash|restore)$/,
-    keys: ["id", "action"],
-    load: async () => {
-      // One pattern for the three project actions; pick the module by the last path segment.
-      const mods = {
-        open: await import("@/app/api/projects/[id]/open/route"),
-        trash: await import("@/app/api/projects/[id]/trash/route"),
-        restore: await import("@/app/api/projects/[id]/restore/route"),
-      };
-      return { POST: (req: Request, ctx: { params: Promise<Record<string, string>> }) =>
-        ctx.params.then((p) => (mods as any)[p.action].POST(req, ctx)) };
-    },
-  },
-  {
-    pattern: /^\/api\/feedback\/attachments\/([^/]+)$/,
-    keys: ["id"],
-    load: () => import("@/app/api/feedback/attachments/[id]/route"),
-  },
-  {
-    pattern: /^\/api\/feedback\/([^/]+)\/position$/,
-    keys: ["id"],
-    load: () => import("@/app/api/feedback/[id]/position/route"),
-  },
-  {
-    pattern: /^\/api\/feedback\/([^/]+)\/resolve$/,
-    keys: ["id"],
-    load: () => import("@/app/api/feedback/[id]/resolve/route"),
-  },
-  {
-    pattern: /^\/api\/feedback\/([^/]+)\/reopen$/,
-    keys: ["id"],
-    load: () => import("@/app/api/feedback/[id]/reopen/route"),
-  },
-  {
-    pattern: /^\/api\/nodes\/([^/]+)\/parked$/,
-    keys: ["nodeId"],
-    load: () => import("@/app/api/nodes/[nodeId]/parked/route"),
-  },
-  {
-    pattern: /^\/api\/parked\/([^/]+)\/question$/,
-    keys: ["id"],
-    load: () => import("@/app/api/parked/[id]/question/route"),
-  },
-  {
-    pattern: /^\/api\/parked\/([^/]+)\/discard$/,
-    keys: ["id"],
-    load: () => import("@/app/api/parked/[id]/discard/route"),
-  },
-  {
-    pattern: /^\/api\/parked\/([^/]+)\/fire$/,
-    keys: ["id"],
-    load: () => import("@/app/api/parked/[id]/fire/route"),
-  },
-];
+// Every route handler under src/app/api, found by path: `[param]` segments become captures. More
+// specific routes (fewer params) are tried first, so a fixed segment wins over a `[param]` one.
+const modules = import.meta.glob("/src/app/api/**/route.ts") as Record<string, () => Promise<RouteModule>>;
+const routes = Object.entries(modules)
+  .map(([file, load]) => {
+    const segments = file.replace(/^\/src\/app/, "").replace(/\/route\.ts$/, "").split("/").filter(Boolean);
+    const keys: string[] = [];
+    const pattern = segments
+      .map((seg) => {
+        const param = /^\[(.+)\]$/.exec(seg);
+        if (!param) return seg.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        keys.push(param[1]);
+        return "([^/]+)";
+      })
+      .join("/");
+    return { pattern: new RegExp(`^/${pattern}$`), keys, load };
+  })
+  .sort((a, b) => a.keys.length - b.keys.length);
 
 export type CallResult<T = any> = { status: number; body: T };
 
@@ -231,18 +67,31 @@ export async function callRaw(
   throw new Error(`No route for ${method} ${path}`);
 }
 
-/** Sends a message and waits until its reply has ended (Feature 2 made sending asynchronous). */
-export function sendAndWait(nodeId: string, content: string) {
-  return call("POST", `/api/nodes/${nodeId}/messages?wait=1`, { content });
+/** Starts a tree in a project and waits until its first reply has ended. */
+export async function startTree(projectId: string, content: string) {
+  const res = await call("POST", "/api/trees?wait=1", { projectId, content });
+  if (res.status !== 201) throw new Error(`startTree failed: ${res.status} ${JSON.stringify(res.body)}`);
+  return res.body as { tree: any; edge: any; answer: any };
+}
+
+/** Asks from an element and waits until the reply has ended (Feature 2 made sending asynchronous). */
+export function askAndWait(elementId: string, content: string) {
+  return call("POST", `/api/nodes/${elementId}/ask?wait=1`, { content });
+}
+
+/** A fresh project to work in. */
+export async function newProject(name = "Test project"): Promise<string> {
+  const res = await call("POST", "/api/projects", { name });
+  return res.body.project.id;
 }
 
 /** Reads a Server-Sent Events route to the end and returns its events. */
-export async function readStream(messageId: string): Promise<Array<{ event: string; data: any }>> {
-  const mod = await import("@/app/api/messages/[messageId]/stream/route");
-  const req = new Request(`http://127.0.0.1:3000/api/messages/${messageId}/stream`, {
+export async function readStream(answerId: string): Promise<Array<{ event: string; data: any }>> {
+  const mod = await import("@/app/api/answers/[answerId]/stream/route");
+  const req = new Request(`http://127.0.0.1:3000/api/answers/${answerId}/stream`, {
     headers: { host: "127.0.0.1:3000" },
   });
-  const res = await mod.GET(req, { params: Promise.resolve({ messageId }) });
+  const res = await mod.GET(req, { params: Promise.resolve({ answerId }) });
   const text = await res.text();
   return text
     .split("\n\n")
@@ -257,8 +106,9 @@ export async function readStream(messageId: string): Promise<Array<{ event: stri
 /** Posts a feedback item as the drawer does (multipart). */
 export function createFeedback(fields: {
   text: string;
-  view: "chat" | "map" | "definitions";
-  nodeId?: string;
+  view: "chat" | "map" | "definitions" | "canvas";
+  projectId?: string;
+  elementId?: string;
   tags?: string[];
   images?: Array<{ bytes: Uint8Array; name?: string; type?: string }>;
   thumbs?: Array<{ bytes: Uint8Array } | null>;
@@ -266,7 +116,8 @@ export function createFeedback(fields: {
   const form = new FormData();
   form.set("text", fields.text);
   form.set("view", fields.view);
-  if (fields.nodeId) form.set("nodeId", fields.nodeId);
+  if (fields.projectId) form.set("projectId", fields.projectId);
+  if (fields.elementId) form.set("elementId", fields.elementId);
   if (fields.tags) form.set("tags", JSON.stringify(fields.tags));
   (fields.images ?? []).forEach((img, i) => {
     form.append("image", new File([new Uint8Array(img.bytes)], img.name ?? `shot-${i}.png`, { type: img.type ?? "image/png" }));

@@ -192,9 +192,11 @@ function DefinitionCard({
               Retry
             </button>
           )}
-          <Link className="btn btn-small" href={`/n/${definition.source.nodeId}`}>
-            Source
-          </Link>
+          {definition.source.elementId && (
+            <Link className="btn btn-small" href={`/?focus=${definition.source.elementId}`} title={definition.source.excerpt}>
+              Source
+            </Link>
+          )}
           <button
             type="button"
             className="btn btn-small"

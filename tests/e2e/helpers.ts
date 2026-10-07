@@ -4,77 +4,172 @@ import pg from "pg";
 const TEST_DATABASE_URL =
   process.env.TEST_DATABASE_URL ?? "postgres://farabi:farabi@127.0.0.1:5432/farabi_test";
 
+/** Every table the app or a test writes, including the frozen v1 tables (Feature 10). */
+const TABLES = [
+  "kind_setting_changes", "output_reviews", "edge_notes", "parked_tangent_events", "parked_tangents",
+  "project_cameras", "v1_conversion", "feedback_state_events", "feedback_attachments", "feedback_tags",
+  "feedback_items", "setting_changes", "definition_versions", "definitions", "nodes", "trees",
+  "v1.kind_setting_changes", "v1.function_output_events", "v1.function_output_versions", "v1.pipes",
+  "v1.parked_tangent_events", "v1.parked_tangents", "v1.edge_label_versions", "v1.node_summaries",
+  "v1.branch_markers", "v1.messages", "v1.nodes", "v1.trees", "projects",
+];
+
 export async function resetDb(): Promise<void> {
   const client = new pg.Client({ connectionString: TEST_DATABASE_URL });
   await client.connect();
-  await client.query("TRUNCATE kind_setting_changes, function_output_events, function_output_versions, pipes, parked_tangent_events, parked_tangents, feedback_state_events, feedback_attachments, feedback_tags, feedback_items, setting_changes, node_summaries, branch_markers, messages, nodes, trees, projects RESTART IDENTITY CASCADE");
+  await client.query(`TRUNCATE ${TABLES.join(", ")} RESTART IDENTITY CASCADE`);
   await client.end();
 }
 
-export async function setAiMode(
-  page: Page,
-  mode: "ok" | "fail" | "slow" | "stall",
-  delayMs?: number,
-  chunkDelayMs?: number,
-) {
+export async function setAiMode(page: Page, mode: "ok" | "fail" | "slow" | "stall", delayMs?: number, chunkDelayMs?: number) {
   const res = await page.request.post("/api/test/ai-mode", { data: { mode, delayMs, chunkDelayMs } });
   expect(res.ok()).toBeTruthy();
 }
 
-export async function startConversation(page: Page): Promise<string> {
-  await page.goto("/");
-  await page.getByRole("button", { name: /start a conversation|new conversation/i }).first().click();
-  await page.waitForURL(/\/n\/[0-9a-f-]+$/);
-  return page.url().split("/n/")[1];
+// Canvas test hooks (contracts/canvas-ui.md "Test hooks").
+
+export type DebugElement = {
+  id: string;
+  kind: "answer" | "question" | "output" | "function_connector";
+  shape: "node" | "edge";
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  treeId: string;
+  focused: boolean;
+  onPath: boolean;
+};
+
+export async function canvasDebug(page: Page): Promise<{ elements: DebugElement[]; trees: Record<string, { minX: number; minY: number; maxX: number; maxY: number }> }> {
+  return page.evaluate(() => window.__farabiCanvasDebug!());
 }
 
-export async function send(page: Page, text: string) {
-  const before = await page.getByTestId("message").count();
-  await page.getByLabel("Message").fill(text);
-  await page.getByLabel("Message").press("Enter");
-  await expect(page.getByTestId("message")).toHaveCount(before + 2);
-  await waitForReplyEnd(page);
+export async function cameraState(page: Page) {
+  return page.evaluate(() => window.__farabiCamera!());
 }
 
-/** Waits until no reply is streaming in the open conversation. */
+export async function textStats(page: Page) {
+  return page.evaluate(() => window.__farabiTextStats!());
+}
+
+/** Opens the canvas and waits until it is ready to use. */
+export async function openCanvas(page: Page, path = "/") {
+  await page.goto(path);
+  await page.waitForFunction(() => typeof window.__farabiCanvasDebug === "function" && typeof window.__farabiCamera === "function");
+  await expect(page.getByTestId("composer").or(page.getByTestId("empty-state")).first()).toBeVisible();
+}
+
+/** Waits until no reply is streaming on the canvas. */
 export async function waitForReplyEnd(page: Page) {
-  await expect(page.locator(".typing", { hasText: "Thinking" })).toHaveCount(0);
-  await expect(page.getByTestId("streaming")).toHaveCount(0);
+  await expect(page.locator(".element-text.status-pending")).toHaveCount(0, { timeout: 15_000 });
   await expect(page.getByRole("button", { name: "Stop" })).toHaveCount(0);
 }
 
-/** Selects `phrase` inside the last AI message by driving a DOM range, as a user drag would. */
-export async function selectInLastAiMessage(page: Page, phrase: string) {
-  await expect(page.locator('[data-role="ai"][data-message-id]').last()).toContainText(phrase);
-  await page.evaluate((phrase) => {
-    const messages = document.querySelectorAll<HTMLElement>('[data-role="ai"][data-message-id]');
-    const msg = messages[messages.length - 1];
-    // The phrase may span several text nodes (marker boundaries split text), so search the
-    // concatenated text and map both ends back to their nodes.
-    const walker = document.createTreeWalker(msg, NodeFilter.SHOW_TEXT);
-    const nodes: Text[] = [];
-    for (let n = walker.nextNode(); n; n = walker.nextNode()) nodes.push(n as Text);
-    const full = nodes.map((n) => n.data).join("");
-    const at = full.indexOf(phrase);
-    if (at < 0) throw new Error(`phrase not found: ${phrase}`);
-    const locate = (offset: number, isEnd: boolean) => {
-      let seen = 0;
-      for (const n of nodes) {
-        const within = offset - seen;
-        if (isEnd ? within <= n.data.length : within < n.data.length) return { node: n, offset: within };
-        seen += n.data.length;
-      }
-      throw new Error("offset out of range");
-    };
-    const start = locate(at, false);
-    const end = locate(at + phrase.length, true);
-    const range = document.createRange();
-    range.setStart(start.node, start.offset);
-    range.setEnd(end.node, end.offset);
-    const sel = document.getSelection()!;
-    sel.removeAllRanges();
-    sel.addRange(range);
-  }, phrase);
+/** Types into the composer and sends; resolves once the reply has ended. */
+export async function ask(page: Page, text: string): Promise<void> {
+  const box = page.getByTestId("composer").getByLabel("Message");
+  await box.fill(text);
+  await box.press("Enter");
+  await expect(box).toHaveValue("");
+  await waitForReplyEnd(page);
+}
+
+/** The ids of the elements of a kind, in creation order (the store's insertion order). */
+export async function elementsOf(page: Page, kind: DebugElement["kind"]): Promise<DebugElement[]> {
+  return (await canvasDebug(page)).elements.filter((e) => e.kind === kind);
+}
+
+/**
+ * A screen point on an element's frame (its padding, not its text or buttons) that a press would
+ * really land on. Like a user, it first brings the element into view when no such point is visible.
+ */
+export async function framePoint(page: Page, id: string): Promise<{ x: number; y: number }> {
+  await cameraSettled(page);
+  const find = () =>
+    page.evaluate((id) => {
+      const item = document.querySelector<HTMLElement>(`[data-testid=element-text][data-node-id="${id}"]`);
+      const r = item?.getBoundingClientRect();
+      const canvas = document.querySelector("[data-testid=canvas]")!.getBoundingClientRect();
+      if (!item || !r) return null;
+      const candidates = [
+        { x: r.left + 4, y: r.top + r.height / 2 },
+        { x: r.right - 4, y: r.top + r.height / 2 },
+        { x: r.left + r.width / 2, y: r.bottom - 4 },
+        { x: r.left + 4, y: r.bottom - 4 },
+      ];
+      return (
+        candidates.find(
+          (p) =>
+            p.x > canvas.left && p.x < canvas.right && p.y > canvas.top && p.y < canvas.bottom && document.elementFromPoint(p.x, p.y) === item,
+        ) ?? null
+      );
+    }, id);
+  let pt = await find();
+  if (!pt) {
+    const el = (await canvasDebug(page)).elements.find((e) => e.id === id);
+    if (!el) throw new Error(`element ${id} is not on the canvas`);
+    await page.evaluate(([x, y]) => window.__farabiSetCamera!(x, y, 1), [el.x + el.w / 2, el.y + el.h / 2] as const);
+    await expect.poll(find, { timeout: 3000 }).not.toBeNull();
+    pt = (await find())!;
+  }
+  return pt;
+}
+
+/** Waits until the camera has stopped moving (a glide after a send or a walk takes ~350 ms). */
+export async function cameraSettled(page: Page) {
+  let last = "";
+  await expect
+    .poll(async () => {
+      const c = await cameraState(page);
+      const now = `${c.x.toFixed(1)},${c.y.toFixed(1)},${c.scale}`;
+      const same = now === last;
+      last = now;
+      return same;
+    }, { intervals: [100], timeout: 5000 })
+    .toBe(true);
+}
+
+/** Clicks an element's frame, which focuses it without moving the camera. */
+export async function focusElement(page: Page, id: string) {
+  const pt = await framePoint(page, id);
+  await page.mouse.click(pt.x, pt.y);
+  await expect.poll(async () => (await canvasDebug(page)).elements.find((e) => e.id === id)?.focused).toBe(true);
+}
+
+/** Selects `phrase` inside a mounted element's text by driving a DOM range, as a drag would. */
+export async function selectInElement(page: Page, id: string, phrase: string) {
+  const item = page.locator(`[data-testid=element-text][data-node-id="${id}"]`);
+  await expect(item).toContainText(phrase);
+  await page.evaluate(
+    ({ id, phrase }) => {
+      const item = document.querySelector<HTMLElement>(`[data-testid=element-text][data-node-id="${id}"] .element-body`)!;
+      const walker = document.createTreeWalker(item, NodeFilter.SHOW_TEXT);
+      const nodes: Text[] = [];
+      for (let n = walker.nextNode(); n; n = walker.nextNode()) nodes.push(n as Text);
+      const full = nodes.map((n) => n.data).join("");
+      const at = full.indexOf(phrase);
+      if (at < 0) throw new Error(`phrase not found: ${phrase}`);
+      const locate = (offset: number, isEnd: boolean) => {
+        let seen = 0;
+        for (const n of nodes) {
+          const within = offset - seen;
+          if (isEnd ? within <= n.data.length : within < n.data.length) return { node: n, offset: within };
+          seen += n.data.length;
+        }
+        throw new Error("offset out of range");
+      };
+      const start = locate(at, false);
+      const end = locate(at + phrase.length, true);
+      const range = document.createRange();
+      range.setStart(start.node, start.offset);
+      range.setEnd(end.node, end.offset);
+      const sel = document.getSelection()!;
+      sel.removeAllRanges();
+      sel.addRange(range);
+    },
+    { id, phrase },
+  );
 }
 
 /**
@@ -87,33 +182,8 @@ export async function confirmQuestion(page: Page, question = "") {
   await form.getByLabel("Your question (optional)").press("Enter");
 }
 
-export async function branchOn(page: Page, phrase: string, question = ""): Promise<string> {
-  const parentUrl = page.url();
-  await selectInLastAiMessage(page, phrase);
-  await page.getByRole("toolbar", { name: "Highlight actions" }).getByRole("button", { name: "Branch" }).click();
-  await confirmQuestion(page, question);
-  await page.waitForURL((url) => url.toString() !== parentUrl && /\/n\//.test(url.pathname));
-  return page.url().split("/n/")[1];
-}
-
-export type MapDebug = {
-  nodes: Array<{
-    id: string; treeId: string; x: number; y: number; isRoot: boolean; labelKind: string; label: string;
-    kind: string; review: string | null; stale: boolean; pendingDraft: boolean;
-  }>;
-  edges: Array<{ from: string; to: string; label?: string | null }>;
-  pipes: Array<{ id: string; from: string; to: string; state: string }>;
-  treeBoxes: Record<string, { minX: number; minY: number; maxX: number; maxY: number }>;
-};
-
-export async function mapDebug(page: Page): Promise<MapDebug> {
-  return page.evaluate(() => window.__farabiMapDebug as unknown as MapDebug);
-}
-
-export async function openMap(page: Page, expectedNodes: number) {
-  await page.getByRole("link", { name: "Map" }).click();
-  await page.waitForURL(/\/map$/);
-  await expect
-    .poll(async () => (await mapDebug(page))?.nodes.length ?? 0, { timeout: 10_000 })
-    .toBe(expectedNodes);
+/** Starts a tree in the open project from the empty canvas (or the "New tree" composer). */
+export async function startTree(page: Page, text: string) {
+  if (await page.getByTestId("empty-state").isHidden()) await page.getByRole("button", { name: "New tree" }).click();
+  await ask(page, text);
 }

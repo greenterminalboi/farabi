@@ -14,12 +14,13 @@
     "db:migrate": "tsx scripts/migrate.ts",
     "seed:large": "tsx scripts/seed-large.ts",
     "feedback:addressed": "tsx scripts/feedback-addressed.ts",
-    "feedback:export": "tsx scripts/feedback-export.ts"
+    "feedback:export": "tsx scripts/feedback-export.ts",
+    "v1:convert": "tsx scripts/v1-convert.ts",
+    "v1:verify": "tsx scripts/v1-verify.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.128.0",
     "@fontsource/opendyslexic": "^5.3.0",
-    "d3-hierarchy": "^3.1.2",
     "graphology": "^0.26.0",
     "graphology-types": "^0.24.8",
     "kysely": "^0.29.6",
@@ -29,13 +30,13 @@
     "pixi.js": "^8.21.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
-    "react-markdown": "^10.1.0",
+    "remark-parse": "^11.0.0",
+    "unified": "^11.0.5",
     "zod": "^4.6.5",
     "zustand": "^5.0.15"
   },
   "devDependencies": {
     "@playwright/test": "^1.63.0",
-    "@types/d3-hierarchy": "^3.1.7",
     "@types/jsdom": "^30.0.0",
     "@types/node": "^26.6.3",
     "@types/pg": "^8.23.1",

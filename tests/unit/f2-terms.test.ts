@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { splitByMarkers } from "@/components/chat/markerRanges";
+import { splitByMarkers } from "@/canvas/text/markerRanges";
 import { buildMatcher, findTerms, termKey } from "@/lib/terms";
 import { parseDefinition } from "@/server/ai/claudePrompts";
 

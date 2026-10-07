@@ -1,11 +1,9 @@
 import type { Metadata } from "next";
-import { NewConversationButton } from "@/components/common/NewConversationButton";
 import { ProjectMenu } from "@/components/common/ProjectMenu";
 import { SettingsLink } from "@/components/common/SettingsLink";
-import { ViewToggle } from "@/components/common/ViewToggle";
+import { TopNav } from "@/components/common/TopNav";
 import { FeedbackButton } from "@/components/feedback/FeedbackButton";
 import { FeedbackDrawer } from "@/components/feedback/FeedbackDrawer";
-import { MapHost } from "@/components/map/MapHost";
 import "@fontsource/opendyslexic/400.css";
 import "@fontsource/opendyslexic/400-italic.css";
 import "@fontsource/opendyslexic/700.css";
@@ -13,7 +11,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Farabi",
-  description: "Branching conversations laid out as a map",
+  description: "Branching conversations on one canvas",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -23,14 +21,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <header className="topbar">
           <span className="brand">Farabi</span>
           <ProjectMenu />
-          <ViewToggle />
-          <NewConversationButton />
+          <TopNav />
           <SettingsLink />
           <FeedbackButton />
         </header>
         <main className="main">
           {children}
-          <MapHost />
           <FeedbackDrawer />
         </main>
       </body>

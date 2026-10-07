@@ -1,11 +1,11 @@
 import { create } from "zustand";
 import { api } from "@/lib/api";
+import type { FeedbackContext } from "@/lib/feedbackContext";
 import { makeThumbnail } from "@/lib/thumbnail";
 import {
   FEEDBACK_MAX_IMAGE_BYTES,
   FEEDBACK_MAX_IMAGES,
   type FeedbackItem,
-  type FeedbackView,
 } from "@/shared/schemas";
 import { termKey } from "@/shared/termKey";
 
@@ -29,7 +29,7 @@ type FeedbackStore = {
   items: FeedbackItem[];
   loaded: boolean;
   load: () => Promise<void>;
-  submit: (context: { view: FeedbackView; nodeId: string | null }) => Promise<boolean>;
+  submit: (context: FeedbackContext) => Promise<boolean>;
   /** Moves `id` so it lands at `toIndex` among `visibleIds` (the list as currently shown). */
   move: (id: string, toIndex: number, visibleIds: string[]) => Promise<void>;
   resolve: (id: string) => Promise<void>;
@@ -95,7 +95,7 @@ export const useFeedbackStore = create<FeedbackStore>((set, get) => ({
     if (!draft.text.trim()) return false;
     try {
       const { item } = await api.createFeedback(
-        { text: draft.text, view: context.view, nodeId: context.nodeId, tags: draft.tags },
+        { text: draft.text, view: context.view, projectId: context.projectId, elementId: context.elementId, tags: draft.tags },
         draft.images.map((i) => ({ file: i.file, thumb: i.thumb })),
       );
       for (const img of draft.images) URL.revokeObjectURL(img.previewUrl);

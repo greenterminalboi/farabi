@@ -1,12 +1,23 @@
 import { sql } from "kysely";
 import type { Selectable } from "kysely";
 import { db, type DB, type Trx } from "../db/client";
+import type { ParkedTangent } from "@/shared/schemas";
 import type { ParkedTangentsTable } from "../db/schema";
 import { ConflictError, NotFoundError } from "../errors";
 
 // The only place that derives a parked tangent's state from its events (data-model.md).
 
 export type ParkedRow = Selectable<ParkedTangentsTable>;
+
+export function toParkedTangent(t: ParkedRow, question: string | null): ParkedTangent {
+  return {
+    id: t.id,
+    nodeId: t.node_id,
+    anchor: { start: t.start_offset, end: t.end_offset, text: t.anchor_text, prefix: t.prefix, suffix: t.suffix },
+    question,
+    createdAt: t.created_at.toISOString(),
+  };
+}
 
 /** Blank or whitespace-only input means "no question"; anything else is kept exactly as typed. */
 export function normalizeQuestion(q: string | null | undefined): string | null {
@@ -55,8 +66,8 @@ export async function currentQuestion(q: DB | Trx, id: string): Promise<string |
   return row?.question ?? null;
 }
 
-/** The node's live tangents, newest first, each with its current question (FR-003, R10). */
-export async function liveParked(nodeId: string): Promise<Array<ParkedRow & { question: string | null }>> {
+/** An element's live tangents, newest first, each with its current question (Feature 8, FR-022). */
+export async function liveParked(nodeId: string, q: DB | Trx = db): Promise<Array<ParkedRow & { question: string | null }>> {
   const { rows } = await sql<ParkedRow & { question: string | null }>`
     SELECT t.*, q.question
     FROM parked_tangents t
@@ -72,20 +83,6 @@ export async function liveParked(nodeId: string): Promise<Array<ParkedRow & { qu
         WHERE e.tangent_id = t.id AND e.kind IN ('discarded', 'fired')
       )
     ORDER BY t.created_at DESC, t.id DESC
-  `.execute(db);
-  return rows;
-}
-
-/** Whether a message anchors any live parked tangent (the regenerate guard, research R6). */
-export async function hasLiveParkedOn(q: DB | Trx, messageId: string): Promise<boolean> {
-  const { rows } = await sql<{ one: number }>`
-    SELECT 1 AS one FROM parked_tangents t
-    WHERE t.message_id = ${messageId}
-      AND NOT EXISTS (
-        SELECT 1 FROM parked_tangent_events e
-        WHERE e.tangent_id = t.id AND e.kind IN ('discarded', 'fired')
-      )
-    LIMIT 1
   `.execute(q);
-  return rows.length > 0;
+  return rows;
 }

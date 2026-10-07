@@ -3,7 +3,6 @@ import path from "node:path";
 import { sql } from "kysely";
 import type { FeedbackItem, FeedbackState } from "@/shared/schemas";
 import { db as defaultDb, type DB } from "../db/client";
-import { placeholderFor } from "../summaries/placeholder";
 import { listFeedback } from "./list";
 import { feedbackFilePath } from "./paths";
 
@@ -20,12 +19,15 @@ const SECTIONS: Array<{ state: FeedbackState; title: string; intro: string | nul
   { state: "resolved", title: "Resolved", intro: null },
 ];
 
-function renderItem(item: FeedbackItem, nodeLabels: Map<string, string>): string {
+function renderItem(item: FeedbackItem): string {
   const since = item.history.at(-1)?.at ?? item.createdAt;
-  const node = item.context.nodeId;
-  const label = node ? nodeLabels.get(node) : undefined;
-  const context = [`view: ${item.context.view}`];
-  if (node) context.push(`node: ${node}${label ? ` (${JSON.stringify(label)})` : ""}`);
+  const { view, projectId, elementId, element, nodeId } = item.context;
+  const context = [`view: ${view}`];
+  if (projectId) context.push(`project: ${projectId}`);
+  // The element's kind and the start of its text (FR-058); the v1 conversation on older items.
+  if (elementId) {
+    context.push(`element: ${elementId}${element ? ` (${element.kind}: ${JSON.stringify(element.excerpt)})` : ""}`);
+  } else if (nodeId) context.push(`node: ${nodeId}`);
   const lines = [
     `### ${item.id}`,
     "",
@@ -48,7 +50,7 @@ function renderItem(item: FeedbackItem, nodeLabels: Map<string, string>): string
 }
 
 /** Pure rendering; `items` are in panel order. */
-export function renderFeedbackFile(items: FeedbackItem[], nodeLabels: Map<string, string>, now: Date): string {
+export function renderFeedbackFile(items: FeedbackItem[], now: Date): string {
   const count = (s: FeedbackState) => items.filter((i) => i.state === s).length;
   const out = [
     "# Farabi feedback",
@@ -72,32 +74,9 @@ export function renderFeedbackFile(items: FeedbackItem[], nodeLabels: Map<string
     out.push("", `## ${section.title}`, "");
     if (section.intro) out.push(section.intro, "");
     if (inSection.length === 0) out.push("_None._");
-    else out.push(inSection.map((i) => renderItem(i, nodeLabels)).join("\n\n"));
+    else out.push(inSection.map((i) => renderItem(i)).join("\n\n"));
   }
   return `${out.join("\n")}\n`;
-}
-
-/** Current map label for each node an item points at: latest summary, else the placeholder. */
-async function nodeLabels(db: DB, items: FeedbackItem[]): Promise<Map<string, string>> {
-  const ids = [...new Set(items.map((i) => i.context.nodeId).filter((id): id is string => id !== null))];
-  const labels = new Map<string, string>();
-  if (ids.length === 0) return labels;
-  const [summaries, markers] = await Promise.all([
-    db
-      .selectFrom("node_summaries")
-      .select(["node_id", "text"])
-      .distinctOn("node_id")
-      .where("node_id", "in", ids)
-      .orderBy("node_id")
-      .orderBy("created_at", "desc")
-      .orderBy("id", "desc")
-      .execute(),
-    db.selectFrom("branch_markers").select(["child_node_id", "anchor_text"]).where("child_node_id", "in", ids).execute(),
-  ]);
-  const anchors = new Map(markers.map((m) => [m.child_node_id, m.anchor_text]));
-  for (const id of ids) labels.set(id, placeholderFor(anchors.get(id) ?? null).text);
-  for (const s of summaries) labels.set(s.node_id, s.text);
-  return labels;
 }
 
 /**
@@ -110,7 +89,7 @@ export async function regenerateFeedbackFile(db: DB = defaultDb): Promise<string
   await db.transaction().execute(async (trx) => {
     await sql`SELECT pg_advisory_xact_lock(hashtext('farabi_feedback_file'))`.execute(trx);
     const items = await listFeedback(trx);
-    const text = renderFeedbackFile(items, await nodeLabels(trx, items), new Date());
+    const text = renderFeedbackFile(items, new Date());
     await fs.mkdir(path.dirname(target), { recursive: true });
     const tmp = `${target}.tmp`;
     await fs.writeFile(tmp, text);
