@@ -99,8 +99,11 @@ export function installInput(opts: {
       dragging: false,
     };
     renderer.setPanEnabled(false);
-    // No text selection starts from a frame.
+    // No text selection starts from a frame. Preventing the default also keeps the keyboard where
+    // it was, so a click on the canvas lets go of the composer, as a click on a page would.
     e.preventDefault();
+    const active = document.activeElement as HTMLElement | null;
+    if (active?.matches("input, textarea, select, [contenteditable='true']")) active.blur();
   };
 
   on(

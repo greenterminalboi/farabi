@@ -727,7 +727,7 @@ persists per project, at 5,000 elements.
 
 ### Tests (write first)
 
-- [ ] T074 [P] [US5] E2E `tests/e2e/f10-us5-camera.spec.ts`:
+- [X] T074 [P] [US5] E2E `tests/e2e/f10-us5-camera.spec.ts`:
   - `Alt+↑`, `Alt+↓`, `Alt+←` and `Alt+→` walk, and the camera follows within 1 s
   - a wheel pan → `mode: "free"`, and a reply finishing elsewhere and another tree growing cause 0
     automatic moves
@@ -735,7 +735,7 @@ persists per project, at 5,000 elements.
     (`__farabiMinimap`)
   - the minimap can be hidden
   - reload restores the camera
-- [ ] T075 [P] [US5] E2E `tests/e2e/f10-scale.spec.ts`:
+- [X] T075 [P] [US5] E2E `tests/e2e/f10-scale.spec.ts`:
   - `npm run seed:large -- --test --elements 5000`
   - the canvas opens in < 1 s
   - pan p95 < 16.7 ms and zoom-step p95 < 20 ms
@@ -744,7 +744,7 @@ persists per project, at 5,000 elements.
 
 ### Implementation
 
-- [ ] T076 [US5] Create `src/canvas/renderer/minimap.ts`:
+- [X] T076 [US5] Create `src/canvas/renderer/minimap.ts`:
   - a fixed 220×160 screen-space container in the same Pixi app (bottom-right)
   - each element drawn as a 1–2 px point coloured by tree, a faint region per tree and the
     viewport rectangle
@@ -752,12 +752,12 @@ persists per project, at 5,000 elements.
   - click centres the camera and drag moves it continuously, with `camera.onManual()`
   - toggle `[data-testid=minimap-toggle]` persisted to `store.minimapHidden`
   - the test hook `__farabiMinimap()`
-- [ ] T077 [US5] Camera persistence:
+- [X] T077 [US5] Camera persistence:
   - `src/server/graph/camera.ts` and `src/app/api/projects/[id]/camera/route.ts` (PUT,
     `scale CHECK 0.02..4`)
   - `CanvasHost` saves after 500 ms of camera idle, and restores from `GET /api/canvas` `camera` on
     open (or fits the project bounds when there is none) (FR-028)
-- [ ] T078 [US5] Keyboard walks in `src/canvas/input.ts` through `graph.ts`:
+- [X] T078 [US5] Keyboard walks in `src/canvas/input.ts` through `graph.ts`:
   - `Alt+↑` → parent
   - `Alt+↓` → first child
   - `Alt+←` and `Alt+→` → previous or next sibling by `createdAt`

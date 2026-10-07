@@ -533,6 +533,11 @@ A p95 of 16.7–16.8 ms is one refresh interval: no dropped frames at the 95th p
 - **Timing the very first gesture after load.** It also pays JIT and GPU start-up, so the spec
   warms up with a 1 s pan first. Steady-state repeats in one session all held p95 ≤ 16.8 ms.
 
+**On the real canvas** (2026-10-07, `tests/e2e/f10-scale.spec.ts`, production build): 5,000
+seeded elements in 20 trees open in 487 ms; pan p95 is 16.8 ms zoomed out and at reading zoom;
+zoom steps p95 16.7 ms; a minimap click moves the camera within 7 ms. Layout and scene building
+take about 0.2 s, after a line-based height estimator replaced parsing every answer.
+
 **Carried into the real text layer**:
 
 - the constants in `src/canvas/text/budget.ts`

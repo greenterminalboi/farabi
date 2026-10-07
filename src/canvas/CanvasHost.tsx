@@ -26,6 +26,7 @@ import { CanvasMenu } from "./overlays/CanvasMenu";
 import { EmptyState } from "./overlays/EmptyState";
 import { SelectionToolbar } from "./overlays/SelectionToolbar";
 import { SidePanel } from "./overlays/SidePanel";
+import { MinimapToggle } from "./overlays/MinimapToggle";
 import { TextInteractions } from "./overlays/TextInteractions";
 import { TermCard } from "@/components/definitions/TermCard";
 
@@ -242,7 +243,11 @@ export function CanvasHost({ projectId, focus, span }: Props) {
           schedule(trees);
         }
       });
+      // The minimap moves the camera by hand (FR-027): the camera is then free.
+      const offMinimap = renderer.onMinimapMove(() => camera.onManual());
+      renderer.setMinimapVisible(!useSettingsStore.getState().minimapHidden);
       const unsubscribeSettings = useSettingsStore.subscribe((s) => {
+        renderer.setMinimapVisible(!s.minimapHidden);
         if (s.showSuggestions !== showSuggestions) {
           showSuggestions = s.showSuggestions;
           schedule();
@@ -471,6 +476,7 @@ export function CanvasHost({ projectId, focus, span }: Props) {
       cleanup = () => {
         unsubscribe();
         unsubscribeSettings();
+        offMinimap();
         unsubscribeTerms();
         offCamera();
         offMeasure();
@@ -504,6 +510,7 @@ export function CanvasHost({ projectId, focus, span }: Props) {
           <Composer />
           <SelectionToolbar />
           <TextInteractions />
+          <MinimapToggle />
           <TermCard containerRef={rootRef} />
         </>
       ) : null,

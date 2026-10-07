@@ -468,3 +468,8 @@ body { display: flex; flex-direction: column; }
 
 /* The side panel sits beside the canvas (FR-022); the canvas narrows to make room. */
 .side-panel .branch-row { width: 100%; text-align: left; font: inherit; color: inherit; }
+/* The minimap is a panel above the text layer (FR-027); the toggle sits on its top-right corner. */
+.canvas-host > canvas.minimap { position: absolute; inset: auto 12px 12px auto; z-index: 20; border-radius: 10px; cursor: crosshair; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.12); }
+.canvas-host > canvas.minimap[hidden] { display: none; }
+.minimap-toggle { position: absolute; right: 16px; bottom: 150px; z-index: 21; padding: 0 6px; line-height: 18px; }
+.minimap-toggle.hidden-map { bottom: 12px; }

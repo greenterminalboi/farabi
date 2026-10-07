@@ -80,9 +80,28 @@ export async function elementsOf(page: Page, kind: DebugElement["kind"]): Promis
   return (await canvasDebug(page)).elements.filter((e) => e.kind === kind);
 }
 
-/** Clicks an element's frame (not its text), which focuses it without moving the camera. */
+/**
+ * Clicks an element's frame (not its text), which focuses it without moving the camera. Like a
+ * user, it first brings the element into view when it is off screen or covered by an overlay.
+ */
 export async function focusElement(page: Page, id: string) {
-  const pt = await page.evaluate((id) => window.__farabiScreenPoint!(id, "frame"), id);
+  const clickable = (pt: { x: number; y: number } | null) =>
+    page.evaluate(
+      ({ id, pt }) => {
+        if (!pt) return false;
+        const hit = document.elementFromPoint(pt.x, pt.y);
+        return !!hit && (hit.tagName === "CANVAS" || hit.closest(`[data-node-id="${id}"]`) !== null) && !hit.closest("[data-overlay]");
+      },
+      { id, pt },
+    );
+  let pt = await page.evaluate((id) => window.__farabiScreenPoint!(id, "frame"), id);
+  if (!(await clickable(pt))) {
+    const el = (await canvasDebug(page)).elements.find((e) => e.id === id);
+    if (!el) throw new Error(`element ${id} is not on the canvas`);
+    await page.evaluate(([x, y]) => window.__farabiSetCamera!(x, y, 1), [el.x + el.w / 2, el.y + el.h / 2] as const);
+    await page.waitForTimeout(200);
+    pt = await page.evaluate((id) => window.__farabiScreenPoint!(id, "frame"), id);
+  }
   if (!pt) throw new Error(`element ${id} is not on the canvas`);
   await page.mouse.click(pt.x, pt.y);
   await expect.poll(async () => (await canvasDebug(page)).elements.find((e) => e.id === id)?.focused).toBe(true);

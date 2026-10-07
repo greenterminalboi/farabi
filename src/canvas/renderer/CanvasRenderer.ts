@@ -8,6 +8,7 @@ import type { Display } from "@/shared/kinds";
 import type { Review } from "@/shared/schemas";
 import type { CameraView } from "../camera";
 import type { Box } from "../geometry";
+import { Minimap } from "./minimap";
 
 type Palette = {
   bg: number;
@@ -90,6 +91,11 @@ declare global {
       trees: Record<string, { minX: number; minY: number; maxX: number; maxY: number }>;
     };
     __farabiScreenPoint?: (id: string, part?: "frame" | "text") => Point | null;
+    __farabiMinimap?: () => {
+      viewport: { x: number; y: number; w: number; h: number };
+      bounds: { minX: number; minY: number; maxX: number; maxY: number } | null;
+      visible: boolean;
+    };
   }
 }
 
@@ -115,6 +121,8 @@ export class CanvasRenderer {
   private cameraDirty = true;
   private minScale = 0.02;
   private resizeObserver: ResizeObserver | null = null;
+  private minimap: Minimap | null = null;
+  private minimapListeners = new Set<() => void>();
 
   async mount(host: HTMLElement): Promise<void> {
     this.palette = window.matchMedia("(prefers-color-scheme: dark)").matches ? DARK : LIGHT;
@@ -146,11 +154,27 @@ export class CanvasRenderer {
       .clampZoom({ minScale: this.minScale, maxScale: 4 });
     viewport.addChild(this.regionLayer, this.treeLayer, this.focusLayer);
     app.stage.addChild(viewport);
+    // The minimap: its own panel above the text layer (FR-027).
+    const dark = this.palette === DARK;
+    this.minimap = new Minimap(
+      host,
+      (world) => {
+        viewport.plugins.remove("animate");
+        viewport.moveCenter(world.x, world.y);
+        this.cameraDirty = true;
+        for (const cb of this.minimapListeners) cb();
+      },
+      dark ? { bg: "rgba(31,31,34,0.94)", border: "#38383e", view: "#fab005" } : { bg: "rgba(255,255,255,0.94)", border: "#d8d8d2", view: "#e67700" },
+    );
     // The host changes size with the side panel too, not only with the window.
     this.resizeObserver = new ResizeObserver(() => app.resize());
     this.resizeObserver.observe(host);
     app.renderer.on("resize", (w: number, h: number) => {
+      // Keep what is in the middle of the screen in the middle (the side panel opening, a window
+      // resize): pixi-viewport would keep the top-left corner instead.
+      const centre = viewport.center;
       viewport.resize(w, h);
+      viewport.moveCenter(centre.x, centre.y);
       this.cameraDirty = true;
     });
     viewport.on("moved", () => (this.cameraDirty = true));
@@ -163,6 +187,7 @@ export class CanvasRenderer {
       if (!this.cameraDirty && now === last) return;
       this.cameraDirty = false;
       last = now;
+      this.drawMinimapViewport();
       for (const cb of this.cameraListeners) cb();
     });
     this.app = app;
@@ -240,6 +265,37 @@ export class CanvasRenderer {
     for (const treeId of touched) this.drawTree(treeId, byTree.get(treeId) ?? []);
     this.drawRegions();
     this.drawFocus();
+    this.drawMinimap();
+  }
+
+  private drawMinimap(): void {
+    if (!this.minimap) return;
+    this.minimap.draw(
+      this.scene.elements.filter((e) => e.display !== "function_connector").map((e) => ({ treeId: e.treeId, ...e.box })),
+      this.scene.trees,
+    );
+    this.drawMinimapViewport();
+  }
+
+  /** The visible part of the world, in world units. */
+  visibleWorld(): { x: number; y: number; w: number; h: number } {
+    const v = this.viewport;
+    if (!v) return { x: 0, y: 0, w: 0, h: 0 };
+    return { x: -v.x / v.scale.x, y: -v.y / v.scale.y, w: v.screenWidth / v.scale.x, h: v.screenHeight / v.scale.y };
+  }
+
+  private drawMinimapViewport(): void {
+    this.minimap?.drawViewport(this.visibleWorld());
+  }
+
+  /** A click or drag in the minimap moved the camera: a manual move. */
+  onMinimapMove(cb: () => void): () => void {
+    this.minimapListeners.add(cb);
+    return () => this.minimapListeners.delete(cb);
+  }
+
+  setMinimapVisible(visible: boolean): void {
+    this.minimap?.setVisible(visible);
   }
 
   private redrawAll(): void {
@@ -459,7 +515,7 @@ export class CanvasRenderer {
     else v.plugins.pause("drag");
   }
 
-  private hooks: { debug?: Window["__farabiCanvasDebug"]; point?: Window["__farabiScreenPoint"] } = {};
+  private hooks: { debug?: Window["__farabiCanvasDebug"]; point?: Window["__farabiScreenPoint"]; minimap?: Window["__farabiMinimap"] } = {};
 
   /** Test hooks; installed by the host once this renderer is the live one. */
   installHooks(): void {
@@ -479,6 +535,11 @@ export class CanvasRenderer {
       })),
       trees: Object.fromEntries(this.scene.trees),
     });
+    window.__farabiMinimap = this.hooks.minimap = () => ({
+      viewport: this.visibleWorld(),
+      bounds: this.minimap?.worldBounds() ?? null,
+      visible: this.minimap?.visible ?? false,
+    });
     window.__farabiScreenPoint = this.hooks.point = (id, part = "frame") => {
       const r = this.elementScreenRect(id);
       const host = this.app?.canvas.getBoundingClientRect();
@@ -492,6 +553,7 @@ export class CanvasRenderer {
   destroy(): void {
     this.cameraListeners.clear();
     this.resizeObserver?.disconnect();
+    this.minimap?.destroy();
     // The viewport first: it unregisters from the app's ticker, which the app destroys.
     this.viewport?.destroy({ children: true });
     this.app?.destroy(true, { children: true });
@@ -500,6 +562,7 @@ export class CanvasRenderer {
     // Only this renderer's hooks: a newer renderer may already have installed its own.
     if (window.__farabiCanvasDebug === this.hooks.debug) delete window.__farabiCanvasDebug;
     if (window.__farabiScreenPoint === this.hooks.point) delete window.__farabiScreenPoint;
+    if (window.__farabiMinimap === this.hooks.minimap) delete window.__farabiMinimap;
   }
 }
 
