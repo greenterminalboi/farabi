@@ -84,7 +84,8 @@ function runHeadless(
 
   return new Promise((resolve, reject) => {
     if (options.signal?.aborted) return reject(abortError());
-    const child = spawn(CLAUDE_BIN, args, { cwd: WORKDIR, env: childEnv(), stdio: ["pipe", "pipe", "pipe"] });
+    // The binary is found at run time; keep the bundler from tracing the whole project for it.
+    const child = spawn(/*turbopackIgnore: true*/ CLAUDE_BIN, args, { cwd: WORKDIR, env: childEnv(), stdio: ["pipe", "pipe", "pipe"] });
     let pending = "";
     let stderr = "";
     let delivered = "";

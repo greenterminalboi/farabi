@@ -25,3 +25,12 @@ playwright-report/
 
 # Local dev server builds against scratch databases
 /.next-scratch/
+
+# Feature 11 desktop app: Rust build output, fetched Node binaries, packaged server, dev data
+/src-tauri/target/
+/src-tauri/binaries/
+/src-tauri/gen/
+/.desktop/
+/.farabi-dev/
+/.farabi-e2e/
+/.next-desktop/

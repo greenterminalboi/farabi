@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Farabi</title><link rel="stylesheet" href="shell.css"></head>
+<body>
+<main>
+  <h1>Farabi stopped</h1>
+  <p id="detail">Something went wrong inside Farabi. Your data is safe on disk.</p>
+  <div class="row"><button class="secondary" id="logs">Open logs</button><button id="restart">Restart</button></div>
+</main>
+<script>
+  const detail = new URLSearchParams(location.search).get("detail");
+  if (detail) document.getElementById("detail").textContent = detail;
+  const invoke = (cmd) => window.__TAURI__?.core.invoke(cmd);
+  document.getElementById("logs").onclick = () => invoke("open_logs");
+  document.getElementById("restart").onclick = () => invoke("restart_server");
+</script>
+</body>
+</html>

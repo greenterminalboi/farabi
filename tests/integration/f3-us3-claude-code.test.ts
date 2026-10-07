@@ -86,7 +86,10 @@ describe("US3: Claude Code reads and acts on feedback", () => {
     expect(await markAddressed("not-a-uuid")).toBe("not_found");
   });
 
-  it("the real script exits 0, 2, 3 and 1 as documented", async () => {
+  // Under STORE=pglite the store lives inside this test process, which a second process can't
+  // open (PGlite issue #1106). Feature 11 covers the script against the live app instead
+  // (tests/integration/f11-feedback-cli.test.ts).
+  it.skipIf(process.env.STORE === "pglite")("the real script exits 0, 2, 3 and 1 as documented", async () => {
     const { id } = (await createFeedback({ text: "Script me", view: "map" })).body.item;
     const first = await script(id);
     expect(first.code).toBe(0);

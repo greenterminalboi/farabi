@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Farabi</title><link rel="stylesheet" href="shell.css"></head>
+<body>
+<main>
+  <h1 id="title">Farabi can't open your data</h1>
+  <p id="text"></p>
+  <p id="detail"></p>
+  <div class="row"><button class="secondary" id="logs">Open logs</button><button id="quit">Quit</button></div>
+</main>
+<script>
+  const SCREENS = {
+    "newer-data": ["Data from a newer Farabi", "This data was written by a newer version of Farabi. Install the newer version to open it. Nothing has been changed."],
+    "store-locked": ["Farabi is already using this data", "Another copy of Farabi has this data open. Close it and try again."],
+    "backup-failed": ["Upgrade not started", "Farabi couldn't back up your data before upgrading, so it didn't upgrade. Nothing has been changed."],
+    "upgrade-failed": ["The upgrade failed", "The upgrade failed. Your data was restored from the backup taken just before."],
+  };
+  const q = new URLSearchParams(location.search);
+  const [title, text] = SCREENS[q.get("screen")] ?? ["Farabi can't open your data", ""];
+  document.getElementById("title").textContent = title;
+  document.getElementById("text").textContent = text;
+  document.getElementById("detail").textContent = q.get("detail") ?? "";
+  const invoke = (cmd) => window.__TAURI__?.core.invoke(cmd);
+  document.getElementById("logs").onclick = () => invoke("open_logs");
+  document.getElementById("quit").onclick = () => invoke("quit_app");
+</script>
+</body>
+</html>

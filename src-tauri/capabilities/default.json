@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Local bundled pages only. The loopback app origin gets no IPC (research R5).",
+  "windows": ["main"],
+  "permissions": ["core:default"]
+}
