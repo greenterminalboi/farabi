@@ -261,6 +261,8 @@ export interface DrillsTable {
 
 export interface DrillLadderVersionsTable {
   id: Generated<string>;
+  /** Insertion order; the highest is the ladder (never created_at, which can tie). */
+  seq: ColumnType<string, never, never>;
   drill_id: string;
   /** Inserted as a JSON string; read back parsed. */
   rungs: ColumnType<StoredRung[], string, never>;
@@ -270,6 +272,8 @@ export interface DrillLadderVersionsTable {
 
 export interface DrillLevelChangesTable {
   id: Generated<string>;
+  /** Insertion order; a rung's highest is its current level. */
+  seq: ColumnType<string, never, never>;
   drill_id: string;
   rung_id: string;
   round_id: string | null;
@@ -288,6 +292,8 @@ export interface DrillLevelChangesTable {
 export interface DrillRoundEndsTable {
   round_id: string;
   ended_by: "all_answered" | "user";
+  /** The newest level-change seq when the round ended, before its own changes ("0" for none). */
+  levels_seq: ColumnType<string, string, never>;
   created_at: CreatedAt;
 }
 
@@ -304,6 +310,7 @@ export interface DrillProblemEventsTable {
 
 export interface DrillVerdictOverridesTable {
   id: Generated<string>;
+  seq: ColumnType<string, never, never>;
   verdict_id: string;
   verdict: DrillVerdict;
   provenance: ColumnType<Provenance, never, never>;
@@ -312,6 +319,7 @@ export interface DrillVerdictOverridesTable {
 
 export interface DrillAttachmentsTable {
   id: Generated<string>;
+  seq: ColumnType<string, never, never>;
   drill_id: string;
   node_id: string;
   action: "attach" | "detach";

@@ -22,8 +22,7 @@ export async function setAttachment(drillId: string, nodeId: string, action: "at
       .select("action")
       .where("drill_id", "=", drill.id)
       .where("node_id", "=", nodeId)
-      .orderBy("created_at", "desc")
-      .orderBy("id", "desc")
+      .orderBy("seq", "desc")
       .limit(1)
       .executeTakeFirst();
     if ((latest?.action ?? "detach") === action) return;

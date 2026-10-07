@@ -2,6 +2,8 @@ import { type Kysely, sql } from "kysely";
 
 // Feature 12: Drill Kaizen (specs/012-drill-kaizen/data-model.md). Drill text lives in `nodes` as
 // hidden kinds (research R1); everything that changes over time is an append-only `drill_*` row.
+// Where "the newest row" decides something, an identity `seq` orders rows, never created_at
+// (STATUS 16:15 convention: timestamps can tie).
 
 /** Every drill table; each gets the append-only trigger (Article II). */
 export const DRILL_TABLES = [
@@ -40,16 +42,18 @@ export async function up(db: Kysely<unknown>): Promise<void> {
   await sql`
     CREATE TABLE drill_ladder_versions (
       id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+      seq bigint GENERATED ALWAYS AS IDENTITY UNIQUE,
       drill_id uuid NOT NULL REFERENCES drills(id) ON DELETE RESTRICT,
       rungs jsonb NOT NULL CHECK (jsonb_typeof(rungs) = 'array'),
       provenance provenance NOT NULL,
       created_at timestamptz NOT NULL DEFAULT clock_timestamp()
     )`.execute(db);
-  await sql`CREATE INDEX drill_ladder_latest ON drill_ladder_versions (drill_id, created_at DESC, id DESC)`.execute(db);
+  await sql`CREATE INDEX drill_ladder_latest ON drill_ladder_versions (drill_id, seq DESC)`.execute(db);
 
   await sql`
     CREATE TABLE drill_level_changes (
       id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+      seq bigint GENERATED ALWAYS AS IDENTITY UNIQUE,
       drill_id uuid NOT NULL REFERENCES drills(id) ON DELETE RESTRICT,
       rung_id uuid NOT NULL,
       round_id uuid REFERENCES nodes(id) ON DELETE RESTRICT,
@@ -70,12 +74,15 @@ export async function up(db: Kysely<unknown>): Promise<void> {
       CHECK (supersedes IS NULL OR cause = 'recompute'),
       CHECK (cause NOT IN ('auto', 'recompute') OR round_id IS NOT NULL)
     )`.execute(db);
-  await sql`CREATE INDEX drill_levels_latest ON drill_level_changes (drill_id, rung_id, created_at DESC, id DESC)`.execute(db);
+  await sql`CREATE INDEX drill_levels_latest ON drill_level_changes (drill_id, rung_id, seq DESC)`.execute(db);
 
   await sql`
     CREATE TABLE drill_round_ends (
       round_id uuid PRIMARY KEY REFERENCES nodes(id) ON DELETE RESTRICT,
       ended_by text NOT NULL CHECK (ended_by IN ('all_answered', 'user')),
+      -- The newest drill_level_changes.seq when the round ended, before its own changes: the
+      -- levels a recompute starts from (FR-021).
+      levels_seq bigint NOT NULL,
       created_at timestamptz NOT NULL DEFAULT clock_timestamp()
     )`.execute(db);
 
@@ -92,22 +99,24 @@ export async function up(db: Kysely<unknown>): Promise<void> {
   await sql`
     CREATE TABLE drill_verdict_overrides (
       id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+      seq bigint GENERATED ALWAYS AS IDENTITY UNIQUE,
       verdict_id uuid NOT NULL REFERENCES nodes(id) ON DELETE RESTRICT,
       verdict text NOT NULL CHECK (verdict IN ('solved', 'partly_solved', 'not_solved')),
       provenance provenance NOT NULL DEFAULT 'user_authored' CHECK (provenance = 'user_authored'),
       created_at timestamptz NOT NULL DEFAULT clock_timestamp()
     )`.execute(db);
-  await sql`CREATE INDEX drill_overrides_by_verdict ON drill_verdict_overrides (verdict_id, created_at)`.execute(db);
+  await sql`CREATE INDEX drill_overrides_by_verdict ON drill_verdict_overrides (verdict_id, seq)`.execute(db);
 
   await sql`
     CREATE TABLE drill_attachments (
       id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+      seq bigint GENERATED ALWAYS AS IDENTITY UNIQUE,
       drill_id uuid NOT NULL REFERENCES drills(id) ON DELETE RESTRICT,
       node_id uuid NOT NULL REFERENCES nodes(id) ON DELETE RESTRICT,
       action text NOT NULL CHECK (action IN ('attach', 'detach')),
       created_at timestamptz NOT NULL DEFAULT clock_timestamp()
     )`.execute(db);
-  await sql`CREATE INDEX drill_attachments_latest ON drill_attachments (drill_id, node_id, created_at DESC, id DESC)`.execute(db);
+  await sql`CREATE INDEX drill_attachments_latest ON drill_attachments (drill_id, node_id, seq DESC)`.execute(db);
 
   await sql`
     CREATE TABLE drill_offers (

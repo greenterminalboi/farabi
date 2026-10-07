@@ -40,8 +40,7 @@ export async function latestLadder(q: Q, drillId: string): Promise<LadderVersion
     .selectFrom("drill_ladder_versions")
     .select(["id", "provenance", "rungs"])
     .where("drill_id", "=", drillId)
-    .orderBy("created_at", "desc")
-    .orderBy("id", "desc")
+    .orderBy("seq", "desc")
     .limit(1)
     .executeTakeFirstOrThrow();
   return row;
@@ -56,7 +55,7 @@ export async function currentLevels(q: Q, drillId: string): Promise<Map<string, 
   const { rows } = await sql<{ id: string; rung_id: string; to_level: number; to_state: RungLevel["state"] }>`
     SELECT DISTINCT ON (rung_id) id, rung_id, to_level, to_state
     FROM drill_level_changes WHERE drill_id = ${drillId}
-    ORDER BY rung_id, created_at DESC, id DESC`.execute(q);
+    ORDER BY rung_id, seq DESC`.execute(q);
   return new Map(rows.map((r) => [r.rung_id, { level: r.to_level, state: r.to_state, changeId: r.id }]));
 }
 
@@ -71,16 +70,13 @@ export async function drillSettings(drill: Pick<DrillRow, "node_id">): Promise<D
   };
 }
 
-/** The drill's round edges, oldest first. */
+/** A round's number, its explicit order (R2). */
+export const roundNumber = (row: { properties: Record<string, unknown> }) => (row.properties as { number: number }).number;
+
+/** The drill's round edges, in round order. */
 export async function roundRows(q: Q, drill: Pick<DrillRow, "node_id">) {
-  return q
-    .selectFrom("nodes")
-    .selectAll()
-    .where("parent_id", "=", drill.node_id)
-    .where("kind", "=", "drill_round")
-    .orderBy("created_at")
-    .orderBy("id")
-    .execute();
+  const rows = await q.selectFrom("nodes").selectAll().where("parent_id", "=", drill.node_id).where("kind", "=", "drill_round").execute();
+  return rows.sort((a, b) => roundNumber(a) - roundNumber(b));
 }
 
 /** The open round: the newest round with no end row, if any. */

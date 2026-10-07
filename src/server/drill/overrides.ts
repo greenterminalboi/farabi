@@ -35,11 +35,11 @@ async function recompute(trx: Trx, drill: DrillRow, roundId: string): Promise<vo
   const snapshot = await loadSnapshot(trx, drill);
   const round = snapshot.rounds.find((r) => r.row.id === roundId)!;
   const outcomes = roundOutcomes(snapshot, round, end.created_at);
-  const changes = await trx.selectFrom("drill_level_changes").selectAll().where("drill_id", "=", drill.id).orderBy("created_at").orderBy("id").execute();
+  const changes = await trx.selectFrom("drill_level_changes").selectAll().where("drill_id", "=", drill.id).orderBy("seq").execute();
 
-  // Each rung's level just before the round's own changes.
+  // Each rung's level just before the round's own changes, by the high-water mark at its end.
   const before = new Map<string, RungLevel>();
-  for (const c of changes) if (c.created_at < end.created_at) before.set(c.rung_id, { level: c.to_level, state: c.to_state });
+  for (const c of changes) if (BigInt(c.seq) <= BigInt(end.levels_seq)) before.set(c.rung_id, { level: c.to_level, state: c.to_state });
   const [ladder, current, settings] = await Promise.all([latestLadder(trx, drill.id), currentLevels(trx, drill.id), drillSettings(drill)]);
   const corrected = levelChanges(outcomes, asLadder(ladder.rungs), before, settings).changes.filter((c) => c.fromState !== "locked");
 

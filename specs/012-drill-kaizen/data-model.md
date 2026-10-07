@@ -215,3 +215,17 @@ problem: unattempted ─attempt─▶ judged (verdict) ─override─▶ user ve
 - **Settings** (R10): `open_level` < `solid_level`. Saving never starts a run.
 - **Attach** (FR-031): the node is in the same project, and neither the node nor the project is
   trashed.
+
+## As built (2026-10-07)
+
+- Following the coordinator's convention (STATUS 16:15), "newest row" is decided by an identity
+  column, never `created_at`: `seq bigint GENERATED ALWAYS AS IDENTITY UNIQUE` on
+  `drill_ladder_versions`, `drill_level_changes`, `drill_verdict_overrides` and `drill_attachments`.
+  Rounds are ordered by their `number` property and problems by `position`.
+- `drill_round_ends.levels_seq` records the newest `drill_level_changes.seq` when the round ended,
+  before its own changes. A recompute (FR-021) starts from the levels at that point and applies its
+  correction as a difference to the current level, so later rounds keep their effect.
+- `drill_level_changes`: a `recompute` may have `supersedes` NULL (the round had held that rung);
+  only `recompute` rows may set it. Further CHECKs: `start` ⇔ no `from_level`; `manual` ⇔
+  `user_authored` with no evidence; `auto`/`recompute` need `round_id`.
+- `drill_offer_events`: `picked` ⇔ `node_id` and `new_drill_id` set.

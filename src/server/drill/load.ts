@@ -16,7 +16,7 @@ import { toElement } from "../graph/elements";
 import { assertId } from "../ids";
 import { isComplete, newestOpen, type ProblemOutcome, type Result, type Verdict } from "./progression";
 import { currentProblem, problemResult, roundNote } from "./results";
-import { asLadder, currentLevels, drillSettings, type DrillRow, latestLadder, loadDrillRow } from "./state";
+import { asLadder, currentLevels, drillSettings, type DrillRow, latestLadder, loadDrillRow, roundNumber } from "./state";
 
 type Q = DB | Trx;
 type Row = Selectable<NodesTable>;
@@ -37,6 +37,7 @@ export type ProblemSnap = {
 export type RoundSnap = { row: Row; number: number; end: Selectable<DrillRoundEndsTable> | null; lessons: Row[]; problems: ProblemSnap[] };
 export type DrillSnapshot = { rounds: RoundSnap[]; problems: Map<string, ProblemSnap> };
 
+/** Display order for elements in `nodes` (v0.2's table, no sequence). Order that decides anything is explicit: rounds by number, problems by position, history by seq. */
 const byTime = <T extends { created_at: Date; id?: string }>(a: T, b: T) =>
   a.created_at.getTime() - b.created_at.getTime() || String(a.id ?? "").localeCompare(String(b.id ?? ""));
 
@@ -45,7 +46,7 @@ const props = <T>(row: Row) => row.properties as T;
 /** Every drill element under the drill node, in a handful of set-based queries. */
 export async function loadSnapshot(q: Q, drill: Pick<DrillRow, "node_id">): Promise<DrillSnapshot> {
   const roundRows = await q.selectFrom("nodes").selectAll().where("parent_id", "=", drill.node_id).where("kind", "=", "drill_round").execute();
-  roundRows.sort(byTime);
+  roundRows.sort((a, b) => roundNumber(a) - roundNumber(b));
   const roundIds = roundRows.map((r) => r.id);
   const children = roundIds.length ? await q.selectFrom("nodes").selectAll().where("parent_id", "in", roundIds).execute() : [];
   children.sort(byTime);
@@ -93,7 +94,7 @@ export async function loadSnapshot(q: Q, drill: Pick<DrillRow, "node_id">): Prom
         .filter((a) => a.parent_id === p.id)
         .map((a) => {
           const verdict = verdictOf.get(a.id) ?? null;
-          return { row: a, verdict, overrides: verdict ? overrides.filter((o) => o.verdict_id === verdict.id).sort(byTime) : [] };
+          return { row: a, verdict, overrides: verdict ? overrides.filter((o) => o.verdict_id === verdict.id).sort((x, y) => Number(x.seq) - Number(y.seq)) : [] };
         }),
       hint: evs.some((e) => e.type === "hint") ? own("drill_hint") : null,
       solution: evs.some((e) => e.type === "reveal") ? own("drill_solution") : null,
@@ -272,7 +273,7 @@ export async function loadDrill(drillId: string, q: Q = db): Promise<Drill> {
     summaryOf(q, drill),
     latestLadder(q, drill.id),
     currentLevels(q, drill.id),
-    q.selectFrom("drill_level_changes").selectAll().where("drill_id", "=", drill.id).orderBy("created_at").orderBy("id").execute(),
+    q.selectFrom("drill_level_changes").selectAll().where("drill_id", "=", drill.id).orderBy("seq").execute(),
     loadSnapshot(q, drill),
     drillSettings(drill),
     q.selectFrom("nodes").select("parent_id").where("id", "=", drill.node_id).executeTakeFirstOrThrow(),
@@ -335,16 +336,15 @@ export async function loadAttachments(q: Q, drillId: string): Promise<Drill["att
   const rows = await q
     .selectFrom("drill_attachments")
     .innerJoin("nodes", "nodes.id", "drill_attachments.node_id")
-    .select(["drill_attachments.node_id", "drill_attachments.action", "drill_attachments.created_at", "nodes.text"])
+    .select(["drill_attachments.node_id", "drill_attachments.action", "drill_attachments.created_at", "drill_attachments.seq", "nodes.text"])
     .where("drill_attachments.drill_id", "=", drillId)
     .distinctOn("drill_attachments.node_id")
     .orderBy("drill_attachments.node_id")
-    .orderBy("drill_attachments.created_at", "desc")
-    .orderBy("drill_attachments.id", "desc")
+    .orderBy("drill_attachments.seq", "desc")
     .execute();
   return rows
     .filter((r) => r.action === "attach")
-    .sort((a, b) => a.created_at.getTime() - b.created_at.getTime())
+    .sort((a, b) => Number(a.seq) - Number(b.seq))
     .map((r) => ({ nodeId: r.node_id, excerpt: excerpt(r.text ?? ""), attachedAt: r.created_at.toISOString() }));
 }
 

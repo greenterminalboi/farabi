@@ -217,7 +217,12 @@ export async function endRound(roundId: string, by: "all_answered" | "user"): Pr
     const snapshot = await loadSnapshot(trx, drill);
     const mine = snapshot.rounds.find((r) => r.row.id === round.id)!;
     if (by === "all_answered" && !allAnswered(mine)) throw new ConflictError("not_all_answered", "Some problems have no result yet");
-    await trx.insertInto("drill_round_ends").values({ round_id: round.id, ended_by: by }).execute();
+    const high = await trx
+      .selectFrom("drill_level_changes")
+      .select((eb) => eb.fn.max("seq").as("seq"))
+      .where("drill_id", "=", drill.id)
+      .executeTakeFirst();
+    await trx.insertInto("drill_round_ends").values({ round_id: round.id, ended_by: by, levels_seq: String(high?.seq ?? 0) }).execute();
 
     // Redo attempts from the failed list count for the round they were made in (FR-023 AS2).
     const outcomes = roundOutcomes(snapshot, mine);
