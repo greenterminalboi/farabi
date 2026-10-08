@@ -215,9 +215,19 @@ export async function pickFolder(params: { title: string; defaultPath?: string }
   return res.path;
 }
 
+export async function pickFile(params: { title: string; defaultPath?: string }): Promise<string | null> {
+  const res = await requireBridge().request<{ path: string | null }>("dialog.pickFile", params);
+  return res.path;
+}
+
 export async function reveal(path: string): Promise<void> {
   if (!isDesktop()) return;
   await requireBridge().request("shell.reveal", { path }, 3000);
+}
+
+/** Asks the shell to restart the server (to apply a staged snapshot restore). */
+export async function restartApp(): Promise<void> {
+  await requireBridge().request("app.restart", undefined, 3000);
 }
 
 export async function focusWindow(): Promise<void> {

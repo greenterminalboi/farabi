@@ -97,7 +97,7 @@ instructions, never evidence about how the user learns (Article VI).
 | `information_pressure` | integer 1–10 | — (existing) | 8 |
 | `reply_model` | string | — (existing) | "Default" |
 | `ai_provider` | `"claude"` \| `"claude-code"` \| `"fake"` | `AI_PROVIDER` | env if set (web app and tests), else `"fake"` |
-| `default_model` | string model id | `CLAUDE_MODEL`, `CLAUDE_CODE_MODEL` | env if set, else the current built-in default |
+| `default_model` | string model id, or null for the default | `CLAUDE_MODEL`, `CLAUDE_CODE_MODEL` | env if set, else the current built-in default |
 | `summary_trigger` | `"reply"` \| `"map"` | `SUMMARY_TRIGGER` | env if set, else `"reply"` |
 | `feedback_export_dir` | absolute path string, or `null` for "don't export" | `FEEDBACK_DIR` | env if set, else `null` in the desktop app |
 | `claude_code_path` | absolute path string, or `null` for "find automatically" | `CLAUDE_CODE_BIN` | `null` |

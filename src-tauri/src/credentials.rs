@@ -54,4 +54,14 @@ mod tests {
         assert_eq!(set("x", "y").err().unwrap().code, "forbidden");
         assert_eq!(delete("x").err().unwrap().code, "forbidden");
     }
+
+    #[test]
+    fn missing_key_reads_absent_and_delete_is_idempotent() {
+        // The mock store keeps nothing between entries, which is exactly "no key saved".
+        keyring::set_default_credential_builder(keyring::mock::default_credential_builder());
+        assert_eq!(get("anthropic-api-key", true).ok().unwrap(), json!({ "present": false }));
+        assert_eq!(delete("anthropic-api-key").ok().unwrap(), json!({ "ok": true }));
+        assert_eq!(delete("anthropic-api-key").ok().unwrap(), json!({ "ok": true }));
+        assert_eq!(set("anthropic-api-key", "sk-ant-test").ok().unwrap(), json!({ "ok": true }));
+    }
 }

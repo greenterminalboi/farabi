@@ -3,13 +3,16 @@ import { defineConfig } from "@playwright/test";
 const TEST_DATABASE_URL =
   process.env.TEST_DATABASE_URL ?? "postgres://farabi:farabi@127.0.0.1:5432/farabi_test";
 
+// Lanes running e2e side by side pick their own port (E2E_PORT); 3100 stays the default.
+const PORT = process.env.E2E_PORT ?? "3100";
+
 export default defineConfig({
   testDir: "tests/e2e",
   workers: 1,
   fullyParallel: false,
   timeout: 60_000,
   use: {
-    baseURL: "http://127.0.0.1:3100",
+    baseURL: `http://127.0.0.1:${PORT}`,
     trace: "retain-on-failure",
   },
   projects: [
@@ -27,9 +30,9 @@ export default defineConfig({
   ],
   webServer: {
     // Production build, so performance checks (SC-004, SC-006) measure the real app.
-    command: "npx next build && npx next start -H 127.0.0.1 -p 3100",
+    command: `npx next build && npx next start -H 127.0.0.1 -p ${PORT}`,
     // A separate build folder, so running tests never breaks a dev server using `.next`.
-    url: "http://127.0.0.1:3100",
+    url: `http://127.0.0.1:${PORT}`,
     reuseExistingServer: false,
     timeout: 300_000,
     env: {

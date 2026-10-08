@@ -1,4 +1,7 @@
 import { ZodError, type ZodType } from "zod";
+import { ProviderNotReadyError } from "../ai";
+import { BridgeError } from "../host/bridge";
+import { FolderNotWritableError } from "../settings/appSettings";
 import {
   AIServiceUnavailable,
   ConflictError,
@@ -49,6 +52,15 @@ export function withApi<C>(handler: Handler<C>): Handler<C> {
     try {
       return await handler(req, ctx);
     } catch (err) {
+      if (err instanceof ProviderNotReadyError) {
+        return errorResponse(422, err.code, err.message, { provider: err.provider, reason: err.reason, settingsPath: err.settingsPath });
+      }
+      if (err instanceof FolderNotWritableError) return errorResponse(422, err.reason, err.message);
+      // The desktop shell's answers (feature 11): web mode has no shell, so those routes are 501.
+      if (err instanceof BridgeError) {
+        const status = err.code === "unsupported" ? 501 : err.code === "forbidden" ? 403 : 502;
+        return errorResponse(status, err.code, err.message);
+      }
       if (err instanceof ZodError) return errorResponse(422, "invalid_request", err.message);
       if (err instanceof InvalidRequestError) return errorResponse(422, err.code, err.message);
       if (err instanceof InvalidSelectionError) return errorResponse(422, err.code, err.message);

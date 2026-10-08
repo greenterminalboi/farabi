@@ -1,3 +1,4 @@
+import { providerReady } from "@/server/ai";
 import { CaptureRequest } from "@/shared/schemas";
 import { captureDefinition } from "@/server/definitions/capture";
 import { listDefinitions, termIndex } from "@/server/definitions/list";
@@ -7,6 +8,7 @@ import { projectFromRequest } from "@/server/projects/projects";
 export const dynamic = "force-dynamic";
 
 export const POST = withApi(async (req: Request) => {
+  await providerReady();
   const result = await captureDefinition(await readJson(req, CaptureRequest));
   return Response.json(result, { status: result.created ? 201 : 200 });
 });

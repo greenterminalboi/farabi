@@ -71,8 +71,11 @@ export function getPglite(): { pglite: PGlite; dataDir: string } | undefined {
   return globalForDb.__farabiPglite;
 }
 
-/** Closes the process-wide store and releases the store lock. Safe to call more than once. */
-export async function closeDb(): Promise<void> {
+/**
+ * Closes the process-wide store and releases the store lock. Safe to call more than once.
+ * `keepLock` holds on to the lock while the store's files are copied or replaced (backups).
+ */
+export async function closeDb({ keepLock = false }: { keepLock?: boolean } = {}): Promise<void> {
   const instance = globalForDb.__farabiDb;
   const disk = globalForDb.__farabiPglite;
   globalForDb.__farabiDb = undefined;
@@ -80,7 +83,7 @@ export async function closeDb(): Promise<void> {
   if (instance) await instance.destroy();
   if (disk) {
     if (!disk.pglite.closed) await disk.pglite.close();
-    releaseStoreLock(disk.dataDir);
+    if (!keepLock) releaseStoreLock(disk.dataDir);
   }
 }
 

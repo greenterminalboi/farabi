@@ -5,6 +5,8 @@ import { type NextRequest, NextResponse } from "next/server";
 import { getSession, matchesSecret, SESSION_COOKIE, SESSION_PATH } from "@/server/host/session";
 
 const UNSAFE_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
+/** Routes for the CLI only (research R9): the window's cookie isn't enough. */
+const BEARER_ONLY = /^\/api\/feedback\/[^/]+\/addressed$/;
 
 // Draft policy; T023 narrows it once the production build is checked on both engines.
 function csp(): string {
@@ -46,6 +48,7 @@ export function proxy(request: NextRequest): NextResponse {
     const bearer = auth?.startsWith("Bearer ") ? auth.slice(7) : null;
     const viaBearer = matchesSecret(bearer);
     if (!viaBearer && !matchesSecret(request.cookies.get(SESSION_COOKIE)?.value)) return deny(401);
+    if (!viaBearer && BEARER_ONLY.test(pathname)) return deny(403);
 
     if (UNSAFE_METHODS.has(request.method)) {
       const reqOrigin = request.headers.get("origin");

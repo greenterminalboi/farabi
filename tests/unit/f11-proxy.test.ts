@@ -56,6 +56,12 @@ describe("proxy request rules (contracts/launch-session.md)", () => {
     expect(passed(proxy(req("/api/settings", { method: "PUT", cookie: SECRET, origin: ORIGIN })))).toBe(true);
   });
 
+  it("lets only the CLI's bearer mark feedback addressed", () => {
+    const path = "/api/feedback/0b6f1c1e-0000-4000-8000-000000000000/addressed";
+    expect(proxy(req(path, { method: "POST", cookie: SECRET, origin: ORIGIN })).status).toBe(403);
+    expect(passed(proxy(req(path, { method: "POST", bearer: SECRET })))).toBe(true);
+  });
+
   it("sets the security headers on passed requests", () => {
     const res = proxy(req("/", { cookie: SECRET }));
     expect(res.headers.get("content-security-policy")).toContain("default-src 'self'");

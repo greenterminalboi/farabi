@@ -483,3 +483,17 @@ body { display: flex; flex-direction: column; }
 /* Function menus over the canvas are placed in page coordinates (story 8). */
 .canvas-function-menu, .edge-settings { position: fixed; z-index: 35; width: 220px; right: auto; }
 .edge-settings { width: 260px; background: var(--surface); }
+
+/* Feature 11: app settings (provider, API key, export folder, data) */
+.settings-stack { flex: 1; display: flex; flex-direction: column; overflow-y: auto; }
+.settings-stack > .settings-page { flex: none; overflow: visible; width: 100%; }
+.settings-page-app { padding-top: 0; }
+.app-settings h3 { font-size: 0.95em; margin: 16px 0 4px; }
+.app-settings-choices { display: flex; flex-direction: column; gap: 6px; margin: 8px 0; }
+.app-settings-choice { display: flex; gap: 8px; align-items: baseline; }
+.app-settings-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 6px 0; overflow-wrap: anywhere; }
+.app-settings-buttons { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 6px 0; }
+.app-settings input[type="text"], .app-settings input:not([type]), .app-settings input[type="password"] {
+  font: inherit; padding: 5px 8px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text); min-width: 0; flex: 1 1 220px;
+}
+.app-settings-list { list-style: none; padding: 0; margin: 4px 0; display: flex; flex-direction: column; gap: 6px; }

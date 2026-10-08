@@ -12,7 +12,9 @@ This contract covers how repo scripts reach Farabi's data once it lives in the d
 | 3 | Otherwise | **Closed store**: take `store.lock` and open PGlite in `<data dir>/store/` directly |
 
 The data dir is `FARABI_DATA_DIR` if set, otherwise the platform default (data-model.md §2).
-`--data-dir <path>` overrides both.
+`--data-dir <path>` overrides both, and also wins over `DATABASE_URL` (as built: a dev `.env.local`
+must not silently redirect a script aimed at a desktop store). Until cut-over, the repo's
+`.env.example` sets `DATABASE_URL`, so the scripts keep targeting Postgres unless `--data-dir` is given.
 
 ## Scripts
 
