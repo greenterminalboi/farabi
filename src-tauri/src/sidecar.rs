@@ -65,6 +65,9 @@ pub fn show_page(app: &AppHandle, page: &str) {
 }
 
 fn show_fatal(app: &AppHandle, detail: &str) {
+    // Also on stderr and in the log, so a failure before the window shows is still visible.
+    eprintln!("fatal: {detail}");
+    log_line(&format!("fatal: {detail}"));
     let mut url = local_page("fatal.html");
     url.query_pairs_mut().append_pair("detail", detail);
     if let Some(w) = app.get_webview_window("main") {

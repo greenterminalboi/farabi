@@ -11,6 +11,8 @@ const config = [
       ".next-test/**",
       ".next-scratch/**",
       ".next-desktop/**",
+      ".next-desktop-test/**",
+      ".desktop-test/**",
       "coverage/**",
       "test-results/**",
       "playwright-report/**",

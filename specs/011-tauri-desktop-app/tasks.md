@@ -207,7 +207,7 @@ gates G1–G3. No user story starts until this phase is done and all three gates
   decision (research R6).
 - [ ] T022 Run quickstart V1 on Windows (WebView2), on a Windows machine or VM with GPU
   acceleration. Record the results in `gates.md` and log them.
-- [ ] T023 Tune the CSP in `src/proxy.ts` to the narrowest policy that the production build
+- [X] T023 Tune the CSP in `src/proxy.ts` to the narrowest policy that the production build
   (`desktop:build`) runs under with no console CSP violations, on both engines. Record the final
   policy in contracts/launch-session.md, replacing the draft line.
 
@@ -314,7 +314,7 @@ and a fake reply streams with nothing else installed.
 
   Add `tests/desktop/wdio.conf.ts`, and add the `tauri-plugin-wdio-webdriver` to `src-tauri` as
   debug and test only (`cfg(feature = "e2e")`).
-- [ ] T033 [P] [US1] Write `tests/integration/f11-first-launch.test.ts`. It runs `startup.ts`
+- [X] T033 [P] [US1] Write `tests/integration/f11-first-launch.test.ts`. It runs `startup.ts`
   against an empty `memory://` store and a temp dir, then checks that:
   - every migration in `migrationList.ts` ran;
   - `runtime.json` has the data-model §5 shape;
@@ -327,16 +327,16 @@ and a fake reply streams with nothing else installed.
   `src/server/ai/index.ts`, resolve the provider through the config resolver (T055) when it
   exists. Until then, use `isDesktop() ? "fake" : process.env.AI_PROVIDER`. Note the dependency
   on T055 in the code comment.
-- [ ] T035 [US1] Finish packaging in `src-tauri/tauri.conf.json` and `scripts/desktop/`:
+- [X] T035 [US1] Finish packaging in `src-tauri/tauri.conf.json` and `scripts/desktop/`:
   - `desktop:build` produces `Farabi_<version>_aarch64.dmg` or `_x64.dmg` on macOS, and
     `Farabi_<version>_x64-setup.exe` on Windows;
   - the server runs from `<resources>/server/server.js` with the bundled `node` sidecar.
 
   Verify on a machine with **no system Node on PATH** (`env -i` launch on macOS) that the app
   still starts.
-- [ ] T036 [US1] Add a size check to `scripts/desktop/prepare-server.ts` and the `desktop:build`
+- [X] T036 [US1] Add a size check to `scripts/desktop/prepare-server.ts` and the `desktop:build`
   script. After `tauri build`, print each installer's size, and fail if one is ≥ 100 MB (SC-002).
-- [ ] T037 [P] [US1] Write `docs/desktop-install.md`. It covers:
+- [X] T037 [P] [US1] Write `docs/desktop-install.md`. It covers:
   - download and install on each platform;
   - the first-launch steps for an unsigned app: on macOS, right-click → Open, or
     `xattr -dr com.apple.quarantine /Applications/Farabi.app`; on Windows, SmartScreen → More info
@@ -360,7 +360,7 @@ and a fake reply streams with nothing else installed.
 
 ### Tests (write first)
 
-- [ ] T039 [P] [US2] Add Playwright projects to `playwright.config.ts`:
+- [X] T039 [P] [US2] Add Playwright projects to `playwright.config.ts`:
   - **`webkit-desktop`**: `webServer` runs the packaged standalone server
     (`node .desktop/server/server.js`) with `FARABI_HOST` unset, `FARABI_DATA_DIR=.farabi-e2e`
     (wiped before each run) and the existing test env (`AI_PROVIDER=fake`, test hooks). Browser:
@@ -380,13 +380,13 @@ and a fake reply streams with nothing else installed.
 
 ### Implementation
 
-- [ ] T041 [US2] Implement credential handling in `src-tauri/src/credentials.rs` (it is used by
+- [X] T041 [US2] Implement credential handling in `src-tauri/src/credentials.rs` (it is used by
   US4, but bridge dispatch needs it for parity tests that enter a key). Use the `keyring` crate
   with service `app.farabi`, and an allow-list containing only the name `anthropic-api-key`.
   `get { reveal }` returns `{ present, value? }`; `set` and `delete` are idempotent. Register it in
   the `bridge.rs` dispatch. Unit tests go in the Rust `#[cfg(test)]` block, using a mock keyring
   backend.
-- [ ] T042 [US2] Run `--project=webkit-desktop` and fix the failures. Work through the "WebKit
+- [X] T042 [US2] Run `--project=webkit-desktop` and fix the failures. Work through the "WebKit
   parity backlog" in `gates.md` (T031):
   - **WebKit engine differences** in files this lane owns: fix them here.
   - **Differences in `src/canvas/*` or the text layer** (v0.2-owned): log a precise repro in
@@ -412,7 +412,7 @@ provenance are kept, the import never merges, and repeating it is refused.
 
 ### Tests (write first)
 
-- [ ] T045 [P] [US3] Write `tests/integration/f11-import.test.ts`. The source is the `pg` test
+- [X] T045 [P] [US3] Write `tests/integration/f11-import.test.ts`. The source is the `pg` test
   database, filled with the existing fixtures (`tests/integration/fixtures.ts`) and covering every
   table. The destination is a `memory://` PGlite. Check that:
   - check returns `ready` with counts;
@@ -437,7 +437,7 @@ provenance are kept, the import never merges, and repeating it is refused.
      `'information_pressure', 'reply_model', 'ai_provider', 'default_model', 'summary_trigger',
      'feedback_export_dir', 'claude_code_path'`, with per-key value checks:
      - `ai_provider`: `value #>> '{}' IN ('claude','claude-code','fake')`;
-     - `default_model`: a string;
+     - `default_model`: a string, or JSON `null` to go back to the default;
      - `summary_trigger`: `IN ('reply','map')`;
      - `feedback_export_dir` and `claude_code_path`: a string or JSON `null`.
   2. Create `import_runs` with columns `id uuid DEFAULT gen_random_uuid()`,
@@ -449,7 +449,7 @@ provenance are kept, the import never merges, and repeating it is refused.
   3. Add an append-only trigger copying the `setting_changes_append_only` pattern.
 
   Extend `SettingKey` and add `ImportRunsTable` in `src/server/db/schema.ts` (additive only).
-- [ ] T047 [US3] Implement `src/server/db/importWeb.ts` (research R11, data-model.md §4):
+- [X] T047 [US3] Implement `src/server/db/importWeb.ts` (research R11, data-model.md §4):
   - `checkImport({ connectionString, attachmentsDir })` and
     `runImport({ connectionString, attachmentsDir })`;
   - the source is a short-lived `pg.Client`; the destination is the app's PGlite `db`;
@@ -465,16 +465,16 @@ provenance are kept, the import never merges, and repeating it is refused.
   - copy attachment files, verifying sizes;
   - write the `import_runs` row in its own transaction afterwards, for both outcomes;
   - strip the password from `source_label`.
-- [ ] T048 [P] [US3] Add the routes `src/app/api/host/import/check/route.ts` and
+- [X] T048 [P] [US3] Add the routes `src/app/api/host/import/check/route.ts` and
   `src/app/api/host/import/route.ts`, per contracts/http-additions.md "Import". Add zod schemas
   (additive) in `src/shared/schemas.ts`. They return `501 unsupported` in web mode.
-- [ ] T049 [P] [US3] Write `scripts/desktop/import.ts` (`npm run desktop:import -- [conn]`).
+- [X] T049 [P] [US3] Write `scripts/desktop/import.ts` (`npm run desktop:import -- [conn]`).
   - **App live**: the bearer HTTP call to `/api/host/import`.
   - **App closed**: open the store directly (after T068's target resolution) and run
     `runImport`.
 
   Print the counts and checksum result. Exit codes follow contracts/cli.md.
-- [ ] T050 [US3] Add **Settings → Data → Import from the web app** in `src/app/settings/`:
+- [X] T050 [US3] Add **Settings → Data → Import from the web app** in `src/app/settings/`:
   - a connection-string field, defaulting to `postgres://farabi:farabi@127.0.0.1:5432/farabi`;
   - an optional attachments folder picker (T057);
   - a **Check** button that shows counts or the refusal reason in plain words;
@@ -498,18 +498,18 @@ themselves.
 
 ### Tests (write first)
 
-- [ ] T052 [P] [US4] Write `tests/integration/f11-settings.test.ts`. Check that:
+- [X] T052 [P] [US4] Write `tests/integration/f11-settings.test.ts`. Check that:
   - the resolver precedence is row, then env, then default, for each key in data-model.md §3;
   - `PUT /api/settings` appends rows and rejects invalid values with the `CHECK` messages;
   - `feedback_export_dir` must be an existing, writable folder (otherwise `422
     folder_not_writable`);
   - `GET /api/settings` returns `{ value, source, changedAt }` for every key.
-- [ ] T053 [P] [US4] Write `tests/integration/f11-provider-ready.test.ts`. For every route that
+- [X] T053 [P] [US4] Write `tests/integration/f11-provider-ready.test.ts`. For every route that
   starts AI work (send, ask, branch, define, function runs), with the provider `claude` and no
   key, expect `422 provider_not_ready` with `reason: "no_api_key"`. No question edge or pending
   answer is created (count rows before and after). Repeat with `claude-code` and discovery stubbed
   to `not_found` and `signed_out`.
-- [ ] T054 [P] [US4] Write `tests/unit/f11-claude-code-discovery.test.ts`. Use a fake filesystem
+- [X] T054 [P] [US4] Write `tests/unit/f11-claude-code-discovery.test.ts`. Use a fake filesystem
   and process runner to check:
   - the candidate order from research R8 on macOS and Windows;
   - `.cmd` handling builds `cmd.exe /d /s /c` with arguments quoted;
@@ -519,7 +519,7 @@ themselves.
 
 ### Implementation
 
-- [ ] T055 [US4] Implement `src/server/settings/config.ts`. `getConfig(key)` and
+- [X] T055 [US4] Implement `src/server/settings/config.ts`. `getConfig(key)` and
   `getAllConfig()` resolve the newest `setting_changes` row, then the env variable
   (`AI_PROVIDER`, `CLAUDE_MODEL`/`CLAUDE_CODE_MODEL`, `SUMMARY_TRIGGER`, `FEEDBACK_DIR`,
   `CLAUDE_CODE_BIN`), then the default (data-model.md §3). In desktop mode, env values are ignored
@@ -527,23 +527,23 @@ themselves.
   Export a `setConfig(key, value)` that appends a row. Then replace every direct `process.env` read
   of those variables in `src/server/` (ai, summaries, feedback) with the resolver. Log in STATUS.md
   that other lanes should use it (already announced).
-- [ ] T056 [US4] Extend `GET` and `PUT` in `src/app/api/settings/route.ts` for the new keys, per
+- [X] T056 [US4] Extend `GET` and `PUT` in `src/app/api/settings/route.ts` for the new keys, per
   contracts/http-additions.md "Settings", with zod schemas added to `src/shared/schemas.ts`. A
   valid `feedback_export_dir` change triggers `regenerateFeedbackFile()`.
-- [ ] T057 [P] [US4] Implement `dialog.pickFolder` in `src-tauri/src/bridge.rs` with
+- [X] T057 [P] [US4] Implement `dialog.pickFolder` in `src-tauri/src/bridge.rs` with
   `tauri-plugin-dialog` (folder mode, title and default path from params), and the route
   `src/app/api/host/pick-folder/route.ts` (`purpose` enum per contract).
-- [ ] T058 [P] [US4] Implement `shell.reveal` in `src-tauri/src/bridge.rs` with
+- [X] T058 [P] [US4] Implement `shell.reveal` in `src-tauri/src/bridge.rs` with
   `tauri-plugin-opener`. Reject any path not under the data, log or export dir with `forbidden`.
   Also add the routes `src/app/api/host/reveal/route.ts` (`target: "data" | "logs" | "export"`)
   and `src/app/api/host/info/route.ts`.
-- [ ] T059 [US4] Add the API key routes in `src/app/api/host/api-key/route.ts` (`GET` presence,
+- [X] T059 [US4] Add the API key routes in `src/app/api/host/api-key/route.ts` (`GET` presence,
   `PUT` with the value trimmed to 20–512 chars and optional `?verify=1`, `DELETE`). In
   `src/server/ai/claude.ts`, build the client with `getCredential({ reveal: true })` in desktop
   mode, falling back to `ANTHROPIC_API_KEY` in web mode. Rebuild it on the `credentials.changed`
   event. Register the key with `redact.ts` (T012) as soon as it is read. The key is never logged,
   persisted or returned.
-- [ ] T060 [US4] Implement Claude Code discovery and status in `src/server/ai/claudeCode.ts` and a
+- [X] T060 [US4] Implement Claude Code discovery and status in `src/server/ai/claudeCode.ts` and a
   new `src/server/ai/claudeCodeDiscovery.ts` (research R8):
   - the candidate order;
   - the login-shell lookup with a 3 s timeout;
@@ -553,16 +553,16 @@ themselves.
   Replace the module-level `CLAUDE_BIN` constant with the resolved path at call time. Keep
   `WORKDIR`, `childEnv()` and tools-disabled exactly as they are. Add the route
   `src/app/api/host/claude-code/route.ts` (`?refresh=1`).
-- [ ] T061 [US4] Add a `providerReady()` guard in `src/server/ai/index.ts` and call it at the
+- [X] T061 [US4] Add a `providerReady()` guard in `src/server/ai/index.ts` and call it at the
   start of each AI-starting route handler, before any write. It returns the `422
   provider_not_ready` body from contracts/http-additions.md. In the UI, the composer and the
   define and function actions keep their text, show the reason, and link to
   `/settings#provider`.
-- [ ] T062 [US4] Update `src/app/settings/` with the following sections:
+- [X] T062 [US4] Update `src/app/settings/` with the following sections:
   - **Provider**: Claude API, Claude Code (shown with its status: *Found · signed in*, *Found ·
     signed out* or *Not found*, plus **Recheck** and **Choose file…**) and Fake;
   - **API key**: save with verify, *Key saved*, remove;
-  - **Default model** and **Summary trigger**;
+  - **Default model** (the summary trigger was dropped: v0.2 removed `SUMMARY_TRIGGER` as dead code in b54929e);
   - **Feedback export folder**: **Choose…**, the current path, and the last export error if any;
   - **Data**: the data and log folders with **Show in Finder/Explorer**.
 
@@ -584,21 +584,21 @@ works from the installed app.
 
 ### Tests (write first)
 
-- [ ] T064 [P] [US5] Write `tests/integration/f11-feedback-export.test.ts`. Check that:
+- [X] T064 [P] [US5] Write `tests/integration/f11-feedback-export.test.ts`. Check that:
   - attachments are written under `<data dir>/feedback/attachments/` in desktop mode;
   - regeneration writes `FEEDBACK.md` and mirrors referenced attachments into
     `<export dir>/attachments/`;
   - a missing export dir leaves the item saved, and the last export error is reported by
     `GET /api/settings`;
   - stored paths containing `..` are rejected.
-- [ ] T065 [P] [US5] Write `tests/unit/f11-cli-target.test.ts` for `scripts/env.ts` resolution
+- [X] T065 [P] [US5] Write `tests/unit/f11-cli-target.test.ts` for `scripts/env.ts` resolution
   (contracts/cli.md table): `DATABASE_URL` wins, a live `runtime.json` pid selects HTTP, a stale or
   missing one selects the closed store, and `--data-dir` overrides. Also check exit code 2 for
   refusing scripts while live.
 
 ### Implementation
 
-- [ ] T066 [US5] Split feedback paths in `src/server/feedback/paths.ts`:
+- [X] T066 [US5] Split feedback paths in `src/server/feedback/paths.ts`:
   - `attachmentAbsPath` resolves under `<data dir>/feedback/` in desktop mode, and under
     `FEEDBACK_DIR` in web mode (unchanged);
   - the export target comes from `getConfig("feedback_export_dir")`.
@@ -607,11 +607,11 @@ works from the installed app.
   referenced attachment files, copying only missing or changed files. If the export dir is `null`,
   skip the export. If it is missing or unwritable, record the error for Settings and never fail
   the save. Keep the existing advisory lock (harmless on one connection).
-- [ ] T067 [US5] Add the route `src/app/api/feedback/[id]/addressed/route.ts` per
+- [X] T067 [US5] Add the route `src/app/api/feedback/[id]/addressed/route.ts` per
   contracts/http-additions.md "Feedback". It wraps `markAddressed()` and returns `200` addressed,
   `409` not_open or `404`. It is reachable only with Bearer auth in desktop mode (`proxy.ts`
   already enforces this). Also add `src/app/api/feedback/export/route.ts` (`POST` to regenerate).
-- [ ] T068 [US5] Rewrite target resolution in `scripts/env.ts` per contracts/cli.md (`pg`, live
+- [X] T068 [US5] Rewrite target resolution in `scripts/env.ts` per contracts/cli.md (`pg`, live
   app or closed store, plus `--data-dir`). Export `withTarget({ live, closed, refuseWhenLive })`.
   Then update the scripts:
   - `scripts/feedback-addressed.ts`: live calls the new route; closed calls `markAddressed`.
@@ -620,7 +620,7 @@ works from the installed app.
   - `scripts/migrate.ts`, `scripts/seed-large.ts`, `scripts/v1-convert.ts` and
     `scripts/v1-verify.ts`: refuse when live, with exit 2 and the message "Quit Farabi first; it
     migrates its own data on start." `migrate.ts` picks its backup method by backend (T069).
-- [ ] T069 [US5] Run quickstart V9 with the export folder set to the repo's `feedback/`, and check
+- [X] T069 [US5] Run quickstart V9 with the export folder set to the repo's `feedback/`, and check
   the CLAUDE.md workflow end to end with the app open and with it closed. Record the result in
   `gates.md`.
 
@@ -637,7 +637,7 @@ newer data, and an uninstall that keeps data.
 
 ### Tests (write first)
 
-- [ ] T070 [P] [US6] Write `tests/integration/f11-upgrade.test.ts` against a disk PGlite in a temp
+- [X] T070 [P] [US6] Write `tests/integration/f11-upgrade.test.ts` against a disk PGlite in a temp
   dir. Check that:
   - with a pending migration, `startup.ts` creates `backups/<ts>-pre-<name>/`, the backup opens,
     and then the migration runs;
@@ -653,7 +653,7 @@ newer data, and an uninstall that keeps data.
 
 ### Implementation
 
-- [ ] T072 [US6] Add the backup step to `src/server/db/startup.ts` (data-model.md §6, research
+- [X] T072 [US6] Add the backup step to `src/server/db/startup.ts` (data-model.md §6, research
   R10). Before running pending migrations, while the store is closed:
   1. copy `store/` to `backups/<UTC YYYYMMDDTHHMMSSZ>-pre-<first pending migration>/`;
   2. open the copy read-only to verify it, then close it;
@@ -664,11 +664,11 @@ newer data, and an uninstall that keeps data.
 
   Make `scripts/migrate.ts` (closed store) use the same function. This covers 010 R3's backup rule
   on PGlite.
-- [ ] T073 [US6] Configure the NSIS uninstaller in `src-tauri/tauri.conf.json` and an NSIS
+- [X] T073 [US6] Configure the NSIS uninstaller in `src-tauri/tauri.conf.json` and an NSIS
   template hook (`src-tauri/windows/hooks.nsh`): add an unchecked "Also delete my Farabi data"
   checkbox. If it is ticked, remove `%APPDATA%\app.farabi`. Otherwise keep it (FR-023). On macOS,
   document in `docs/desktop-install.md` that dragging to the Trash keeps the data.
-- [ ] T074 [US6] **Required** (coordinator, 2026-10-07 12:40: fsync is off, so scheduled
+- [X] T074 [US6] **Required** (coordinator, 2026-10-07 12:40: fsync is off, so scheduled
   backups are mandatory whatever G2 shows). Implement automatic snapshots in
   `src/server/db/snapshots.ts`. While the store has changed, every 10 minutes and on clean quit,
   run `dumpDataDir()` gzipped to `backups/auto-<ts>.tar.gz`, keeping the newest 6. Add a
@@ -683,7 +683,7 @@ newer data, and an uninstall that keeps data.
 
 ## Phase 9: Polish, CI and cut-over
 
-- [ ] T076 [P] Write `.github/workflows/desktop.yml`. Jobs on `macos-latest` and `windows-latest`:
+- [X] T076 [P] Write `.github/workflows/desktop.yml`. Jobs on `macos-latest` and `windows-latest`:
   1. `npm ci`;
   2. `npm run test:pglite`;
   3. `npm run test:pg` (macOS only, with the Postgres service);
@@ -714,6 +714,26 @@ newer data, and an uninstall that keeps data.
   and quickstart V1–V12 one final time. Record it in `gates.md`, then log completion in STATUS.md.
 
 ---
+
+## As-built notes (2026-10-07)
+
+- T033, T070 and T074's tests live in `tests/store/` (a vitest project with no shared setup), since
+  each opens its own on-disk PGlite folder: `f11-first-launch`, `f11-upgrade`, `f11-snapshots`.
+- T056: the new keys are on `GET/PUT /api/settings/app` (see contracts/http-additions.md).
+- T061: the composer and function menus (`src/canvas/*`, v0.2-owned) already keep the text and show
+  the server's message, which now says what to fix. Linking it to `/settings#provider` is handed to v0.2.
+- T072: newer-data is detected from `store-schema.json` beside the store, before opening it, because
+  even a read-only PGlite open rewrites its control files; the in-store check stays as a fallback.
+- T073: Tauri's own NSIS uninstaller already has an unchecked "Delete the application data" box
+  that removes `%APPDATA%\\app.farabi` and `%LOCALAPPDATA%\\app.farabi` (skipped on updates), so no
+  hook file was needed. To be confirmed on Windows in T075.
+- T039: `webkit-desktop` runs the packaged standalone server against the Postgres test database
+  (the e2e resets go through Postgres); the PGlite store has its own parity gate (G3). The
+  `desktop-windows` project is still to do, with T043 on a Windows machine.
+- T023: `'unsafe-eval'` stays until v0.2 adds `import "pixi.js/unsafe-eval"` to the canvas.
+- T076: Postgres and e2e jobs run on Ubuntu (macOS/Windows runners have no service containers);
+  the WebdriverIO smoke step is left out until T032/T040/T071 exist.
+- T059: removing the key is `PUT { value: null }` (Article II guard: no DELETE handlers).
 
 ## Dependencies and execution order
 

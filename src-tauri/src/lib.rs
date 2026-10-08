@@ -87,6 +87,7 @@ pub fn run() {
 
             let paths = paths::resolve(&handle)?;
             if let Err(e) = sidecar::start(&handle, &paths) {
+                eprintln!("fatal: {e}");
                 let mut url = Url::parse(if cfg!(windows) { "http://tauri.localhost/fatal.html" } else { "tauri://localhost/fatal.html" })?;
                 url.query_pairs_mut().append_pair("detail", &e);
                 if let Some(w) = handle.get_webview_window("main") {

@@ -29,7 +29,8 @@ const PGLITE_PARSERS = {
 function openPglite(dataDir: string | "memory://"): PGlite {
   // `relaxedDurability` stays off (research R2). With no dataDir, PGlite runs in memory.
   return new PGlite({
-    ...(dataDir === "memory://" ? {} : { dataDir: path.join(dataDir, "store") }),
+    // Runtime paths: without turbopackIgnore, Turbopack globs `**/store*` across the project into the bundle.
+    ...(dataDir === "memory://" ? {} : { dataDir: path.join(/*turbopackIgnore: true*/ dataDir, "store") }),
     extensions: { vector },
     parsers: PGLITE_PARSERS,
   });
@@ -71,8 +72,11 @@ export function getPglite(): { pglite: PGlite; dataDir: string } | undefined {
   return globalForDb.__farabiPglite;
 }
 
-/** Closes the process-wide store and releases the store lock. Safe to call more than once. */
-export async function closeDb(): Promise<void> {
+/**
+ * Closes the process-wide store and releases the store lock. Safe to call more than once.
+ * `keepLock` holds on to the lock while the store's files are copied or replaced (backups).
+ */
+export async function closeDb({ keepLock = false }: { keepLock?: boolean } = {}): Promise<void> {
   const instance = globalForDb.__farabiDb;
   const disk = globalForDb.__farabiPglite;
   globalForDb.__farabiDb = undefined;
@@ -80,7 +84,7 @@ export async function closeDb(): Promise<void> {
   if (instance) await instance.destroy();
   if (disk) {
     if (!disk.pglite.closed) await disk.pglite.close();
-    releaseStoreLock(disk.dataDir);
+    if (!keepLock) releaseStoreLock(disk.dataDir);
   }
 }
 

@@ -13,7 +13,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
       ADD CONSTRAINT setting_changes_ai_provider_check
         CHECK (key <> 'ai_provider' OR (value #>> '{}') IN ('claude', 'claude-code', 'fake')),
       ADD CONSTRAINT setting_changes_default_model_check
-        CHECK (key <> 'default_model' OR jsonb_typeof(value) = 'string'),
+        CHECK (key <> 'default_model' OR jsonb_typeof(value) IN ('string', 'null')),
       ADD CONSTRAINT setting_changes_summary_trigger_check
         CHECK (key <> 'summary_trigger' OR (value #>> '{}') IN ('reply', 'map')),
       ADD CONSTRAINT setting_changes_path_check

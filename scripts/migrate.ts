@@ -2,6 +2,9 @@
 // Before 0010_message_graph runs on a database that holds v1 data, it takes a backup with pg_dump
 // through `docker compose` into db/backups/ and refuses to migrate if that fails, unless
 // `--no-backup` is given (FR-063). `--test` targets the test database and skips the backup.
+// A desktop data folder (feature 11, contracts/cli.md) is migrated the way the app does it on
+// start: a verified copy of the closed store first, restored if a migration fails. While the app
+// is running on it, this refuses (exit 2).
 import { execFileSync } from "node:child_process";
 import { mkdirSync, statSync, writeFileSync } from "node:fs";
 import path from "node:path";
@@ -9,13 +12,32 @@ import { sql } from "kysely";
 import { Migrator } from "kysely/migration";
 import { createDb } from "../src/server/db/client";
 import { migrationProvider } from "../src/server/db/migrationList";
-import { loadEnv } from "./env";
+import { loadEnv, QUIT_FIRST, scriptTarget, withTarget } from "./env";
 
 loadEnv();
 const useTest = process.argv.includes("--test");
 const noBackup = process.argv.includes("--no-backup");
-const url = useTest ? process.env.TEST_DATABASE_URL : process.env.DATABASE_URL;
-if (!url) throw new Error(`${useTest ? "TEST_DATABASE_URL" : "DATABASE_URL"} is not set`);
+const target = scriptTarget(useTest);
+if (target.kind !== "pg") {
+  process.exit(
+    await withTarget({
+      target,
+      refuseWhenLive: QUIT_FIRST,
+      store: async () => {
+        const { prepareStore, StartupBlocked } = await import("../src/server/db/startup");
+        try {
+          console.log(`Up to date at ${await prepareStore()}.`);
+          return 0;
+        } catch (err) {
+          if (!(err instanceof StartupBlocked)) throw err;
+          console.error(err.message);
+          return 1;
+        }
+      },
+    }),
+  );
+}
+const url = target.url;
 
 const db = createDb(url);
 const migrator = new Migrator({ db, provider: migrationProvider });
@@ -35,12 +57,12 @@ async function needsBackup(): Promise<boolean> {
  * pg_dump, or pg_dump from the project's Postgres image reaching the host database.
  */
 function dumpDatabase(): Buffer {
-  const { username, pathname } = new URL(url!);
+  const { username, pathname } = new URL(url);
   const dbName = pathname.slice(1) || "farabi";
   const routes: Array<[string, string[]]> = [
     ["docker", ["compose", "exec", "-T", "db", "pg_dump", "-Fc", "-U", username || "farabi", dbName]],
-    ["pg_dump", ["-Fc", url!]],
-    ["docker", ["run", "--rm", "pgvector/pgvector:pg17", "pg_dump", "-Fc", url!.replace(/@(127\.0\.0\.1|localhost)([:/])/, "@host.docker.internal$2")]],
+    ["pg_dump", ["-Fc", url]],
+    ["docker", ["run", "--rm", "pgvector/pgvector:pg17", "pg_dump", "-Fc", url.replace(/@(127\.0\.0\.1|localhost)([:/])/, "@host.docker.internal$2")]],
   ];
   const failures: string[] = [];
   for (const [cmd, args] of routes) {

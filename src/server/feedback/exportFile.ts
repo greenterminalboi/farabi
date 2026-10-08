@@ -4,7 +4,7 @@ import { sql } from "kysely";
 import type { FeedbackItem, FeedbackState } from "@/shared/schemas";
 import { db as defaultDb, type DB } from "../db/client";
 import { listFeedback } from "./list";
-import { feedbackFilePath } from "./paths";
+import { exportDir, exportDirChosen, feedbackDir, REPO_ROOT, repoRelative } from "./paths";
 
 // The file Claude Code reads (contracts/feedback-file.md). Generated in full from the database;
 // never edited by hand.
@@ -79,22 +79,79 @@ export function renderFeedbackFile(items: FeedbackItem[], now: Date): string {
   return `${out.join("\n")}\n`;
 }
 
+export type ExportStatus = { ok: boolean; at: string; dir: string | null; error: string | null };
+const g = globalThis as unknown as { __farabiExportStatus?: ExportStatus };
+
+/** The outcome of the last export, shown in Settings (feature 11, T066). */
+export function lastExportStatus(): ExportStatus | null {
+  return g.__farabiExportStatus ?? null;
+}
+
+/**
+ * Copies the attachments FEEDBACK.md lists into `<export>/attachments/`, only those missing or
+ * changed. Nothing to do when attachments are stored in the export folder itself (the web app).
+ */
+async function mirrorAttachments(items: FeedbackItem[], out: string): Promise<FeedbackItem[]> {
+  const store = feedbackDir();
+  if (path.resolve(/*turbopackIgnore: true*/ out) === path.resolve(/*turbopackIgnore: true*/ store)) return items;
+  const mirrored: FeedbackItem[] = [];
+  for (const item of items) {
+    const attachments = [];
+    for (const a of item.attachments) {
+      // Runtime data, not part of the build: keep Turbopack from tracing the whole project.
+      const source = path.resolve(/*turbopackIgnore: true*/ REPO_ROOT, a.path);
+      const rel = path.relative(store, source);
+      if (rel.startsWith("..") || path.isAbsolute(rel)) {
+        attachments.push(a);
+        continue;
+      }
+      const dest = path.join(/*turbopackIgnore: true*/ out, rel);
+      const [from, to] = await Promise.all([fs.stat(/*turbopackIgnore: true*/ source).catch(() => null), fs.stat(/*turbopackIgnore: true*/ dest).catch(() => null)]);
+      if (from && (!to || to.size !== from.size || to.mtimeMs < from.mtimeMs)) {
+        await fs.mkdir(/*turbopackIgnore: true*/ path.dirname(dest), { recursive: true });
+        await fs.copyFile(/*turbopackIgnore: true*/ source, dest);
+      }
+      attachments.push({ ...a, path: repoRelative(dest) });
+    }
+    mirrored.push({ ...item, attachments });
+  }
+  return mirrored;
+}
+
 /**
  * Rewrites FEEDBACK.md from the database (research R6): under an advisory lock so the app and the
  * script never interleave, via a temp file and rename so a reader never sees half a file and a
- * failed write leaves the previous one in place.
+ * failed write leaves the previous one in place. Returns the file written, or null when export is
+ * off (the desktop app with no folder chosen).
  */
-export async function regenerateFeedbackFile(db: DB = defaultDb): Promise<string> {
-  const target = feedbackFilePath();
-  await db.transaction().execute(async (trx) => {
-    await sql`SELECT pg_advisory_xact_lock(hashtext('farabi_feedback_file'))`.execute(trx);
-    const items = await listFeedback(trx);
-    const text = renderFeedbackFile(items, new Date());
-    await fs.mkdir(path.dirname(target), { recursive: true });
-    const tmp = `${target}.tmp`;
-    await fs.writeFile(tmp, text);
-    await fs.rename(tmp, target);
-  });
+export async function regenerateFeedbackFile(db: DB = defaultDb): Promise<string | null> {
+  const out = exportDir();
+  if (!out) {
+    g.__farabiExportStatus = { ok: true, at: new Date().toISOString(), dir: null, error: null };
+    return null;
+  }
+  const target = path.join(/*turbopackIgnore: true*/ out, "FEEDBACK.md");
+  try {
+    await db.transaction().execute(async (trx) => {
+      await sql`SELECT pg_advisory_xact_lock(hashtext('farabi_feedback_file'))`.execute(trx);
+      // A chosen folder must exist (it may be on a drive that's gone); the default one is created.
+      if (exportDirChosen()) {
+        const stat = await fs.stat(/*turbopackIgnore: true*/ out).catch(() => null);
+        if (!stat?.isDirectory()) throw new Error(`The feedback export folder ${out} doesn't exist.`);
+      } else {
+        await fs.mkdir(/*turbopackIgnore: true*/ out, { recursive: true });
+      }
+      const items = await mirrorAttachments(await listFeedback(trx), out);
+      const text = renderFeedbackFile(items, new Date());
+      const tmp = `${target}.tmp`;
+      await fs.writeFile(/*turbopackIgnore: true*/ tmp, text);
+      await fs.rename(/*turbopackIgnore: true*/ tmp, target);
+    });
+  } catch (err) {
+    g.__farabiExportStatus = { ok: false, at: new Date().toISOString(), dir: out, error: err instanceof Error ? err.message : String(err) };
+    throw err;
+  }
+  g.__farabiExportStatus = { ok: true, at: new Date().toISOString(), dir: out, error: null };
   return target;
 }
 

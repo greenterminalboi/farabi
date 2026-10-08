@@ -5,6 +5,9 @@ import type { ReplyModelChoice } from "@/shared/models";
 import type { AIProvider } from "./provider";
 
 import { defaultModelFor, getConfig } from "../settings/config";
+import { getCredential } from "../host/bridge";
+import { claudeCodeStatus } from "./claudeCodeDiscovery";
+import type { ProviderNotReadyReason } from "@/shared/desktop";
 
 const providers = new Map<string, AIProvider>();
 
@@ -38,6 +41,40 @@ export function resolveReplyModel(choice: ReplyModelChoice): string | null {
   if (kind === "claude") return defaultClaudeModel();
   if (kind === "claude-code") return defaultModelFor("claude-code");
   return null;
+}
+
+/** The chosen provider can't run yet; the route answers 422 before writing anything (FR-014). */
+export class ProviderNotReadyError extends Error {
+  readonly code = "provider_not_ready";
+  readonly settingsPath = "/settings#provider";
+  constructor(
+    readonly provider: "claude" | "claude-code",
+    readonly reason: ProviderNotReadyReason,
+  ) {
+    super(
+      reason === "no_api_key"
+        ? "Add your Claude API key in Settings to use the Claude API."
+        : reason === "claude_code_not_found"
+          ? "Claude Code wasn't found on this computer. Choose its location in Settings, or pick another provider."
+          : "Claude Code isn't signed in. Run `claude` in a terminal and sign in, then try again.",
+    );
+  }
+}
+
+/**
+ * Throws ProviderNotReadyError when the provider in effect can't run: no API key for `claude`, or
+ * Claude Code missing or signed out. Called at the start of every route that starts AI work.
+ */
+export async function providerReady(): Promise<void> {
+  const kind = getConfig("ai_provider");
+  if (kind === "claude") {
+    const { present } = await getCredential({ reveal: false });
+    if (!present) throw new ProviderNotReadyError("claude", "no_api_key");
+  } else if (kind === "claude-code") {
+    const { status } = await claudeCodeStatus();
+    if (status === "not_found") throw new ProviderNotReadyError("claude-code", "claude_code_not_found");
+    if (status === "signed_out") throw new ProviderNotReadyError("claude-code", "claude_code_signed_out");
+  }
 }
 
 export { AIUnavailableError } from "./provider";

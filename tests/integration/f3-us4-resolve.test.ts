@@ -67,8 +67,16 @@ describe("US4: confirm or reopen", () => {
       readdirSync(dir, { withFileTypes: true }).flatMap((e) =>
         e.isDirectory() ? files(path.join(dir, e.name)) : [path.join(dir, e.name)],
       );
+    // The one exception (feature 11, research R9): the desktop app's route for the CLI, which
+    // answers only the CLI's bearer secret and doesn't exist in the web app.
+    const cliRoute = path.join(root, "src/app/api/feedback/[id]/addressed/route.ts");
     for (const file of files(path.join(root, "src/app/api/feedback"))) {
       const src = readFileSync(file, "utf8");
+      if (file === cliRoute) {
+        expect(src).toMatch(/if \(!isDesktop\(\) \|\| !matchesSecret\(auth\?\.startsWith\("Bearer "\)/);
+        expect(src).not.toMatch(/cookies|SESSION_COOKIE/);
+        continue;
+      }
       expect(src, file).not.toMatch(/addressed|markAddressed/);
     }
   });

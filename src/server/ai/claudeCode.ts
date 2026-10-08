@@ -24,16 +24,16 @@ import {
   type SummaryInput,
 } from "./provider";
 import { defaultModelFor } from "../settings/config";
+import { claudeCodeBinary, isAuthError, noteClaudeCodeRun, spawnSpec } from "./claudeCodeDiscovery";
 
-const CLAUDE_BIN = process.env.CLAUDE_CODE_BIN ?? "claude";
 const TIMEOUT_MS = Number(process.env.CLAUDE_CODE_TIMEOUT_MS ?? 180_000);
 // An empty working directory, so no project CLAUDE.md or settings shape the replies.
 const WORKDIR = mkdtempSync(path.join(tmpdir(), "farabi-claude-"));
 
 
 /** Environment for the child: no API credentials (so it can't bill an API key) and no parent session. */
-function childEnv(): NodeJS.ProcessEnv {
-  const env = { ...process.env };
+export function childEnv(source: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
+  const env = { ...source };
   for (const key of Object.keys(env)) {
     if (key === "ANTHROPIC_API_KEY" || key === "ANTHROPIC_AUTH_TOKEN" || key === "CLAUDECODE" || key.startsWith("CLAUDE_CODE_")) {
       delete env[key];
@@ -76,17 +76,30 @@ export function headlessArgs(system: string, options: { effort?: string; model?:
  * Runs `claude -p` with streaming JSON output. Text deltas go to onText as they arrive; the final
  * `result` line decides success. Verified against Claude Code 2.1.283 (research R3).
  */
-function runHeadless(
+async function runHeadless(
   system: string,
   prompt: string,
   options: { effort?: string; model?: string | null; signal?: AbortSignal; onText?: (delta: string) => void },
 ): Promise<string> {
   const args = headlessArgs(system, options);
+  // Found at run time, without relying on the shell's PATH (feature 11, research R8).
+  let bin: string;
+  try {
+    bin = await claudeCodeBinary();
+  } catch (err) {
+    throw new AIUnavailableError(err instanceof Error ? err.message : "Claude Code wasn't found");
+  }
+  const spec = spawnSpec(bin, args);
 
   return new Promise((resolve, reject) => {
     if (options.signal?.aborted) return reject(abortError());
-    // The binary is found at run time; keep the bundler from tracing the whole project for it.
-    const child = spawn(/*turbopackIgnore: true*/ CLAUDE_BIN, args, { cwd: WORKDIR, env: childEnv(), stdio: ["pipe", "pipe", "pipe"] });
+    // Keep the bundler from tracing the whole project for the binary.
+    const child = spawn(/*turbopackIgnore: true*/ spec.command, spec.args, {
+      cwd: WORKDIR,
+      env: childEnv(),
+      stdio: ["pipe", "pipe", "pipe"],
+      windowsVerbatimArguments: spec.windowsVerbatimArguments,
+    });
     let pending = "";
     let stderr = "";
     let delivered = "";
@@ -148,11 +161,13 @@ function runHeadless(
       handleLine(pending);
       if (code === 0 && result && !result.is_error && result.subtype === "success" && result.result?.trim()) {
         const text = result.result.trim();
+        noteClaudeCodeRun("ok");
         settle(() => resolve(text));
         return;
       }
       // Usage limits, auth problems and outages all land here; the app offers a retry.
       const detail = result?.result ?? stderr.trim().split("\n").at(-1) ?? `exit code ${code}`;
+      if (isAuthError(`${detail}\n${stderr}`)) noteClaudeCodeRun("auth_error");
       console.error("Claude Code call failed:", detail);
       fail(`Claude Code call failed: ${detail}`);
     });

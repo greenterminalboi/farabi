@@ -72,19 +72,19 @@ export async function writeAttachmentFiles(
   written: string[],
 ): Promise<AttachmentRow[]> {
   if (uploads.length === 0) return [];
-  const dir = path.join("attachments", itemId);
-  await fs.mkdir(attachmentAbsPath(dir), { recursive: true });
+  const dir = path.join(/*turbopackIgnore: true*/ "attachments", itemId);
+  await fs.mkdir(/*turbopackIgnore: true*/ attachmentAbsPath(dir), { recursive: true });
   const rows: AttachmentRow[] = [];
   for (const u of uploads) {
     const id = randomUUID();
-    const filePath = path.join(dir, `${id}.${EXT[u.mimeType]}`).split(path.sep).join("/");
-    await fs.writeFile(attachmentAbsPath(filePath), u.bytes, { flag: "wx" });
+    const filePath = path.join(/*turbopackIgnore: true*/ dir, `${id}.${EXT[u.mimeType]}`).split(path.sep).join("/");
+    await fs.writeFile(/*turbopackIgnore: true*/ attachmentAbsPath(filePath), u.bytes, { flag: "wx" });
     written.push(attachmentAbsPath(filePath));
     let thumbPath: string | null = null;
     if (u.thumb) {
       const thumbExt = sniffImageType(u.thumb) === "image/jpeg" ? "jpg" : "webp";
-      thumbPath = path.join(dir, `${id}.thumb.${thumbExt}`).split(path.sep).join("/");
-      await fs.writeFile(attachmentAbsPath(thumbPath), u.thumb, { flag: "wx" });
+      thumbPath = path.join(/*turbopackIgnore: true*/ dir, `${id}.thumb.${thumbExt}`).split(path.sep).join("/");
+      await fs.writeFile(/*turbopackIgnore: true*/ attachmentAbsPath(thumbPath), u.thumb, { flag: "wx" });
       written.push(attachmentAbsPath(thumbPath));
     }
     rows.push({

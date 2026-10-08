@@ -159,6 +159,20 @@ fn dispatch(app: &AppHandle, link: &Arc<Link>, kind: &str, params: &Value) -> Ha
             let picked = dialog.blocking_pick_folder().and_then(|p| p.into_path().ok());
             Ok(json!({ "path": picked.map(|p| p.to_string_lossy().to_string()) }))
         }
+        "dialog.pickFile" => {
+            let mut dialog = app.dialog().file();
+            if let Some(title) = params["title"].as_str() {
+                dialog = dialog.set_title(title);
+            }
+            if let Some(dir) = params["defaultPath"].as_str() {
+                dialog = dialog.set_directory(dir);
+            }
+            if let Some(w) = app.get_webview_window("main") {
+                dialog = dialog.set_parent(&w);
+            }
+            let picked = dialog.blocking_pick_file().and_then(|p| p.into_path().ok());
+            Ok(json!({ "path": picked.map(|p| p.to_string_lossy().to_string()) }))
+        }
         "shell.reveal" => {
             // Only shows the item in Finder/Explorer; it never opens or runs it.
             let path = params["path"].as_str().ok_or(("bad_request", "path is required".to_string()))?;
@@ -167,6 +181,18 @@ fn dispatch(app: &AppHandle, link: &Arc<Link>, kind: &str, params: &Value) -> Ha
                 return Err(("forbidden", "Only existing absolute paths can be revealed".to_string()));
             }
             app.opener().reveal_item_in_dir(p).map_err(|e| ("error", e.to_string()))?;
+            Ok(json!({ "ok": true }))
+        }
+        "app.restart" => {
+            // Answer first: the restart stops this server, which is waiting for the reply.
+            let app = app.clone();
+            std::thread::spawn(move || {
+                std::thread::sleep(Duration::from_millis(300));
+                if let Err(e) = crate::sidecar::restart(&app) {
+                    crate::sidecar::show_page(&app, "fatal.html");
+                    eprintln!("restart failed: {e}");
+                }
+            });
             Ok(json!({ "ok": true }))
         }
         "window.focus" => {

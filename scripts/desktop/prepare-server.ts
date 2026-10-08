@@ -5,7 +5,8 @@ import path from "node:path";
 
 const ROOT = path.resolve(import.meta.dirname, "../..");
 const DIST = path.join(ROOT, process.env.NEXT_DIST_DIR ?? ".next-desktop");
-const OUT = path.join(ROOT, ".desktop", "server");
+// DESKTOP_SERVER_OUT lets e2e prepare a test-hooks build beside the real one (T039).
+const OUT = path.resolve(ROOT, process.env.DESKTOP_SERVER_OUT ?? path.join(".desktop", "server"));
 
 // Runtime assets PGlite reads from its own package folder. Output tracing doesn't always see
 // them, because they're loaded by URL rather than imported.
@@ -16,10 +17,22 @@ const PGLITE_ASSETS = [
   "@electric-sql/pglite-pgvector/dist/vector.tar.gz",
 ];
 
+/** Only these may be at the top of the standalone output. */
+const ALLOWED_TOP = new Set(["server.js", "package.json", "node_modules", path.basename(DIST), "public"]);
+
 async function main() {
   const standalone = path.join(DIST, "standalone");
   if (!existsSync(path.join(standalone, "server.js"))) {
     throw new Error(`${path.relative(ROOT, standalone)}/server.js is missing; run FARABI_STANDALONE=1 next build first`);
+  }
+  // Output tracing copies any project file a dynamic path *might* reach. Source, tests or the
+  // repo's feedback/ (private notes and screenshots) must never ship inside the app.
+  const extra = (await fs.readdir(standalone)).filter((f) => !ALLOWED_TOP.has(f) && f !== "package-lock.json" && f !== "tsconfig.json");
+  if (extra.length) {
+    throw new Error(
+      `The standalone build traced project files it shouldn't ship: ${extra.join(", ")}. ` +
+        "Mark the runtime path that caused it with /*turbopackIgnore: true*/ (see src/server/db/client.ts).",
+    );
   }
   await fs.rm(OUT, { recursive: true, force: true });
   await fs.cp(standalone, OUT, { recursive: true, verbatimSymlinks: false, dereference: true });

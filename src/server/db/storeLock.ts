@@ -12,7 +12,7 @@ export class StoreLockedError extends Error {
   }
 }
 
-export const lockPath = (dataDir: string) => path.join(dataDir, "store.lock");
+export const lockPath = (dataDir: string) => path.join(/*turbopackIgnore: true*/ dataDir, "store.lock");
 
 export function pidAlive(pid: number): boolean {
   try {
@@ -26,7 +26,7 @@ export function pidAlive(pid: number): boolean {
 
 export function readLock(dataDir: string): LockInfo | null {
   try {
-    return JSON.parse(readFileSync(lockPath(dataDir), "utf8")) as LockInfo;
+    return JSON.parse(readFileSync(/*turbopackIgnore: true*/ lockPath(dataDir), "utf8")) as LockInfo;
   } catch {
     return null;
   }
@@ -37,7 +37,7 @@ export function acquireStoreLock(dataDir: string, pid = process.pid): LockInfo {
   const info: LockInfo = { pid, startedAt: new Date().toISOString() };
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
-      const fd = openSync(lockPath(dataDir), "wx", 0o600);
+      const fd = openSync(/*turbopackIgnore: true*/ lockPath(dataDir), "wx", 0o600);
       writeSync(fd, JSON.stringify(info));
       closeSync(fd);
       return info;
@@ -46,7 +46,7 @@ export function acquireStoreLock(dataDir: string, pid = process.pid): LockInfo {
       const holder = readLock(dataDir);
       if (holder && holder.pid !== pid && pidAlive(holder.pid)) throw new StoreLockedError(holder);
       // Stale (or unreadable, or our own from an earlier start in this process): replace it.
-      rmSync(lockPath(dataDir), { force: true });
+      rmSync(/*turbopackIgnore: true*/ lockPath(dataDir), { force: true });
     }
   }
   throw new Error("Could not take the store lock");
@@ -55,5 +55,5 @@ export function acquireStoreLock(dataDir: string, pid = process.pid): LockInfo {
 /** Removes the lock if this process holds it. */
 export function releaseStoreLock(dataDir: string, pid = process.pid): void {
   const holder = readLock(dataDir);
-  if (holder?.pid === pid) rmSync(lockPath(dataDir), { force: true });
+  if (holder?.pid === pid) rmSync(/*turbopackIgnore: true*/ lockPath(dataDir), { force: true });
 }

@@ -79,3 +79,62 @@ test:e2e:webkit`): **43/44 passed.**
 
 **Still to do for G1**: the frames probe in the real WKWebView window with it in front (owner),
 then the same on Windows (T022), and the CSP tuning on the production build (T023).
+
+## US1 packaging (T035, T036, T038 macOS half), 2026-10-07, macOS arm64 (M-series)
+
+| Check | Result |
+|---|---|
+| Installer | `Farabi_0.2.0_aarch64.dmg`, **61.5 MB** (SC-002 limit 100 MB) |
+| Launch with no system Node (`env -i HOME=…`, no PATH) | Starts; store created, every migration run, `runtime.json` written |
+| First launch on an empty data folder (initdb + migrations) | **3.72 s** to ready |
+| Warm launch | **0.56 s**, 0.57 s to ready |
+| Quit (SIGTERM to the shell) | 0.40–0.49 s; `runtime.json` and `store.lock` removed, final snapshot taken, no orphan `node` |
+| Without the session cookie or bearer | 401 |
+| Claude Code discovery with no PATH | Found `/opt/homebrew/bin/claude` 2.1.293 through the login shell |
+
+Notes:
+- Running the binary through a symlinked path (for example a DMG mounted under `/var/folders`,
+  which is `/private/var/folders`) fails with "unknown path": Tauri refuses a starting binary whose
+  path goes through a symlink. Normal mounts (`/Volumes/…`) and `/Applications` are unaffected.
+  Fatal start-up errors are now also printed to stderr and the server log.
+- A SIGTERM quit leaves `/tmp/app_farabi_si.sock` behind, but the next launch starts normally
+  (checked). An apparent hang during testing was single-instance working as designed: an earlier
+  instance stuck on its error page was still running, and the new launch handed over to it.
+- Still for the owner: a clean macOS user account, and the Windows installer (T038).
+
+## US2 parity on WebKit with the packaged server (T039, T042, T023), 2026-10-07, macOS arm64
+
+`npm run test:e2e:desktop`: the packaged standalone server (prepared like the app bundle, test
+hooks on), the desktop content security policy enforced (`FARABI_CSP=1`), WebKit.
+
+| Check | Result |
+|---|---|
+| e2e suite (44) + `f11-csp` (policy blocks nothing on canvas, streaming, Settings, Definitions, Feedback) | **45/45** |
+| 5,000-element canvas open | 533 ms |
+| Pan far / pan near / zoom p95 | 16 / 16 / 16 ms (budgets 16.7 / 16.7 / 20) |
+| Minimap | 12 ms |
+
+CSP as shipped: `default-src 'self'; img-src 'self' data: blob:; font-src 'self' data:;
+style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; worker-src 'self' blob:;
+connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'`. Without
+`'unsafe-eval'`, PixiJS 8 fails ("Current environment does not allow unsafe-eval"). Dropping it
+needs `import "pixi.js/unsafe-eval"` in `src/canvas` (v0.2-owned), handed off in STATUS.md.
+
+Bundle hygiene: Turbopack had traced runtime-folder paths as globs over the repo (tests, sources,
+the repo's `feedback/FEEDBACK.md`). Fixed; `prepare-server` now fails the build on any stray
+top-level file. Clean server: 87 MB unpacked.
+
+## US5 feedback loop (T069, quickstart V9), 2026-10-07, macOS arm64, packaged app
+
+Export folder set to a temp folder (not the repo's `feedback/`, to leave the owner's real file alone).
+
+| Step | Result |
+|---|---|
+| Set the export folder in the running app | FEEDBACK.md written there at once |
+| New item with a screenshot | Item listed in FEEDBACK.md; screenshot mirrored to `<export>/attachments/<id>/` |
+| `npm run feedback:addressed -- <id> --data-dir <D>`, app open | "Marked … addressed.", exit 0, via the app (bearer route); FEEDBACK.md shows `addressed` |
+| Same again | "…is addressed; only open items…", exit 2 (unchanged CLI contract) |
+| App closed: `feedback:export`, `feedback:addressed`, `db:migrate` with `--data-dir` | Open the store directly; exit 0 / 2 / 0 ("Up to date at 0012_desktop") |
+
+Until cut-over, the repo's `.env.example` sets `DATABASE_URL`, so the CLAUDE.md command targets
+Postgres unless `--data-dir` is given; after cut-over it finds the installed app's data by default.

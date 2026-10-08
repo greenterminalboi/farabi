@@ -37,6 +37,20 @@ conversations read as columns, and every tangent fans out beside them.
 Specs, plan and tasks live in `specs/`; v0.2 is `specs/010-v02-message-graph-canvas/`. Project
 rules are in `.specify/memory/constitution.md`.
 
+## Desktop app
+
+Farabi is becoming a desktop app for macOS and Windows (feature 011). The installer brings
+everything it needs: no Postgres, Node or anything else. See
+[docs/desktop-install.md](docs/desktop-install.md) for installing, first steps, and where data and
+logs live (`~/Library/Application Support/app.farabi/` and `~/Library/Logs/app.farabi/` on macOS,
+`%APPDATA%\app.farabi\` and `%LOCALAPPDATA%\app.farabi\logs\` on Windows).
+
+For development: `npm run desktop:dev` runs the app from source with its data in `.farabi-dev/`
+(needs Rust), and `npm run desktop:build` makes the installer for this machine. Until the switch-over,
+the web app below and the repo scripts keep using Postgres; pass `--data-dir <folder>` to point a
+script (`feedback:addressed`, `feedback:export`, `db:migrate`, `desktop:import`) at a desktop data
+folder instead. With the app open, the scripts go through it.
+
 ## Prerequisites
 
 - Node.js 22 or newer and npm
