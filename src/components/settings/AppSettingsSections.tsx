@@ -115,6 +115,26 @@ export function AppSettingsSections() {
         <ModelField key={config.default_model.value ?? ""} value={config.default_model.value} onSave={(value) => void save({ key: "default_model", value })} />
       </div>
 
+      <div className="settings-section" id="lexicon">
+        <h2>Lexicon</h2>
+        <label className="app-settings-choice">
+          <input
+            type="checkbox"
+            checked={config.lexicon_autodetect.value}
+            data-testid="lexicon-autodetect"
+            onChange={(e) => void save({ key: "lexicon_autodetect", value: e.target.checked })}
+          />
+          <span>
+            <strong>Pick up lexicon words automatically</strong>
+            <span className="muted">
+              {" "}
+              · Lexicon terms you type, like &ldquo;summarize&rdquo; or &ldquo;table&rdquo;, are added as chips you can remove before sending.
+              When off, only chips you add yourself are used.
+            </span>
+          </span>
+        </label>
+      </div>
+
       <div className="settings-section">
         <h2>Feedback export</h2>
         <p className="muted">

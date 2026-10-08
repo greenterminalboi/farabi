@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { CanvasHost } from "@/canvas/CanvasHost";
 import { AttachBanner, BackToDrill } from "@/drill/CanvasOverlays";
 import { PROJECT_COOKIE, resolveProject } from "@/server/projects/projects";
+import { getConfig } from "@/server/settings/config";
 
 export const dynamic = "force-dynamic";
 
@@ -20,7 +21,13 @@ export default async function Home({ searchParams }: { searchParams: Promise<Par
   const attachTo = one(params.attachTo);
   return (
     <>
-      <CanvasHost key={projectId} projectId={projectId} focus={one(params.focus)} span={one(params.span)} />
+      <CanvasHost
+        key={projectId}
+        projectId={projectId}
+        focus={one(params.focus)}
+        span={one(params.span)}
+        lexiconAutodetect={getConfig("lexicon_autodetect")}
+      />
       {attachTo ? <AttachBanner drillId={attachTo} returnTo={returnTo} /> : returnTo && <BackToDrill href={returnTo} />}
     </>
   );
