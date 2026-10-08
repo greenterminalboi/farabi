@@ -40,7 +40,7 @@ async function recompute(trx: Trx, drill: DrillRow, roundId: string): Promise<vo
   // Each rung's level just before the round's own changes, by the high-water mark at its end.
   const before = new Map<string, RungLevel>();
   for (const c of changes) if (BigInt(c.seq) <= BigInt(end.levels_seq)) before.set(c.rung_id, { level: c.to_level, state: c.to_state });
-  const [ladder, current, settings] = await Promise.all([latestLadder(trx, drill.id), currentLevels(trx, drill.id), drillSettings(drill)]);
+  const [ladder, current, settings] = await Promise.all([latestLadder(trx, drill.id), currentLevels(trx, drill.id), drillSettings(drill, trx)]);
   const corrected = levelChanges(outcomes, asLadder(ladder.rungs), before, settings).changes.filter((c) => c.fromState !== "locked");
 
   const mine = changes.filter((c) => c.round_id === roundId && (c.cause === "auto" || c.cause === "recompute") && c.from_state !== "locked");

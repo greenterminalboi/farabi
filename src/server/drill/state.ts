@@ -60,8 +60,8 @@ export async function currentLevels(q: Q, drillId: string): Promise<Map<string, 
 }
 
 /** The drill's settings: its own overrides, then the kind values, then the defaults (R10, C6). */
-export async function drillSettings(drill: Pick<DrillRow, "node_id">): Promise<DrillSettings & { raw: Record<string, string> }> {
-  const raw = await resolvedValues("drill", drill.node_id);
+export async function drillSettings(drill: Pick<DrillRow, "node_id">, q?: Q): Promise<DrillSettings & { raw: Record<string, string> }> {
+  const raw = await resolvedValues("drill", drill.node_id, q);
   return {
     roundSize: Number(raw.round_size),
     openLevel: Number(raw.open_level),

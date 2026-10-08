@@ -226,7 +226,7 @@ export async function endRound(roundId: string, by: "all_answered" | "user"): Pr
 
     // Redo attempts from the failed list count for the round they were made in (FR-023 AS2).
     const outcomes = roundOutcomes(snapshot, mine);
-    const [ladder, levels, settings] = await Promise.all([latestLadder(trx, drill.id), currentLevels(trx, drill.id), drillSettings(drill)]);
+    const [ladder, levels, settings] = await Promise.all([latestLadder(trx, drill.id), currentLevels(trx, drill.id), drillSettings(drill, trx)]);
     const { changes, complete } = levelChanges(outcomes, asLadder(ladder.rungs), levels, settings);
     if (changes.length) {
       await trx

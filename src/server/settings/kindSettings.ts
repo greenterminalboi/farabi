@@ -4,7 +4,7 @@
 // is in effect and a null value means "not set here" (Article VI). Saving never runs a function.
 import { findKind, getKind, kindsWithSettings, type SettingDeclaration } from "@/shared/kinds";
 import type { KindSettingsResponse, ResolvedSetting } from "@/shared/schemas";
-import { db } from "../db/client";
+import { db, type DB, type Trx } from "../db/client";
 import { ConflictError, InvalidRequestError } from "../errors";
 import { getFunction } from "../functions/definitions";
 import { type ElementRow, loadLive } from "../graph/elements";
@@ -13,8 +13,8 @@ import { assertId } from "../ids";
 type Row = { key: string; node_id: string | null; value: unknown; created_at: Date };
 
 /** Newest row per (key, scope) for a kind, for kind-level and optionally one node. */
-async function latestRows(kind: string, nodeId: string | null): Promise<Row[]> {
-  return db
+async function latestRows(kind: string, nodeId: string | null, q: DB | Trx): Promise<Row[]> {
+  return q
     .selectFrom("kind_setting_changes")
     .select(["key", "node_id", "value", "created_at"])
     .where("kind", "=", kind)
@@ -44,16 +44,19 @@ function resolve(decl: SettingDeclaration, rows: Row[], nodeId: string | null): 
   return { key: decl.key, value: decl.default, source: "default", kindValue: null, changedAt: null };
 }
 
-/** Each declared setting of a kind, resolved: edge override, then kind value, then default. */
-export async function resolveKindSettings(kind: string, nodeId: string | null = null): Promise<ResolvedSetting[]> {
+/**
+ * Each declared setting of a kind, resolved: edge override, then kind value, then default. Pass the
+ * open transaction as `q` when inside one: PGlite has a single connection, so `db` would deadlock.
+ */
+export async function resolveKindSettings(kind: string, nodeId: string | null = null, q: DB | Trx = db): Promise<ResolvedSetting[]> {
   const decl = getKind(kind);
   if (decl.settings.length === 0) return [];
-  const rows = await latestRows(kind, nodeId);
+  const rows = await latestRows(kind, nodeId, q);
   return decl.settings.map((s) => resolve(s, rows, nodeId));
 }
 
-export async function resolvedValues(kind: string, nodeId: string | null = null): Promise<Record<string, string>> {
-  return Object.fromEntries((await resolveKindSettings(kind, nodeId)).map((s) => [s.key, s.value]));
+export async function resolvedValues(kind: string, nodeId: string | null = null, q: DB | Trx = db): Promise<Record<string, string>> {
+  return Object.fromEntries((await resolveKindSettings(kind, nodeId, q)).map((s) => [s.key, s.value]));
 }
 
 export async function listKindSettings(): Promise<KindSettingsResponse> {
@@ -73,7 +76,7 @@ function declaration(kind: string, key: string, value: string | null): SettingDe
 }
 
 async function record(kind: string, key: string, nodeId: string | null, value: string | null): Promise<void> {
-  const rows = await latestRows(kind, nodeId);
+  const rows = await latestRows(kind, nodeId, db);
   const current = rows.find((r) => r.key === key && r.node_id === nodeId);
   const currentValue = typeof current?.value === "string" ? current.value : null;
   if (currentValue === value) return; // unchanged: nothing to record
