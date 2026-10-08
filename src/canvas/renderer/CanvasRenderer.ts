@@ -9,6 +9,7 @@ import { Application, Container, Graphics, Rectangle } from "pixi.js";
 import { Viewport } from "pixi-viewport";
 import type { Display } from "@/shared/kinds";
 import type { Review } from "@/shared/schemas";
+import { hexToNumber, rgba, type Scheme, TOKENS, type TokenName } from "@/shared/theme/tokens";
 import type { CameraView } from "../camera";
 import type { Box } from "../geometry";
 import { Minimap } from "./minimap";
@@ -23,37 +24,33 @@ type Palette = {
   aiFill: number;
   connector: number;
   focus: number;
+  marker: number;
   danger: number;
   region: number;
 };
 
-const LIGHT: Palette = {
-  bg: 0xf7f7f5,
-  surface: 0xffffff,
-  border: 0xd8d8d2,
-  bubble: 0xe7ecff,
-  bubbleBorder: 0xc5cff5,
-  ai: 0x7048e8,
-  aiFill: 0xf4f0fe,
-  connector: 0x9a9aa0,
-  focus: 0xfab005,
-  danger: 0xc92a2a,
-  region: 0xefefeb,
-};
+/** The canvas palette, read from the shared colour tokens (the same values as the CSS ones). */
+function palette(scheme: Scheme): Palette {
+  const t = TOKENS[scheme];
+  const n = (name: TokenName) => hexToNumber(t[name]);
+  return {
+    bg: n("bg"),
+    surface: n("surface"),
+    border: n("frame-border"),
+    bubble: n("accent-soft"),
+    bubbleBorder: n("bubble-border"),
+    ai: n("ai"),
+    aiFill: n("ai-soft"),
+    connector: n("connector"),
+    focus: n("focus"),
+    marker: n("marker-hue"),
+    danger: n("bad"),
+    region: n("region"),
+  };
+}
 
-const DARK: Palette = {
-  bg: 0x161618,
-  surface: 0x1f1f22,
-  border: 0x38383e,
-  bubble: 0x252b45,
-  bubbleBorder: 0x39426a,
-  ai: 0x9775fa,
-  aiFill: 0x2a2340,
-  connector: 0x707078,
-  focus: 0xfab005,
-  danger: 0xe03131,
-  region: 0x1c1c1f,
-};
+const LIGHT = palette("light");
+const DARK = palette("dark");
 
 /** Everything the renderer needs about one element. */
 export type DrawElement = {
@@ -158,7 +155,7 @@ export class CanvasRenderer {
     viewport.addChild(this.regionLayer, this.treeLayer, this.focusLayer);
     app.stage.addChild(viewport);
     // The minimap: its own panel above the text layer (FR-027).
-    const dark = this.palette === DARK;
+    const tokens = TOKENS[this.palette === DARK ? "dark" : "light"];
     this.minimap = new Minimap(
       host,
       (world) => {
@@ -167,7 +164,7 @@ export class CanvasRenderer {
         this.cameraDirty = true;
         for (const cb of this.minimapListeners) cb();
       },
-      dark ? { bg: "rgba(31,31,34,0.94)", border: "#38383e", view: "#fab005" } : { bg: "rgba(255,255,255,0.94)", border: "#d8d8d2", view: "#e67700" },
+      { bg: rgba(tokens.surface, 0.94), border: tokens["frame-border"], view: tokens.focus },
     );
     // The host changes size with the side panel too, not only with the window.
     this.resizeObserver = new ResizeObserver(() => app.resize());
@@ -367,7 +364,7 @@ export class CanvasRenderer {
     const midY = from.y + Math.max(12, (top.y - from.y) / 2);
     const curve: [Point, Point, Point, Point] = [from, { x: top.x, y: from.y }, { x: top.x, y: midY }, top];
     this.strokeCurve(g, curve, p.connector, el.unsent ? 5 : null);
-    if (el.anchorAt !== null) g.circle(from.x, from.y, 3).fill(p.focus);
+    if (el.anchorAt !== null) g.circle(from.x, from.y, 3).fill(p.marker);
   }
 
   private strokeCurve(g: Graphics, curve: [Point, Point, Point, Point], color: number, dash: number | null): void {
@@ -431,7 +428,7 @@ export class CanvasRenderer {
         return;
       }
       case "drill":
-        g.roundRect(x, y, w, h, RADIUS.drill).fill(p.surface).stroke({ width: 2, color: p.focus, alpha: 0.7 });
+        g.roundRect(x, y, w, h, RADIUS.drill).fill(p.surface).stroke({ width: 2, color: p.marker, alpha: 0.7 });
         g.moveTo(x + 1, y + 30).lineTo(x + w - 1, y + 30).stroke({ width: 1, color: p.border, alpha: 0.6 });
         return;
       case "output": {
