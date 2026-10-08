@@ -25,7 +25,16 @@ npm run dev            # then open http://127.0.0.1:3000/dev/viz
 npx vitest run tests/unit/f14-*.test.ts
 npx vitest run tests/integration/f14-viz-generate.test.ts
 E2E_PORT=3140 NEXT_DIST_DIR=.next-viz-test TEST_DATABASE_URL=postgres://farabi:farabi@127.0.0.1:5432/farabi_viz_test \
-  npx playwright test tests/e2e/f14-viz.spec.ts      # includes the 200-element frame-time p95
+  npx playwright test tests/e2e/f14-viz.spec.ts tests/e2e/f14-viz-perf.spec.ts   # perf: 200-element frame-time p95
+# add E2E_WEBKIT=1 to run WebKit too; delete .next-viz-test afterwards (eslint reads it)
 ```
 
 Expected: all pass; the perf test logs `viz p95 frame ms` ≤ 20.
+
+## Results (2026-10-07, lane run)
+
+- Unit: 47 f14 tests; integration: 5; e2e: 7 per engine (Chromium + WebKit), repeated twice, all pass.
+- Frame time while a 200-element scene plays: p95 16.8 ms (Chromium, 60 Hz), 15 ms (WebKit headless).
+- Under a CSP without 'unsafe-eval' (WebKit), the page plays, exports PNG and generates; the only
+  violation is Zod's own `Function("")` capability probe, which Zod catches. The polish branch's
+  `z.config({ jitless: true })` (src/instrumentation-client.ts) removes it.

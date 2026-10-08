@@ -42,10 +42,41 @@
   border: 1px solid var(--border);
 }
 
+/* The engine's paints (src/viz/theme.ts paint()): the app's tokens, else the engine's fallbacks
+   for the current scheme. Kept equal to FALLBACK_PALETTES by tests/unit/f14-render.test.ts. */
 .svg {
   display: block;
   width: 100%;
   height: auto;
+  --viz-bg: var(--bg, #f7f7f5);
+  --viz-surface: var(--surface, #ffffff);
+  --viz-text: var(--text, #1d1d1f);
+  --viz-muted: var(--muted, #6b6b70);
+  --viz-border: var(--border, #e2e2dd);
+  --viz-accent: var(--accent, #3b5bdb);
+  --viz-accent-soft: var(--accent-soft, #e7ecff);
+  --viz-ai: var(--ai, #7048e8);
+  --viz-connector: var(--connector, #87878c);
+  --viz-good: var(--good, #268037);
+  --viz-partial: var(--partial, #ac5900);
+  --viz-bad: var(--bad, #c92a2a);
+}
+
+@media (prefers-color-scheme: dark) {
+  .svg {
+    --viz-bg: var(--bg, #161618);
+    --viz-surface: var(--surface, #1f1f22);
+    --viz-text: var(--text, #ececec);
+    --viz-muted: var(--muted, #9a9aa0);
+    --viz-border: var(--border, #333338);
+    --viz-accent: var(--accent, #748ffc);
+    --viz-accent-soft: var(--accent-soft, #252b45);
+    --viz-ai: var(--ai, #9b7afa);
+    --viz-connector: var(--connector, #707078);
+    --viz-good: var(--good, #2f9e44);
+    --viz-partial: var(--partial, #e67700);
+    --viz-bad: var(--bad, #e65858);
+  }
 }
 
 .caption {

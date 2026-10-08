@@ -32,7 +32,13 @@ GALLERY: { family, scene }[]                    // hand-written examples
 exportSvg(scene, t, filename?)                   // browser download, palette from CSS custom properties
 exportPng(scene, t, filename?, scale = 2)
 readPalette(): Palette                           // current theme as literal colours
+exportSvgString(scene, t, palette?): string      // what Export SVG saves, without downloading
+pngBlob(scene, t, scale = 2, palette?): Promise<Blob>
 ```
+
+`exportSvg` / `exportPng` save through an `<a download>` link, which works in browsers. WKWebView
+(the desktop shell) may ignore it; a desktop integration should save `exportSvgString` / `pngBlob`
+through the host bridge instead.
 
 ## Server (`@/server/viz`)
 

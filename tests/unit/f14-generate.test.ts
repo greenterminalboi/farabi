@@ -60,7 +60,7 @@ describe("Feature 014 · generation", () => {
     expect(scene.family).toBe("algorithm");
     const inputs = getFakeCalls().completeInputs;
     expect(inputs).toHaveLength(2);
-    expect(inputs[1].prompt).toMatch(/Your previous reply couldn't be used: description: .*Reply with only the corrected JSON object/s);
+    expect(inputs[1].prompt).toMatch(/Your previous reply couldn't be used: .*description: .*Reply with only the JSON object described above/s);
   });
 
   it("fails cleanly after two invalid replies", async () => {

@@ -1,5 +1,5 @@
-// The scene description, version 1 (feature 014, contracts/scene-v1.md). Pure: no DOM, no server
-// imports, so the same validation runs in the browser, on the server and in tests.
+// The scene description, version 1 (feature 014, specs/014-visualization-engine/contracts). Pure:
+// no DOM, no server imports, so the same validation runs in the browser, on the server and in tests.
 import { z } from "zod";
 
 export const SCENE_VERSION = 1;

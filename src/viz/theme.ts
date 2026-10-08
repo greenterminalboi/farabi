@@ -74,9 +74,11 @@ export function toneToken(tone: Tone | null | undefined): VizToken | null {
 }
 
 /**
- * A paint value: a literal colour from `palette` (stills), or a CSS variable with the light
- * fallback (on screen, so the drawing follows the theme without re-rendering).
+ * A paint value: a literal colour from `palette` (stills), or a CSS variable (on screen, so the
+ * drawing follows the theme without re-rendering). `--viz-<token>` is defined on the SVG by
+ * react/viz.module.css as the app's `--<token>` with this file's light or dark fallback.
  */
 export function paint(token: VizToken, palette?: Palette | null): string {
-  return palette ? palette[token] : `var(--${token}, ${FALLBACK_PALETTES.light[token]})`;
+  return palette ? palette[token] : `var(--viz-${token}, ${FALLBACK_PALETTES.light[token]})`;
 }
+

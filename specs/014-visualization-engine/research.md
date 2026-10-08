@@ -65,8 +65,9 @@ the rest dwelling. Reduced motion: no movement, the whole duration dwells.
 ## R5. Theming
 
 **Decision**: draw items carry token names (`text`, `surface`, `accent`, `good`, `bad`, `partial`,
-`ai`, `muted`, `border`, `connector`, `accent-soft`). On screen, paints are `var(--token, fallback)`
-so the drawing follows the theme instantly. For stills, the browser reads the computed custom
+`ai`, `muted`, `border`, `connector`, `accent-soft`). On screen, paints are `var(--viz-token)`, which the
+player's CSS module defines as `var(--token, <fallback for the current scheme>)`, so the drawing follows
+the theme instantly even where the app lacks a token (e.g. `--good` before the polish branch). For stills, the browser reads the computed custom
 properties into a palette (fallback values per scheme), and the SVG gets literal colours.
 Fallbacks equal polish's `tokens.ts` values, so it looks right with or without that branch.
 
@@ -78,17 +79,20 @@ gives margins rather than overflow.
 
 ## R7. Generation
 
-**Decision**: `generateScene()` in `src/server/viz/generate.ts` reuses `extractJson` from
-`src/server/drill/operations/call.ts` and mirrors `callOperation` (ask, validate, retry once with
-the problem stated, else throw). Tag `viz_generate`, effort `medium`, `maxTokens` 8000, model from
-the request (a known model id) or the default. The validator is `parseScene` plus generation limits;
-`origin` is overwritten to `ai-suggested`. Fake responder built from templates (code → line-by-line
-trace; numbers → bubble sort; otherwise two statements → contradiction). The route calls
-`providerReady()` first, maps `VizGenerationError` to 503 `viz_unavailable` itself, and writes
-nothing.
+**Decision**: `generateScene()` in `src/server/viz/generate.ts` defines the generation as an
+operation object (`vizGenerate`, shaped like a drill operation) and runs it with the drill lane's
+generic executor `callOperation` (`src/server/drill/operations/call.ts`): ask, extract JSON,
+validate, retry once with the problem stated, else throw. That executor is the only place outside
+`src/server/{ai,functions}` the feature 10 constitution guard lets call the provider, so viz reuses
+it rather than adding a second caller. Tag `viz_generate`, effort `medium`, `maxTokens` 8000, model
+from the request (a known model id) or the default. The output schema forces `origin` to
+`ai-suggested` and then runs `parseScene`. The fake responder is built from templates (code →
+line-by-line trace; numbers → bubble sort; otherwise two statements → contradiction). The route
+calls `providerReady()` first, maps `VizGenerationError` to 503 `viz_unavailable` itself, and
+writes nothing.
 
-**Alternatives**: making it a drill operation (couples to drill's types and naming); a kind
-function (that's integration, out of scope).
+**Alternatives**: a separate caller in `src/server/viz` (rejected: the constitution guard allows one
+executor, and duplicating it adds nothing); a kind function (that's integration, out of scope).
 
 ## R8. Export
 

@@ -1,6 +1,8 @@
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { JSDOM } from "jsdom";
 import { describe, expect, it } from "vitest";
-import { drawAt, drawFrame, FALLBACK_PALETTES, GALLERY, perfScene, renderSvg, sceneOrThrow, type Scene } from "@/viz";
+import { drawAt, drawFrame, FALLBACK_PALETTES, GALLERY, perfScene, renderSvg, sceneOrThrow, type Scene, VIZ_TOKENS } from "@/viz";
 import { blend } from "@/viz/interpolate";
 import { exportSvgString } from "@/viz/react/exportImage";
 
@@ -39,6 +41,16 @@ describe("Feature 014 · rendering", () => {
     expect(light).toContain(FALLBACK_PALETTES.light.bg);
     const dark = renderSvg(sort, 1, { scheme: "dark" });
     expect(dark).toContain(FALLBACK_PALETTES.dark.bg);
+  });
+
+  it("on-screen paints map the app's tokens with the same per-scheme fallbacks (FR-010)", () => {
+    const css = readFileSync(path.resolve(import.meta.dirname, "../../src/viz/react/viz.module.css"), "utf8");
+    const dark = css.slice(css.indexOf("prefers-color-scheme: dark"));
+    for (const t of VIZ_TOKENS) {
+      expect(css).toContain(`--viz-${t}: var(--${t}, ${FALLBACK_PALETTES.light[t]});`);
+      expect(dark).toContain(`--viz-${t}: var(--${t}, ${FALLBACK_PALETTES.dark[t]});`);
+    }
+    expect(renderSvg(sort, 0, { palette: undefined })).not.toContain("var(");
   });
 
   it("server stills equal the browser export for the same palette (SC-006)", () => {

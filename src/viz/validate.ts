@@ -1,4 +1,4 @@
-// parseScene (FR-002, contracts/scene-v1.md § Validation): structure and bounds from the zod schema,
+// parseScene (FR-002, the scene contract § Validation): structure and bounds from the zod schema,
 // then references (unique ids, connector and graph endpoints, the 200-element limit counting graph
 // nodes), then a simulation of every step so each target and part exists when it is used.
 import { formatPath, MAX_ELEMENTS, type ParseResult, type Scene, SceneSchema, type VizProblem } from "./schema";

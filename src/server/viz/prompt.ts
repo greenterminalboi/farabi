@@ -1,5 +1,5 @@
-// The generation instructions (feature 014, FR-017, research R7). The guide mirrors
-// contracts/scene-v1.md in the fewest words that still let a model produce a valid scene.
+// The generation instructions (feature 014, FR-017, research R7). The guide mirrors the scene
+// contract in the fewest words that still let a model produce a valid scene.
 import { MAX_ELEMENTS, MAX_STEPS } from "@/viz/schema";
 
 export type VizFamilyHint = "auto" | "code" | "algorithm" | "argument";
