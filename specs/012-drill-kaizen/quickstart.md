@@ -101,5 +101,43 @@ Expected:
 |-------|--------|---------------------|
 | `loadDrill` for a 30-round drill (646 elements), local Postgres 17 | < 500 ms | 5–7 ms over 5 runs (`f12-drill` "performance") |
 | Drill e2e suite on a production build | green | 10/10, with the full suite 54/54 |
-| SC-004 verdict latency with a real provider, p95 over 20 attempts | ≤ 15 s | **Not measured yet.** Needs `AI_PROVIDER=claude-code` or `claude` and the owner's go-ahead to spend calls. |
-| SC-006 owner check (§2 with a real provider) | owner judges | **Open**: for the owner. |
+| SC-004 verdict latency with a real provider, p95 over 20 attempts | ≤ 15 s | **Pass**: 22 attempts with `claude-code`: median 5.1 s, p95 7.6 s, max 9.4 s (2026-10-08) |
+| Round end + next round written (not a target, plan) | shows progress | 14–27 s; 53 s for the completing round (offer, then next round) |
+| Create (ladder) / Start (lesson + round 1) | excluded from SC-001 | 12 s / 24 s |
+| SC-006 owner check (§2 with a real provider) | owner judges | **Open, and its first half can't be met with the defaults** (see below) |
+
+## Real-provider run (T083, 2026-10-08)
+
+Run against a dev server with `AI_PROVIDER=claude-code` on a private database, driving the same API
+the drill screen calls. A cheap model typed the answers. Results by quickstart step:
+
+- **§2.1** "Python dictionaries" gave 12 ordered rungs, from creating entries and safe lookups through
+  `defaultdict`, `Counter`, nested dicts and sorting.
+- **§2.2** A rename and a move of a locked rung both held. Start wrote the rung-1 lesson and round 1.
+- **§2.3** The feedback quotes the attempt and names the actual mistake. For the deliberately wrong
+  answer `{'pads': 4}`, it said the second assignment adds a key rather than replacing the first. The
+  override to *solved* is recorded as the one that counts.
+- **§2.4–2.5** Round 1 held: one problem reached the AI empty, through a bug in the run script. After
+  that, rung 1 went 1 → 2 → 3 → 4, one level per round, with each note citing its 4 attempts. At
+  level 4, rung 2 opened with its own lesson. The next round was 2 problems on rung 2 at level 1, 1 on
+  rung 1 at level 4 and 1 combined.
+- **§2.6** After a dev-server restart, the drill API response was identical, including the open round
+  (SC-005).
+- **§3.1** The follow-up "why does `d[k]` raise…" was drawn from the drill card. Its answer used the
+  problem's own `stock` example.
+- **§3.2** Branch on a lesson phrase made an unsent edge drawn from the drill card. Define captured
+  the term from the `drill_lesson`. No level changed.
+- **§3.3** With a canvas conversation about `defaultdict` attached, all 4 problems of the next round
+  record it in `readAttachments`, and one of them is a grouping exercise.
+- **§3.4** With every rung marked solid, ending the round gave "complete" and 2 offers. One was taken
+  from the follow-up and one from the attached conversation, nothing else.
+- **§3.5** Drill this on "KeyError vs .get()" created a 10-rung drill marked `user_confirmed`. Its card
+  leaves the follow-up edge and says "from Python dictionaries".
+- **§3.6** Dismiss held after a reload, and review rounds continued with round 8.
+
+**SC-006 needs the owner.** Levels move at most one per round, and a rung opens when the rung before
+it reaches `open_level` (default 4). Even with every answer correct, rung 2 opens in round 4 and
+rung 3 in round 7. So "the third rung within 5 rounds" is out of reach with the defaults; it needs
+`open_level` 3 (rung 3 then opens in round 5) or a reworded criterion. The second half ("feels
+harder") is the owner's own judgement. The run's drill is left in place for that, on port 3113 in
+the "Drill manual run" project of the `farabi_drill_manual` database.
