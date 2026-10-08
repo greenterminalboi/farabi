@@ -93,8 +93,8 @@ and e2e tests are included.
 
 - [X] T036 E2E on port 3113 with the lane DB: add a chip by keyboard, see the card's sent text, blocked conflict, send → bubble shows the chip and stored text is unchanged, run Premortem, in `tests/e2e/f13-lexicon.spec.ts`
 - [X] T037 [P] README: a short "Lexicon" section (chips, adding a term, lock, doc export) in `README.md`
-- [ ] T038 Full `npx vitest run`, `npx tsc --noEmit`, `npx eslint .`, Playwright on port 3113; commit in logical chunks
-- [ ] T039 Hand-off line in `/Users/halda/Projects/farabi-coord/STATUS.md` (commits, test counts, shared-file edits, owner questions)
+- [X] T038 Full `npx vitest run`, `npx tsc --noEmit`, `npx eslint .`, Playwright on a private port (3123: 3113 was taken by the drill lane); commit in logical chunks
+- [X] T039 Hand-off line in `/Users/halda/Projects/farabi-coord/STATUS.md` (commits, test counts, shared-file edits, owner questions)
 
 ## Dependencies
 
