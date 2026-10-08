@@ -275,7 +275,7 @@ export function CanvasHost({ projectId, focus, span }: Props) {
         const el = useCanvasStore.getState().elements.get(id);
         if (!el || el.status === "pending") return;
         const display = renderer.element(id)?.display;
-        if (display !== "answer" && display !== "question" && display !== "output") return;
+        if (display !== "answer" && display !== "question" && display !== "output" && display !== "drill") return;
         const h = body.offsetHeight + PADDING[display].y * 2;
         const known = measuredTextHeight(id);
         if (known !== undefined && Math.abs(known - h) <= 2) return;
@@ -443,6 +443,7 @@ export function CanvasHost({ projectId, focus, span }: Props) {
           } else if (action === "confirm") store.merge([(await api.confirmOutput(id)).output]);
           else if (action === "reject") store.merge([(await api.rejectOutput(id)).output]);
           else if (action === "rerun" && el.parentId) store.merge([(await api.rerun(el.parentId)).output]);
+          else if (action === "open-card" && el.card) window.location.assign(el.card.href);
           else window.dispatchEvent(new CustomEvent("farabi:element-action", { detail: { action, id } }));
         } catch (err) {
           window.dispatchEvent(new CustomEvent("farabi:element-error", { detail: { action, id, message: err instanceof Error ? err.message : String(err) } }));

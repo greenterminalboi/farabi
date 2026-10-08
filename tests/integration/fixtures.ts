@@ -21,6 +21,15 @@ export function pngVariant(n: number): Uint8Array {
 
 /** Every table a test may write, emptied before each test (v2, live, and the frozen v1 tables). */
 export const TRUNCATE_TABLES = [
+  "drill_offer_events",
+  "drill_offers",
+  "drill_attachments",
+  "drill_verdict_overrides",
+  "drill_problem_events",
+  "drill_round_ends",
+  "drill_level_changes",
+  "drill_ladder_versions",
+  "drills",
   "kind_setting_changes",
   "output_reviews",
   "edge_notes",

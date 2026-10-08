@@ -10,6 +10,10 @@ import {
   DefinitionDetailResponse,
   DefinitionResponse,
   DefinitionsResponse,
+  DrillResponse,
+  DrillsResponse,
+  DrillStepResponse,
+  type DrillVerdict,
   EdgeResponse,
   ElementResponse,
   ErrorBody,
@@ -26,6 +30,7 @@ import {
   ProjectResponse,
   ProjectsResponse,
   RunFunctionResponse,
+  type RungState,
   type SaveSettingsBody,
   SendResponse,
   SettingResponse,
@@ -154,4 +159,34 @@ export const api = {
   edgeSettings: (edgeId: string) => request("GET", `/api/edges/${edgeId}/settings`, EdgeSettingsResponse),
   saveEdgeSetting: (edgeId: string, key: string, value: string | null) =>
     request("PUT", `/api/edges/${edgeId}/settings`, SettingResponse, { key, value }),
+};
+
+// Feature 12: Drill Kaizen (specs/012-drill-kaizen/contracts/http-api.md). Every action returns the
+// drill as it is now.
+export const drillApi = {
+  list: (projectId: string) => request("GET", `/api/drills?projectId=${projectId}`, DrillsResponse),
+  get: (drillId: string) => request("GET", `/api/drills/${drillId}`, DrillResponse),
+  create: (body: { projectId: string; domain: string; sourceNodeId?: string; offerId?: string }) =>
+    request("POST", "/api/drills", DrillResponse, body),
+  saveLadder: (drillId: string, rungs: Array<{ id?: string; name: string; removed?: boolean }>) =>
+    request("POST", `/api/drills/${drillId}/ladder`, DrillResponse, { rungs }),
+  start: (drillId: string) => request("POST", `/api/drills/${drillId}/start`, DrillStepResponse, {}),
+  nextRound: (drillId: string) => request("POST", `/api/drills/${drillId}/rounds`, DrillResponse, {}),
+  endRound: (roundId: string, by: "all_answered" | "user") =>
+    request("POST", `/api/drill-rounds/${roundId}/end`, DrillStepResponse, { by }),
+  attempt: (problemId: string, text: string) =>
+    request("POST", `/api/drill-problems/${problemId}/attempts`, DrillStepResponse, { text }),
+  judge: (attemptId: string) => request("POST", `/api/drill-attempts/${attemptId}/judge`, DrillStepResponse, {}),
+  event: (problemId: string, type: "hint" | "reveal" | "skip" | "flag", reason?: string) =>
+    request("POST", `/api/drill-problems/${problemId}/events`, DrillResponse, { type, reason }),
+  replace: (problemId: string) => request("POST", `/api/drill-problems/${problemId}/replace`, DrillResponse, {}),
+  override: (verdictId: string, verdict: DrillVerdict) =>
+    request("POST", `/api/drill-verdicts/${verdictId}/override`, DrillResponse, { verdict }),
+  setLevel: (drillId: string, rungId: string, to: { level?: number; state?: RungState }) =>
+    request("POST", `/api/drills/${drillId}/rungs/${rungId}/level`, DrillResponse, to),
+  attach: (drillId: string, nodeId: string, action: "attach" | "detach") =>
+    request("POST", `/api/drills/${drillId}/attachments`, DrillResponse, { nodeId, action }),
+  dismissOffer: (offerId: string) => request("POST", `/api/drill-offers/${offerId}/dismiss`, DrillResponse, {}),
+  saveSetting: (drillNodeId: string, key: string, value: string | null) =>
+    request("PUT", "/api/kind-settings", SettingResponse, { kind: "drill", nodeId: drillNodeId, key, value }),
 };

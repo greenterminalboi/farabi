@@ -29,12 +29,18 @@ type FakeState = {
   completeInputs: CompletionInput[];
   /** Numbers each completion, so regenerations differ (Feature 9). */
   completeCount: number;
+  /** Per-tag responders (Feature 12, C5); other tags get `Fake <tag> #n`. */
+  responders: Map<string, FakeResponder>;
 };
+
+/** Returns the raw completion for one tag. Runs after the mode's fail/slow behavior. */
+export type FakeResponder = (input: CompletionInput, n: number) => string | Promise<string>;
 const state = globalThis as unknown as { __farabiFake?: FakeState };
-state.__farabiFake ??= { mode: { mode: "ok" }, replyInputs: [], completeInputs: [], completeCount: 0 };
+state.__farabiFake ??= { mode: { mode: "ok" }, replyInputs: [], completeInputs: [], completeCount: 0, responders: new Map() };
 state.__farabiFake.replyInputs ??= [];
 state.__farabiFake.completeInputs ??= [];
 state.__farabiFake.completeCount ??= 0;
+state.__farabiFake.responders ??= new Map();
 const fake = state.__farabiFake;
 
 const CHUNKS = 5;
@@ -42,6 +48,11 @@ const CHUNK_DELAY_MS = 40;
 
 export function setFakeMode(mode: FakeMode): void {
   fake.mode = mode;
+}
+
+/** Answers completions tagged `tag` with `fn` (replacing any earlier responder for it). */
+export function registerFakeCompletion(tag: string, fn: FakeResponder): void {
+  fake.responders.set(tag, fn);
 }
 
 export function getFakeCalls(): {
@@ -134,6 +145,8 @@ export class FakeAIProvider implements AIProvider {
     fake.completeInputs.push(input);
     await behave(input.signal);
     if (fake.mode.mode === "stall") throw new AIUnavailableError("Fake provider stalled");
-    return `Fake ${input.tag} #${++fake.completeCount}`;
+    const n = ++fake.completeCount;
+    const responder = fake.responders.get(input.tag);
+    return responder ? responder(input, n) : `Fake ${input.tag} #${n}`;
   }
 }

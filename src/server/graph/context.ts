@@ -2,6 +2,7 @@
 // question edge, from the origin down, and nothing else. Siblings and descendants can't appear
 // because the walk only goes up.
 import { sql } from "kysely";
+import { findKind } from "@/shared/kinds";
 import type { ChatTurn, ReplyInput } from "../ai/provider";
 import { db, type DB, type Trx } from "../db/client";
 import type { AnswerStatus } from "../db/schema";
@@ -29,10 +30,21 @@ export async function ancestorPath(id: string, q: DB | Trx = db): Promise<PathRo
 }
 
 /**
- * Context for a pending answer. A question edge is a user turn; an answer is an AI turn only when
- * complete (v1 dropped unfinished replies too). Function edges and outputs are skipped. The
- * highlighted passage is the nearest anchored edge on the path: the branch this reply belongs to.
- * The level and model come from the answer's own row (Feature 6).
+ * The turn an element on the path gives, from its kind's `contextRole` (Feature 12, C2): a question
+ * edge is a user turn; an answer is an AI turn only when complete (v1 dropped unfinished replies
+ * too). Kinds without a role, such as function edges and outputs, are skipped.
+ */
+export function turnOf(el: Pick<PathRow, "kind" | "text" | "status">): ChatTurn | null {
+  const role = findKind(el.kind)?.contextRole;
+  if (!role || el.text === null) return null;
+  if (role === "ai" && el.status !== null && el.status !== "complete") return null;
+  return { role, content: el.text };
+}
+
+/**
+ * Context for a pending answer: the turns of its path. The highlighted passage is the nearest
+ * anchored user edge on the path: the branch this reply belongs to. The level and model come from
+ * the answer's own row (Feature 6).
  */
 export async function buildReplyInput(answerId: string, q: DB | Trx = db): Promise<ReplyInput> {
   const answer = await q
@@ -47,12 +59,10 @@ export async function buildReplyInput(answerId: string, q: DB | Trx = db): Promi
   const messages: ChatTurn[] = [];
   let anchorText: string | null = null;
   for (const el of path) {
-    if (el.kind === "question" && el.text !== null) {
-      messages.push({ role: "user", content: el.text });
-      if (el.anchor_text !== null) anchorText = el.anchor_text;
-    } else if (el.kind === "answer" && el.status === "complete" && el.text !== null) {
-      messages.push({ role: "ai", content: el.text });
-    }
+    const turn = turnOf(el);
+    if (!turn) continue;
+    messages.push(turn);
+    if (turn.role === "user" && el.anchor_text !== null) anchorText = el.anchor_text;
   }
   return {
     inheritedContext: [],

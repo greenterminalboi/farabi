@@ -184,14 +184,15 @@ export class ClaudeProvider implements AIProvider {
   }
 
   async complete(input: CompletionInput): Promise<string> {
+    const model = input.model ?? defaultClaudeModel();
     try {
       const message = await (await this.getClient()).beta.messages.create(
         {
-          model: defaultClaudeModel(),
-          max_tokens: 4000,
-          betas: [FALLBACK_BETA],
-          fallbacks: "default",
-          output_config: { effort: "low" },
+          model,
+          max_tokens: input.maxTokens ?? 4000,
+          // A chosen model gets fallbacks only where documented (as replies do); the default always has.
+          ...(!input.model || FALLBACK_MODELS.has(model) ? { betas: [FALLBACK_BETA], fallbacks: "default" as const } : {}),
+          output_config: { effort: input.effort ?? "low" },
           system: input.system,
           messages: [{ role: "user", content: input.prompt }],
         },
@@ -201,7 +202,7 @@ export class ClaudeProvider implements AIProvider {
       if (!text) throw new AIUnavailableError(`Claude returned an empty ${input.tag}`);
       return text;
     } catch (err) {
-      throw toProviderError(err);
+      throw toProviderError(err, input.model ?? undefined);
     }
   }
 }

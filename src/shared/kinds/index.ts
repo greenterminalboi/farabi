@@ -1,4 +1,5 @@
 import { analogyKind } from "./analogy";
+import { DRILL_KINDS } from "./drill";
 import { answerKind } from "./answer";
 import { functionKind } from "./function";
 import { questionKind } from "./question";
@@ -27,7 +28,7 @@ export function registerKind(decl: NodeKindDeclaration): void {
   registry.set(decl.id, decl);
 }
 
-for (const kind of [questionKind, answerKind, functionKind, analogyKind]) registerKind(kind);
+for (const kind of [questionKind, answerKind, functionKind, analogyKind, ...DRILL_KINDS]) registerKind(kind);
 
 export function findKind(id: string): NodeKindDeclaration | undefined {
   return registry.get(id);

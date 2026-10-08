@@ -78,6 +78,37 @@ example Analogy's reach and length); changing them never runs anything.
 Each reply is labelled with the settings it was written with, for example "Detailed · 8 · Claude
 Opus 5". Changing a setting never relabels older replies, and every change is kept.
 
+## Drills
+
+A drill helps you learn one domain by practice, rung by rung ("Python dictionaries": add an entry,
+then look values up safely, then iterate, then merge…).
+
+- **Start**: **New drill** in the canvas menu. Type a domain; the AI proposes a ladder of rungs,
+  basic to advanced, marked AI. Rename, reorder, remove or add rungs, then **Start**. Rung 1 opens
+  at level 1 with a short lesson; the drill appears on the canvas as one card that opens it.
+- **Practice**: one problem at a time. Submit an attempt and the AI judges it (solved, partly
+  solved, not solved) with feedback on what you wrote. **Try again** adds another attempt beside the
+  first; **Override** sets your own verdict, which counts, and keeps the AI's. **Hint** and **Show
+  solution** are there too, but a revealed solution counts as not solved and a hinted solve as
+  partly solved. **Flag** a broken problem to leave it out and add a replacement; **Skip** moves on.
+- **Levels move by themselves** when a round ends (all its problems have a result, or **End
+  round**): a rung goes up one level when everything on it was solved, holds when mixed, and goes
+  down one when nothing was. The round note says what moved and which attempts caused it. When the
+  newest rung reaches level 4 the next rung opens with its lesson; at level 7 a rung is solid.
+  Later rounds keep at least half their problems on the newest rung and review the rest. Both
+  levels, and the round size (4), are per-drill **Settings**; you can also set any rung by hand.
+- **Ask why**: the box under each problem asks a follow-up on the canvas, as a branch leaving the
+  drill card, with the problem, your attempt and its verdict as context. Highlighting drill text
+  offers **Branch**, **Define** and **Park**, as on the canvas. None of these changes the drill.
+- **Ground it**: **Attached** in the drill header adds a conversation from the canvas; the AI reads
+  it when writing lessons and problems. When every rung is solid, the drill offers up to three next
+  drills, picked only from your own follow-ups and attached conversations. **Drill this** starts one,
+  linked to where it came from; **Dismiss** hides the offer for good. Review rounds continue, and
+  adding a rung reopens the drill.
+
+Everything is kept: attempts are never edited, and levels, verdicts and overrides are history. Drill
+specs are in `specs/012-drill-kaizen/`.
+
 ## Projects
 
 Each project is its own canvas, with its own trees and definitions. Use the 🗂 menu at the

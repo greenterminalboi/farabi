@@ -185,11 +185,23 @@ describe("constitution guards (Feature 10)", () => {
 
   it("Feature 10: functions run only from the runner, and saving a setting never runs one", () => {
     for (const { rel, src } of sources()) {
-      if (/\.complete\(/.test(src)) expect(rel).toMatch(/^src\/server\/(ai|functions)\//);
+      // Feature 12's drill operations have their own generic executor (its research R4).
+      if (/\.complete\(/.test(src)) expect(rel).toMatch(/^src\/server\/(ai|functions)\/|^src\/server\/drill\/operations\/call\.ts$/);
       if (rel.startsWith("src/server/settings/")) expect(src, rel).not.toMatch(/functions\/runner/);
       if (/kind_setting_changes/.test(src)) expect(rel).toMatch(/^src\/server\/(settings|db)\//);
       // Every element is created through insertElement, which takes its shape from the kind.
       if (/insertInto\("nodes"\)/.test(src)) expect(rel).toMatch(/^src\/server\/(graph\/elements\.ts|db\/)/);
+    }
+  });
+
+  it("Feature 12: drill tables are append-only, and only the drill module writes them", async () => {
+    const { DRILL_TABLES } = await import("@/server/db/migrations/0011_drill");
+    const { rows } = await sql<{ name: string }>`
+      SELECT c.relname AS name FROM pg_trigger tg JOIN pg_class c ON c.oid = tg.tgrelid
+      WHERE tg.tgname = c.relname || '_append_only'`.execute(db);
+    expect(rows.map((r) => r.name)).toEqual(expect.arrayContaining(DRILL_TABLES));
+    for (const { rel, src } of sources()) {
+      if (/insertInto\("drill_/.test(src)) expect(rel).toMatch(/^src\/server\/drill\//);
     }
   });
 });

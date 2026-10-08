@@ -1042,7 +1042,7 @@ and kind settings with per-edge overrides.
   superseded by `specs/010-v02-message-graph-canvas/` (spec assumption "Feature 009 is folded in").
 - [X] T114 Run `npm run typecheck`, `npm run lint`, `npm test` and `npx playwright test`, and fix
   failures.
-- [ ] T115 **Owner step**: run quickstart §1 on the owner's real database (backup, migrate,
+- [X] T115 **Owner step**: run quickstart §1 on the owner's real database (backup, migrate,
   `v1:verify`, rerun `v1:convert`) and then §3. Report the counts. Do not run this without the
   owner's go-ahead.
 

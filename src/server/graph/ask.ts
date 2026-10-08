@@ -2,6 +2,7 @@
 // stores the question edge and a pending answer in one transaction and starts the reply after
 // commit; the reply streams separately (Feature 2).
 import { sql } from "kysely";
+import { findKind } from "@/shared/kinds";
 import type { AskResponse, Element, SendResponse, StartTreeResponse } from "@/shared/schemas";
 import { insertPendingAnswer, startGeneration } from "../answers/generation";
 import { db, type Trx } from "../db/client";
@@ -100,9 +101,12 @@ export async function insertAsk(
 /**
  * Checks that a new question can leave `el` (data-model.md "Ask"): an answer that isn't pending
  * and has text, or a sent question edge whose newest attempt isn't pending ("two user messages in
- * a row"). Function edges and outputs are never asked from (outputs are leaves, R12).
+ * a row"). Function edges and outputs are never asked from (outputs are leaves, R12). Other content
+ * kinds that give an AI turn (Feature 12's drill problems and verdicts) are asked from like answers.
  */
 export async function assertAskable(trx: Trx, el: ElementRow): Promise<void> {
+  const aiTurn = el.kind !== "answer" && el.shape === "node" && el.text !== null && findKind(el.kind)?.contextRole === "ai";
+  if (aiTurn) return;
   if (el.kind === "answer") {
     if (el.status === "pending") throw new ConflictError("reply_in_progress", "Wait for the current reply to finish");
     if (el.status === "failed") throw new ConflictError("not_askable", "This reply failed; retry it or ask from its message");

@@ -48,6 +48,12 @@ export interface CompletionInput {
   tag: string;
   system: string;
   prompt: string;
+  /** Model id; absent means the setup's default (Feature 12, C4). */
+  model?: string | null;
+  /** Reasoning effort; absent means "low". */
+  effort?: "low" | "medium" | "high";
+  /** Output limit; absent means 4000. */
+  maxTokens?: number;
   signal?: AbortSignal;
 }
 

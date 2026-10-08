@@ -9,6 +9,7 @@ export const WIDTH: Record<Display, number> = {
   answer: 480,
   question: 360,
   output: 320,
+  drill: 320,
   // No box: a connector. Its outputs sit under a virtual column this wide.
   function_connector: 320,
 };
@@ -27,10 +28,11 @@ export const MIN_CARD = 84;
 export const CHIP = { w: 168, h: 28 };
 
 /** Text box padding, matching `.element-text` and its display classes in globals.css. */
-export const PADDING: Record<"answer" | "question" | "output", { x: number; y: number }> = {
+export const PADDING: Record<"answer" | "question" | "output" | "drill", { x: number; y: number }> = {
   answer: { x: 18, y: 14 },
   question: { x: 16, y: 11 },
   output: { x: 16, y: 12 },
+  drill: { x: 16, y: 12 },
 };
 
 export const FONT_SIZE = 15;
@@ -77,8 +79,9 @@ export function frameHeight(el: Pick<Element, "kind" | "status">, textHeight: nu
   return Math.max(min, Math.ceil(top + textHeight + bottom));
 }
 
-/** The text shown in an element: a streaming answer shows what has arrived. */
-export function textOf(el: Pick<Element, "text" | "status" | "partialText">): string {
+/** The text shown in an element: a streaming answer shows what has arrived; a card its summary. */
+export function textOf(el: Pick<Element, "text" | "status" | "partialText"> & Pick<Partial<Element>, "card">): string {
+  if (el.card) return [el.card.title, ...el.card.lines].join("\n");
   if (el.status === "pending") return el.partialText ?? el.text ?? "";
   return el.text ?? "";
 }

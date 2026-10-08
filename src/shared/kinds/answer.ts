@@ -8,5 +8,6 @@ export const answerKind: NodeKindDeclaration = {
   shape: "node",
   display: "answer",
   settings: [],
+  contextRole: "ai",
   properties: z.object({}).strict(),
 };

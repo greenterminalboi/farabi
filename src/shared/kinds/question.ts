@@ -8,5 +8,6 @@ export const questionKind: NodeKindDeclaration = {
   shape: "edge",
   display: "question",
   settings: [],
+  contextRole: "user",
   properties: z.object({}).strict(),
 };

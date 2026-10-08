@@ -11,7 +11,8 @@ export type ElementOrigin =
   | "reply"
   | "retry"
   | "regenerate"
-  | "run";
+  | "run"
+  | "drill";
 export type AnswerStatus = "pending" | "complete" | "incomplete" | "stopped" | "failed";
 export type OutputReviewKind = "confirmed" | "rejected";
 
@@ -261,6 +262,115 @@ export interface ImportRunsTable {
   provenance: ColumnType<Provenance, never, never>;
 }
 
+// Feature 12: Drill Kaizen (specs/012-drill-kaizen/data-model.md). Every table is append-only;
+// the one update allowed is drills.started_at, set once.
+
+export type RungState = "locked" | "open" | "solid";
+export type DrillVerdict = "solved" | "partly_solved" | "not_solved";
+/** A rung as stored in a ladder version; its id stays the same across versions. */
+export type StoredRung = { id: string; name: string; provenance: Provenance; removed: boolean };
+
+export interface DrillsTable {
+  id: Generated<string>;
+  project_id: ColumnType<string, string, never>;
+  node_id: ColumnType<string, string, never>;
+  domain: ColumnType<string, string, never>;
+  domain_provenance: ColumnType<Provenance, Provenance, never>;
+  source_node_id: ColumnType<string | null, string | null | undefined, never>;
+  parent_drill_id: ColumnType<string | null, string | null | undefined, never>;
+  /** Set once, when round 1 is first requested. */
+  started_at: ColumnType<Date | null, never, Date>;
+  created_at: CreatedAt;
+}
+
+export interface DrillLadderVersionsTable {
+  id: Generated<string>;
+  /** Insertion order; the highest is the ladder (never created_at, which can tie). */
+  seq: ColumnType<string, never, never>;
+  drill_id: string;
+  /** Inserted as a JSON string; read back parsed. */
+  rungs: ColumnType<StoredRung[], string, never>;
+  provenance: Provenance;
+  created_at: CreatedAt;
+}
+
+export interface DrillLevelChangesTable {
+  id: Generated<string>;
+  /** Insertion order; a rung's highest is its current level. */
+  seq: ColumnType<string, never, never>;
+  drill_id: string;
+  rung_id: string;
+  round_id: string | null;
+  from_level: number | null;
+  to_level: number;
+  from_state: RungState | null;
+  to_state: RungState;
+  cause: "start" | "auto" | "recompute" | "manual";
+  provenance: Provenance;
+  /** The attempt edges behind it (FR-020). */
+  evidence: ColumnType<string[], string[] | undefined, never>;
+  supersedes: string | null;
+  created_at: CreatedAt;
+}
+
+export interface DrillRoundEndsTable {
+  round_id: string;
+  ended_by: "all_answered" | "user";
+  /** The newest level-change seq when the round ended, before its own changes ("0" for none). */
+  levels_seq: ColumnType<string, string, never>;
+  created_at: CreatedAt;
+}
+
+export type DrillProblemEventType = "hint" | "reveal" | "flag" | "skip" | "replaced";
+
+export interface DrillProblemEventsTable {
+  id: Generated<string>;
+  problem_id: string;
+  type: DrillProblemEventType;
+  /** `flag`: {reason}; `replaced`: {byProblemId}. Inserted as a JSON string. */
+  detail: ColumnType<Record<string, unknown>, string | undefined, never>;
+  created_at: CreatedAt;
+}
+
+export interface DrillVerdictOverridesTable {
+  id: Generated<string>;
+  seq: ColumnType<string, never, never>;
+  verdict_id: string;
+  verdict: DrillVerdict;
+  provenance: ColumnType<Provenance, never, never>;
+  created_at: CreatedAt;
+}
+
+export interface DrillAttachmentsTable {
+  id: Generated<string>;
+  seq: ColumnType<string, never, never>;
+  drill_id: string;
+  node_id: string;
+  action: "attach" | "detach";
+  created_at: CreatedAt;
+}
+
+export interface DrillOffersTable {
+  id: Generated<string>;
+  drill_id: string;
+  round_id: string;
+  /** Inserted as a JSON string; read back parsed. */
+  candidates: ColumnType<Array<{ nodeId: string; domain: string }>, string, never>;
+  function_id: string;
+  function_version: number;
+  provenance: ColumnType<Provenance, never, never>;
+  created_at: CreatedAt;
+}
+
+export interface DrillOfferEventsTable {
+  id: Generated<string>;
+  offer_id: string;
+  type: "picked" | "dismissed";
+  node_id: string | null;
+  new_drill_id: string | null;
+  created_at: CreatedAt;
+}
+
 export interface Database {
   projects: ProjectsTable;
   trees: TreesTable;
@@ -281,4 +391,13 @@ export interface Database {
   feedback_attachments: FeedbackAttachmentsTable;
   feedback_state_events: FeedbackStateEventsTable;
   import_runs: ImportRunsTable;
+  drills: DrillsTable;
+  drill_ladder_versions: DrillLadderVersionsTable;
+  drill_level_changes: DrillLevelChangesTable;
+  drill_round_ends: DrillRoundEndsTable;
+  drill_problem_events: DrillProblemEventsTable;
+  drill_verdict_overrides: DrillVerdictOverridesTable;
+  drill_attachments: DrillAttachmentsTable;
+  drill_offers: DrillOffersTable;
+  drill_offer_events: DrillOfferEventsTable;
 }

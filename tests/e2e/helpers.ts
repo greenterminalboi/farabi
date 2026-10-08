@@ -30,7 +30,7 @@ export async function setAiMode(page: Page, mode: "ok" | "fail" | "slow" | "stal
 
 export type DebugElement = {
   id: string;
-  kind: "answer" | "question" | "output" | "function_connector";
+  kind: "answer" | "question" | "output" | "function_connector" | "drill";
   shape: "node" | "edge";
   x: number;
   y: number;
