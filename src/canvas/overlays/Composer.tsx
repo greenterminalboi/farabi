@@ -4,10 +4,11 @@
 // below the focused element, or docked to the viewport edge with a pointer when the element is off
 // screen. It never scales, so it stays usable at every zoom. Drafts are kept per target.
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { ApiError, api } from "@/lib/api";
+import { ApiError, api, settingsPathFor } from "@/lib/api";
 import type { Element } from "@/shared/schemas";
 import { type CanvasEngine, useEngine, useFrame } from "../engine";
 import { NEW_TREE, newestAnswer, useCanvasStore } from "../store";
+import { SettingsLink } from "./SettingsLink";
 import { TermChips } from "./lexicon/TermChips";
 import { TermPicker } from "./lexicon/TermPicker";
 import { findTerm } from "@/shared/lexicon";
@@ -119,7 +120,7 @@ export function Composer() {
   const [picking, setPicking] = useState(false);
   const [sending, setSending] = useState(false);
   // An error belongs to the target it happened on; switching target hides it.
-  const [failure, setError] = useState<{ key: string; message: string; content: string } | null>(null);
+  const [failure, setError] = useState<{ key: string; message: string; content: string; settingsPath: string | null } | null>(null);
   const boxRef = useRef<HTMLTextAreaElement>(null);
   const formRef = useRef<HTMLDivElement>(null);
   const [height, setHeight] = useState(56);
@@ -186,7 +187,7 @@ export function Composer() {
       engine?.walkTo(created.answer.id);
       return true;
     } catch (err) {
-      setError({ key: target.key, message: err instanceof ApiError ? err.message : "Couldn't send. Your message is kept; try again.", content });
+      setError({ key: target.key, message: err instanceof ApiError ? err.message : "Couldn't send. Your message is kept; try again.", content, settingsPath: settingsPathFor(err) });
       return false;
     } finally {
       setSending(false);
@@ -209,6 +210,7 @@ export function Composer() {
       {error && (
         <div className="composer-error" role="alert">
           <span>{error.message}</span>
+          {error.settingsPath && <SettingsLink href={error.settingsPath} />}
           <button type="button" className="btn btn-small" onClick={() => void send(error.content)}>
             Retry
           </button>

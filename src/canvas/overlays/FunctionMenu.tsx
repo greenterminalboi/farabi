@@ -5,13 +5,14 @@
 // picks one. A run creates a function edge and its first output; their arrival never moves the
 // camera (FR-025). A failure creates nothing and offers Retry (FR-052).
 import { useEffect, useRef, useState } from "react";
-import { ApiError, api } from "@/lib/api";
+import { ApiError, api, settingsPathFor } from "@/lib/api";
 import type { FunctionsResponse } from "@/shared/schemas";
 import { useEngine, useFrame } from "../engine";
 import { useCanvasStore } from "../store";
+import { SettingsLink } from "./SettingsLink";
 
 type Fn = FunctionsResponse["functions"][number];
-type Status = { kind: "idle" } | { kind: "running"; id: string } | { kind: "error"; id: string; message: string };
+type Status = { kind: "idle" } | { kind: "running"; id: string } | { kind: "error"; id: string; message: string; settingsPath: string | null };
 
 export function FunctionMenu() {
   const engine = useEngine();
@@ -67,7 +68,7 @@ export function FunctionMenu() {
       setTarget(null);
       setStatus({ kind: "idle" });
     } catch (err) {
-      setStatus({ kind: "error", id: fn.id, message: err instanceof ApiError ? err.message : "Couldn't run it" });
+      setStatus({ kind: "error", id: fn.id, message: err instanceof ApiError ? err.message : "Couldn't run it", settingsPath: settingsPathFor(err) });
     }
   }
 
@@ -99,6 +100,7 @@ export function FunctionMenu() {
       {status.kind === "error" && (
         <p className="function-error" role="alert" data-testid="function-error">
           {status.message}{" "}
+          {status.settingsPath && <SettingsLink href={status.settingsPath} />}
           <button
             type="button"
             className="btn btn-small"

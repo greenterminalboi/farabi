@@ -56,6 +56,16 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * Where to fix an error, when Settings can fix it: the provider can't run yet (422
+ * provider_not_ready, feature 11 FR-014). Uses the server's settingsPath when it sends one.
+ */
+export function settingsPathFor(err: unknown): string | null {
+  if (!(err instanceof ApiError) || err.code !== "provider_not_ready") return null;
+  const path = (err.body as { settingsPath?: unknown } | undefined)?.settingsPath;
+  return typeof path === "string" && path.startsWith("/settings") ? path : "/settings#provider";
+}
+
 async function request<T>(method: string, path: string, schema: ZodType<T>, body?: unknown): Promise<T> {
   const isForm = body instanceof FormData;
   const res = await fetch(path, {
