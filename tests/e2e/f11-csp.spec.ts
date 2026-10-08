@@ -2,8 +2,7 @@ import { expect, test } from "@playwright/test";
 import { openCanvas, resetDb, setAiMode, startTree } from "./helpers";
 
 // Feature 11 T023: the desktop app's content security policy blocks nothing the app needs. Runs in
-// the webkit-desktop project (npm run test:e2e:desktop), where the packaged server applies it.
-test.skip(process.env.E2E_DESKTOP !== "1", "only against the packaged server with the policy on");
+// the packaged server in desktop mode, which applies it.
 
 test.beforeEach(async ({ page }) => {
   await resetDb();

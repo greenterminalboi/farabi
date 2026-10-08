@@ -49,7 +49,13 @@ const REFETCH_MS = 10_000;
 const STREAM_LAYOUT_MS = 100;
 const CAMERA_IDLE_MS = 500;
 
-type Props = { projectId: string; focus?: string | null; span?: string | null };
+type Props = {
+  projectId: string;
+  focus?: string | null;
+  span?: string | null;
+  /** The "Pick up lexicon words automatically" setting (Feature 13 follow-up); on by default. */
+  lexiconAutodetect?: boolean;
+};
 
 /** Selects `start-end` of an element's text once it is mounted (a definition's source link). */
 function selectSpanWhenMounted(layer: TextLayer, id: string, span: string): void {
@@ -68,7 +74,7 @@ function selectSpanWhenMounted(layer: TextLayer, id: string, span: string): void
   attempt();
 }
 
-export function CanvasHost({ projectId, focus, span }: Props) {
+export function CanvasHost({ projectId, focus, span, lexiconAutodetect = true }: Props) {
   const rootRef = useRef<HTMLDivElement>(null);
   const hostRef = useRef<HTMLDivElement>(null);
   const [engine, setEngine] = useState<CanvasEngine | null>(null);
@@ -535,7 +541,7 @@ export function CanvasHost({ projectId, focus, span }: Props) {
         <>
           {!hasTrees && <EmptyState />}
           <CanvasMenu />
-          <Composer />
+          <Composer autodetect={lexiconAutodetect} />
           <SelectionToolbar />
           <TextInteractions />
           <MinimapToggle />
@@ -546,7 +552,7 @@ export function CanvasHost({ projectId, focus, span }: Props) {
           <TermCard containerRef={rootRef} />
         </>
       ) : null,
-    [engine, loaded, hasTrees],
+    [engine, loaded, hasTrees, lexiconAutodetect],
   );
 
   return (

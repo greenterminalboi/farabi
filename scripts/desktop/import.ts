@@ -12,9 +12,6 @@ const attachmentsDir = a >= 0 ? args[a + 1] : undefined;
 const positional = a >= 0 ? [...args.slice(0, a), ...args.slice(a + 2)] : args;
 const body = { connectionString: positional[0] ?? DEFAULT_SOURCE, ...(attachmentsDir ? { attachmentsDir } : {}) };
 
-// The source is Postgres by definition; the target is always the desktop store, never DATABASE_URL.
-
-delete process.env.DATABASE_URL;
 const target = resolveTarget();
 
 function print(result: { counts: Record<string, number>; checksumsMatch: boolean; attachmentsCopied: number }): void {

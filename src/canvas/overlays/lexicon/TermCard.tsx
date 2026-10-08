@@ -141,6 +141,9 @@ export function TermCard({
                 disabled={reason !== null}
                 title={reason ?? `Use ${n.name} instead of ${term.name}`}
                 aria-label={`Swap for ${n.name}`}
+                // WebKit doesn't focus a clicked button, so the chip's blur would close the card
+                // before the click lands; keep focus on the chip instead.
+                onMouseDown={(e) => e.preventDefault()}
                 onClick={() => swap.onSwap(nid)}
               >
                 {n.name}

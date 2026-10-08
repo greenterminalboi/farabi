@@ -14,6 +14,7 @@ import * as m0010 from "./migrations/0010_message_graph";
 import * as m0011 from "./migrations/0011_drill";
 import * as m0012 from "./migrations/0012_desktop";
 import * as m0013 from "./migrations/0013_lexicon";
+import * as m0014 from "./migrations/0014_lexicon_autodetect";
 
 export const MIGRATIONS: Record<string, Migration> = {
   "0001_initial": m0001,
@@ -29,6 +30,7 @@ export const MIGRATIONS: Record<string, Migration> = {
   "0011_drill": m0011,
   "0012_desktop": m0012,
   "0013_lexicon": m0013,
+  "0014_lexicon_autodetect": m0014,
 };
 
 export const migrationProvider: MigrationProvider = { getMigrations: async () => MIGRATIONS };

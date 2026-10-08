@@ -1,24 +1,25 @@
 import { expect, type Page } from "@playwright/test";
-import pg from "pg";
+import { AUTH, E2E_BASE, E2E_DATA_DIR } from "./env";
 
-export const TEST_DATABASE_URL =
-  process.env.TEST_DATABASE_URL ?? "postgres://farabi:farabi@127.0.0.1:5432/farabi_test";
+export { E2E_DATA_DIR };
 
-/** Every table the app or a test writes, including the frozen v1 tables (Feature 10). */
-const TABLES = [
-  "kind_setting_changes", "output_reviews", "edge_notes", "parked_tangent_events", "parked_tangents",
-  "project_cameras", "v1_conversion", "feedback_state_events", "feedback_attachments", "feedback_tags",
-  "feedback_items", "setting_changes", "definition_versions", "definitions", "nodes", "trees",
-  "v1.kind_setting_changes", "v1.function_output_events", "v1.function_output_versions", "v1.pipes",
-  "v1.parked_tangent_events", "v1.parked_tangents", "v1.edge_label_versions", "v1.node_summaries",
-  "v1.branch_markers", "v1.messages", "v1.nodes", "v1.trees", "projects",
-];
-
+/** An empty store before a test: the app's test-only reset route (the store is in-process). */
 export async function resetDb(): Promise<void> {
-  const client = new pg.Client({ connectionString: TEST_DATABASE_URL });
-  await client.connect();
-  await client.query(`TRUNCATE ${TABLES.join(", ")} RESTART IDENTITY CASCADE`);
-  await client.end();
+  const res = await fetch(`${E2E_BASE}/api/test/reset`, { method: "POST", headers: AUTH });
+  if (!res.ok) throw new Error(`reset failed: ${res.status}`);
+}
+
+/** A node's stored text and properties, as written. */
+export async function storedNode(id: string): Promise<{ text: string | null; properties: unknown }> {
+  const res = await fetch(`${E2E_BASE}/api/test/node/${id}`, { headers: AUTH });
+  if (!res.ok) throw new Error(`node ${id}: ${res.status}`);
+  return res.json();
+}
+
+/** The scale seed, inside the running app. */
+export async function seedLarge(body: { elements?: number; feedback?: number }): Promise<void> {
+  const res = await fetch(`${E2E_BASE}/api/test/seed-large`, { method: "POST", headers: { ...AUTH, "content-type": "application/json" }, body: JSON.stringify(body) });
+  if (!res.ok) throw new Error(`seed failed: ${res.status}`);
 }
 
 export async function setAiMode(page: Page, mode: "ok" | "fail" | "slow" | "stall", delayMs?: number, chunkDelayMs?: number) {

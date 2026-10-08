@@ -9,7 +9,7 @@
 A shared lexicon registry (`src/shared/lexicon/`) holds about 70 versioned terms as JSON data, one
 file per slot, validated at load and locked by a version file. The composer gains term chips, a
 searchable picker and a hover card, all driven by the shared registry and its selection rules
-(one value per single slot, declared conflicts, six at most). The server checks the same rules,
+(one value per single slot, declared conflicts; the six-term cap was removed by the owner decision of 2026-10-07). The server checks the same rules,
 records `{id, v}` uses in the question edge's declared properties and in each answer's, and the
 reply builder appends one `<lexicon>` block after the stable system prompt. Three methods
 (Premortem, Steelman, SCQA) are new output kinds plus function definitions beside Analogy; the
@@ -32,7 +32,7 @@ properties once, so terms can ride on branch and parked edges too.
 
 **Performance Goals**: Picker filtering and chip rendering feel instant (< 16 ms for 70 terms); no change to canvas frame budgets
 
-**Constraints**: Message text verbatim (Article I); no auto-detection; cached system prefix unchanged; runner unchanged (SC-013); shared-file edits additive and logged in STATUS.md
+**Constraints**: Message text verbatim (Article I); auto-detection of typed terms as dismissible "detected" chips, on by default with a setting (owner decision 2026-10-07, superseding "no auto-detection"); cached system prefix unchanged; runner unchanged (SC-013); shared-file edits additive and logged in STATUS.md
 
 **Scale/Scope**: 69 base terms, 3 methods, 1 migration, ~6 new client components/modules
 

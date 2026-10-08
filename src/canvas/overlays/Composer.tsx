@@ -3,7 +3,7 @@
 // The composer (research R12; contracts/canvas-ui.md "Composer"): a screen-space overlay pinned
 // below the focused element, or docked to the viewport edge with a pointer when the element is off
 // screen. It never scales, so it stays usable at every zoom. Drafts are kept per target.
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { ApiError, api } from "@/lib/api";
 import type { Element } from "@/shared/schemas";
 import { type CanvasEngine, useEngine, useFrame } from "../engine";
@@ -11,6 +11,7 @@ import { NEW_TREE, newestAnswer, useCanvasStore } from "../store";
 import { TermChips } from "./lexicon/TermChips";
 import { TermPicker } from "./lexicon/TermPicker";
 import { findTerm } from "@/shared/lexicon";
+import { composeChips, detectTerms, type DraftLexicon, EMPTY_DRAFT_LEXICON } from "@/lib/lexiconDetect";
 
 /** Persisted chip ids that still name a term that can be sent (Feature 13). */
 function liveTerms(ids: string[] | undefined): string[] {
@@ -20,6 +21,7 @@ function liveTerms(ids: string[] | undefined): string[] {
   });
 }
 const NO_TERMS: string[] = [];
+const without = (list: readonly string[], drop: readonly string[]) => list.filter((id) => !drop.includes(id));
 
 const QUICK_BRANCH = "????";
 const WIDTH = 440;
@@ -102,7 +104,8 @@ function place(engine: CanvasEngine | null, target: Target | null, height: numbe
   return { left, top, docked: offscreen, pointer };
 }
 
-export function Composer() {
+/** `autodetect`: the "Pick up lexicon words automatically" setting (owner decision 2026-10-07). */
+export function Composer({ autodetect = true }: { autodetect?: boolean } = {}) {
   const engine = useEngine();
   useFrame(engine);
   const focusId = useCanvasStore((s) => s.focusId);
@@ -116,6 +119,10 @@ export function Composer() {
   // Lexicon chips on this draft (Feature 13); kept and cleared with the draft's text.
   const storedTerms = useCanvasStore((s) => (key ? (s.draftTerms[key] ?? NO_TERMS) : NO_TERMS));
   const setDraftTerms = useCanvasStore((s) => s.setDraftTerms);
+  // Detected terms the user dismissed or swapped in, for this draft only.
+  const draftLexicon = useCanvasStore((s) => (key ? (s.draftLexicon[key] ?? EMPTY_DRAFT_LEXICON) : EMPTY_DRAFT_LEXICON));
+  const setDraftLexicon = useCanvasStore((s) => s.setDraftLexicon);
+  const detected = useMemo(() => (autodetect ? detectTerms(draft) : NO_TERMS), [autodetect, draft]);
   const [picking, setPicking] = useState(false);
   const [sending, setSending] = useState(false);
   // An error belongs to the target it happened on; switching target hides it.
@@ -136,7 +143,7 @@ export function Composer() {
     box.style.height = `${Math.min(box.scrollHeight + 2, max)}px`;
     box.classList.toggle("overflowing", box.scrollHeight + 2 > max);
     setHeight(formRef.current?.offsetHeight ?? 56);
-  }, [draft, failure, storedTerms]);
+  }, [draft, failure, storedTerms, detected, draftLexicon]);
 
   // A composer with text keeps its element mounted wherever the camera goes (FR-034, SC-007).
   const pinId = target && target.kind !== "new-tree" ? (target.kind === "ask" ? target.from.id : target.edge.id) : null;
@@ -157,7 +164,40 @@ export function Composer() {
   if (!target) return null;
   const error = failure?.key === target.key ? failure : null;
 
-  const terms = liveTerms(storedTerms);
+  // Chips added by hand, then (when auto-detect is on) terms picked up from the text. With it off
+  // `detected` is empty, so this is exactly the chip-only behaviour.
+  const manual = liveTerms(storedTerms);
+  const { chips, suggestions } = composeChips(manual, detected, draftLexicon);
+  const terms = chips.map((c) => c.id);
+  const draftKey = target.key;
+  const updateLexicon = (next: DraftLexicon) => setDraftLexicon(draftKey, next);
+
+  /** Removing a chip also dismisses it, so a word still in the text doesn't bring it back. */
+  function removeTerm(id: string) {
+    setDraftTerms(draftKey, without(manual, [id]));
+    updateLexicon({ dismissed: [...without(draftLexicon.dismissed, [id]), id], pinned: without(draftLexicon.pinned, [id]) });
+  }
+  function addTerm(id: string) {
+    setDraftTerms(draftKey, [...manual, id]);
+    updateLexicon({ dismissed: without(draftLexicon.dismissed, [id]), pinned: draftLexicon.pinned });
+  }
+  /** A neighbour swap from a chip's card: the new term is a chip added by hand. */
+  function swapTerm(fromId: string, toId: string) {
+    setDraftTerms(draftKey, [...without(manual, [fromId, toId]), toId]);
+    updateLexicon({ dismissed: [...without(draftLexicon.dismissed, [fromId, toId]), fromId], pinned: without(draftLexicon.pinned, [fromId]) });
+  }
+  /** Swaps a suggestion in for the terms it clashes with; it stays a detected term. */
+  function swapInSuggestion(id: string) {
+    const blockedBy = suggestions.find((s) => s.id === id)?.blockedBy ?? [];
+    setDraftTerms(draftKey, without(manual, blockedBy));
+    updateLexicon({
+      dismissed: [...without(draftLexicon.dismissed, [id, ...blockedBy]), ...blockedBy],
+      pinned: [id, ...without(draftLexicon.pinned, [id, ...blockedBy])],
+    });
+  }
+  function dismissSuggestion(id: string) {
+    updateLexicon({ dismissed: [...without(draftLexicon.dismissed, [id]), id], pinned: without(draftLexicon.pinned, [id]) });
+  }
 
   async function send(content: string): Promise<boolean> {
     if (!target || !content.trim() || sending) return false;
@@ -168,19 +208,20 @@ export function Composer() {
       let created: { edge: Element; answer: Element };
       if (target.kind === "new-tree") {
         if (!projectId) return false;
-        const res = await api.startTree(projectId, content, terms);
+        const res = await api.startTree(projectId, content, chips);
         store.merge([res.edge, res.answer], [res.tree]);
         created = res;
       } else if (target.kind === "send") {
-        created = await api.sendUnsent(target.edge.id, content, terms);
+        created = await api.sendUnsent(target.edge.id, content, chips);
         store.merge([created.edge, created.answer]);
       } else {
-        created = await api.ask(target.from.id, content, terms);
+        created = await api.ask(target.from.id, content, chips);
         store.merge([created.edge, created.answer]);
       }
       // Cleared only once the server stored the message (FR-015).
       store.setDraft(target.key, "");
       store.setDraftTerms(target.key, []);
+      store.setDraftLexicon(target.key, null);
       setPicking(false);
       store.setComposingNewTree(false);
       engine?.walkTo(created.answer.id);
@@ -218,14 +259,21 @@ export function Composer() {
         <TermPicker
           selected={terms}
           placement={pos.top > 360 ? "above" : "below"}
-          onAdd={(id) => setDraftTerms(target.key, [...terms, id])}
+          onAdd={addTerm}
           onClose={() => {
             setPicking(false);
             boxRef.current?.focus();
           }}
         />
       )}
-      <TermChips ids={terms} onChange={(ids) => setDraftTerms(target.key, ids)} />
+      <TermChips
+        chips={chips}
+        suggestions={suggestions}
+        onRemove={removeTerm}
+        onSwap={swapTerm}
+        onUseSuggestion={swapInSuggestion}
+        onDismissSuggestion={dismissSuggestion}
+      />
       <form
         className="composer"
         onSubmit={(e) => {
@@ -251,7 +299,7 @@ export function Composer() {
             }
           }}
         />
-        {/* Feature 13: lexicon terms are added only from here, never detected in the text. */}
+        {/* Feature 13: add a term by hand. Terms typed in the text are picked up too, unless turned off in Settings. */}
         <button
           type="button"
           className={`composer-icon-btn composer-terms${picking ? " active" : ""}`}

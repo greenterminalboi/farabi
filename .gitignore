@@ -33,6 +33,7 @@ playwright-report/
 /.desktop/
 /.farabi-dev/
 /.farabi-e2e/
+/.farabi-web/
 /.next-desktop/
 /.next-desktop-test/
 /.desktop-test/

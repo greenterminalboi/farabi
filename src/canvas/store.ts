@@ -2,6 +2,7 @@
 // and per-target composer drafts (persisted, FR-028).
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
+import type { DraftLexicon } from "@/lib/lexiconDetect";
 import type { CanvasResponse, Element, Span, Tree } from "@/shared/schemas";
 
 /** A composer target: an element id, or this sentinel for "start a new tree". */
@@ -22,6 +23,8 @@ type CanvasStore = {
   drafts: Record<string, string>;
   /** Lexicon term ids attached to each draft as chips (Feature 13), kept with the draft's text. */
   draftTerms: Record<string, string[]>;
+  /** Per draft: detected terms the user dismissed or swapped in (Feature 13 auto-detect). */
+  draftLexicon: Record<string, DraftLexicon>;
 
   load: (projectId: string, canvas: Pick<CanvasResponse, "trees" | "elements">) => void;
   /** Adds or replaces elements (and trees) returned by an action. Returns the trees touched. */
@@ -31,6 +34,7 @@ type CanvasStore = {
   select: (selection: Selection) => void;
   setDraft: (targetId: string, text: string) => void;
   setDraftTerms: (targetId: string, ids: string[]) => void;
+  setDraftLexicon: (targetId: string, value: DraftLexicon | null) => void;
 };
 
 /**
@@ -57,6 +61,7 @@ export const useCanvasStore = create<CanvasStore>()(
       selection: null,
       drafts: {},
       draftTerms: {},
+      draftLexicon: {},
 
       load: (projectId, canvas) => {
         const switched = get().projectId !== projectId;
@@ -103,13 +108,20 @@ export const useCanvasStore = create<CanvasStore>()(
           else delete draftTerms[targetId];
           return { draftTerms };
         }),
+      setDraftLexicon: (targetId, value) =>
+        set((s) => {
+          const draftLexicon = { ...s.draftLexicon };
+          if (value && (value.dismissed.length || value.pinned.length)) draftLexicon[targetId] = value;
+          else delete draftLexicon[targetId];
+          return { draftLexicon };
+        }),
     }),
     {
       // Drafts survive reloads (FR-028); data always comes from the server. Display settings
       // (show rejected, minimap) live in the settings store under farabi.settings.
       name: "farabi.drafts",
       storage: createJSONStorage(() => localStorage),
-      partialize: (s) => ({ drafts: s.drafts, draftTerms: s.draftTerms }),
+      partialize: (s) => ({ drafts: s.drafts, draftTerms: s.draftTerms, draftLexicon: s.draftLexicon }),
       skipHydration: true,
     },
   ),

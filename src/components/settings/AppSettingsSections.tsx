@@ -19,7 +19,7 @@ const REFUSALS: Record<string, string> = {
   destination_not_empty: "This Farabi already has projects or feedback, so nothing can be imported into it.",
   already_imported: "That database was already imported.",
   source_unreachable: "Farabi couldn't connect to that database. Is the web app's Postgres running?",
-  schema_behind: "That database is older than this Farabi. Run its migrations first (npm run db:migrate).",
+  schema_behind: "That doesn't look like a Farabi database.",
   schema_ahead: "That database is newer than this Farabi. Update Farabi first.",
 };
 
@@ -113,6 +113,26 @@ export function AppSettingsSections() {
       <div className="settings-section">
         <h2>Default model</h2>
         <ModelField key={config.default_model.value ?? ""} value={config.default_model.value} onSave={(value) => void save({ key: "default_model", value })} />
+      </div>
+
+      <div className="settings-section" id="lexicon">
+        <h2>Lexicon</h2>
+        <label className="app-settings-choice">
+          <input
+            type="checkbox"
+            checked={config.lexicon_autodetect.value}
+            data-testid="lexicon-autodetect"
+            onChange={(e) => void save({ key: "lexicon_autodetect", value: e.target.checked })}
+          />
+          <span>
+            <strong>Pick up lexicon words automatically</strong>
+            <span className="muted">
+              {" "}
+              · Lexicon terms you type, like &ldquo;summarize&rdquo; or &ldquo;table&rdquo;, are added as chips you can remove before sending.
+              When off, only chips you add yourself are used.
+            </span>
+          </span>
+        </label>
       </div>
 
       <div className="settings-section">
@@ -433,7 +453,12 @@ function ImportSection({ onImported }: { onImported: () => void }) {
           {busy === "import" ? "Importing… keep Farabi open" : "Import"}
         </button>
       </div>
-      {check?.ready && <p className="settings-status">Ready: {total(check.counts).toLocaleString()} rows to copy.</p>}
+      {check?.ready && (
+        <p className="settings-status">
+          Ready: {total(check.counts).toLocaleString()} rows to copy.
+          {check.upgradeFrom && ` It's from an older Farabi (${check.upgradeFrom}); the copy is updated on the way in, and the web app's database isn't changed.`}
+        </p>
+      )}
       {check && !check.ready && <p className="composer-error">{REFUSALS[check.reason] ?? check.detail}</p>}
       {result && (
         <p className="settings-status" role="status">
