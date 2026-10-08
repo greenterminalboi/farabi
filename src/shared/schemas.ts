@@ -88,8 +88,11 @@ export const Element = z.object({
   drawnFrom: z.string().optional(),
   /** Canvas only: what a card display (Feature 12's drill) shows, and where Open goes. */
   card: z.object({ title: z.string(), lines: z.array(z.string()), href: z.string() }).optional(),
-  /** Feature 13: lexicon terms on a question edge (asked for) or an answer (sent), as id and version. */
-  lexicon: z.array(z.object({ id: z.string(), v: z.number().int() })).optional(),
+  /**
+   * Feature 13: lexicon terms on a question edge (asked for) or an answer (sent), as id and version.
+   * On edges sent since auto-detect, `via` says whether the term was detected in the text or added as a chip.
+   */
+  lexicon: z.array(z.object({ id: z.string(), v: z.number().int(), via: z.enum(["detected", "chip"]).optional() })).optional(),
 });
 export type Element = z.infer<typeof Element>;
 
@@ -124,8 +127,13 @@ export const ElementResponse = z.object({ element: Element });
 
 // Asking
 
-/** Feature 13: lexicon term ids attached as chips; the server checks them (FR-008). */
-const Terms = z.array(z.string()).max(6).optional();
+/**
+ * Feature 13: lexicon terms on the message; the server checks them (FR-008). A bare id is a chip
+ * added by hand; `{ id, via }` also says whether the composer detected it in the text. No count limit.
+ */
+export const TermInput = z.union([z.string(), z.object({ id: z.string(), via: z.enum(["detected", "chip"]) }).strict()]);
+export type TermInput = z.infer<typeof TermInput>;
+const Terms = z.array(TermInput).optional();
 
 export const StartTreeRequest = z.object({ projectId: z.string().uuid(), content: z.string(), terms: Terms });
 export const StartTreeResponse = z.object({ tree: Tree, edge: Element, answer: Element });

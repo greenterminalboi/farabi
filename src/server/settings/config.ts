@@ -9,7 +9,7 @@ import { db } from "../db/client";
 import type { SettingKey } from "../db/schema";
 import { isDesktop } from "../host/bridge";
 
-export type ConfigKey = "ai_provider" | "default_model" | "summary_trigger" | "feedback_export_dir" | "claude_code_path";
+export type ConfigKey = "ai_provider" | "default_model" | "summary_trigger" | "feedback_export_dir" | "claude_code_path" | "lexicon_autodetect";
 export type AIProviderKind = "claude" | "claude-code" | "fake";
 export type ConfigValues = {
   ai_provider: AIProviderKind;
@@ -17,11 +17,20 @@ export type ConfigValues = {
   summary_trigger: "reply" | "map";
   feedback_export_dir: string | null;
   claude_code_path: string | null;
+  /** Feature 13 follow-up: the composer picks up lexicon terms from the text. No environment variable. */
+  lexicon_autodetect: boolean;
 };
 export type ConfigSource = "row" | "env" | "default";
 export type ResolvedConfig<K extends ConfigKey = ConfigKey> = { value: ConfigValues[K]; source: ConfigSource; changedAt: string | null };
 
-export const CONFIG_KEYS: readonly ConfigKey[] = ["ai_provider", "default_model", "summary_trigger", "feedback_export_dir", "claude_code_path"];
+export const CONFIG_KEYS: readonly ConfigKey[] = [
+  "ai_provider",
+  "default_model",
+  "summary_trigger",
+  "feedback_export_dir",
+  "claude_code_path",
+  "lexicon_autodetect",
+];
 const PROVIDERS: readonly AIProviderKind[] = ["claude", "claude-code", "fake"];
 
 type Row = { value: unknown; changedAt: string };
@@ -43,6 +52,8 @@ function fromEnv<K extends ConfigKey>(key: K, provider: AIProviderKind): ConfigV
         return env.FEEDBACK_DIR || undefined;
       case "claude_code_path":
         return env.CLAUDE_CODE_BIN || undefined;
+      case "lexicon_autodetect":
+        return undefined;
     }
   })();
   return v as ConfigValues[K] | undefined;
@@ -56,6 +67,7 @@ function fallback<K extends ConfigKey>(key: K): ConfigValues[K] {
     // The web app always exported to the repo's feedback/ folder; the desktop app only when chosen.
     feedback_export_dir: isDesktop() ? null : "feedback",
     claude_code_path: null,
+    lexicon_autodetect: true,
   };
   return defaults[key];
 }

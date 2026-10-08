@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { checkSelection, MAX_TERMS, searchTerms, sortBySlot, unavailableReason } from "@/shared/lexicon";
+import { checkSelection, LexiconUses, searchTerms, sortBySlot, unavailableReason } from "@/shared/lexicon";
 
 describe("lexicon selection rules (FR-002, FR-007, FR-008)", () => {
   it("one term per single slot", () => {
@@ -21,12 +21,11 @@ describe("lexicon selection rules (FR-002, FR-007, FR-008)", () => {
     expect(unavailableReason("simplify", ["verbatim"])).toBe("Conflicts with Verbatim");
   });
 
-  it("six terms at most, no duplicates, no unknown terms", () => {
-    const six = ["distill", "concise", "table", "direct", "skeptic", "must"];
-    expect(checkSelection(six).ok).toBe(true);
-    expect(MAX_TERMS).toBe(6);
-    expect(unavailableReason("never", six)).toBe("6 terms at most");
-    expect(checkSelection([...six, "never"])).toEqual({ ok: false, reason: "Never: 6 terms at most" });
+  it("no count limit (owner decision 2026-10-07), no duplicates, no unknown terms", () => {
+    const ten = ["distill", "concise", "table", "direct", "skeptic", "must", "never", "only", "edge-cases", "think-first"];
+    expect(checkSelection(ten).ok).toBe(true);
+    expect(unavailableReason("always", ten)).toBeNull();
+    expect(LexiconUses.safeParse(ten.map((id) => ({ id, v: 1 }))).success).toBe(true);
     expect(checkSelection(["table", "table"])).toEqual({ ok: false, reason: "Table: Already added" });
     expect(checkSelection(["nope"])).toEqual({ ok: false, reason: 'Unknown term "nope"' });
     expect(checkSelection(["concise", "comprehensive"])).toEqual({ ok: false, reason: "Comprehensive: Scope already set: Concise" });

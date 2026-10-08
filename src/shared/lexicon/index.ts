@@ -8,7 +8,7 @@ import quality from "./data/quality.json";
 import scope from "./data/scope.json";
 import strength from "./data/strength.json";
 import tone from "./data/tone.json";
-import { MAX_TERMS, SINGLE_SLOTS, SLOT_LABEL, SLOT_ORDER, type Slot, Term } from "./types";
+import { SINGLE_SLOTS, SLOT_LABEL, SLOT_ORDER, type Slot, Term } from "./types";
 
 export { LEXICON_PREAMBLE, lexiconBlock } from "./block";
 export { CHECKS, runCheck } from "./checks";
@@ -79,7 +79,6 @@ export function unavailableReason(id: string, selected: readonly string[]): stri
   if (!term) return "Unknown term";
   if (term.retired) return "Retired";
   if (selected.includes(id)) return "Already added";
-  if (selected.length >= MAX_TERMS) return `${MAX_TERMS} terms at most`;
   for (const otherId of selected) {
     const other = BY_ID.get(otherId);
     if (!other) continue;
