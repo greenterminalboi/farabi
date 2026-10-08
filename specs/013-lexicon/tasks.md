@@ -15,23 +15,23 @@ and e2e tests are included.
 
 ## Phase 1: Setup
 
-- [ ] T001 Confirm the lane DB: worktree `.env.local` has `DATABASE_URL=…/farabi_lexicon` and `TEST_DATABASE_URL=…/farabi_lexicon_test`; baseline `npx vitest run` green (310)
-- [ ] T002 Log planned shared-file edits and migration 0013 in `/Users/halda/Projects/farabi-coord/STATUS.md` before touching them
+- [X] T001 Confirm the lane DB: worktree `.env.local` has `DATABASE_URL=…/farabi_lexicon` and `TEST_DATABASE_URL=…/farabi_lexicon_test`; baseline `npx vitest run` green (310)
+- [X] T002 Log planned shared-file edits and migration 0013 in `/Users/halda/Projects/farabi-coord/STATUS.md` before touching them
 
 ## Phase 2: Foundational (blocks every story)
 
-- [ ] T003 Define `Slot`, `SLOT_ORDER`, `SINGLE_SLOTS`, `MAX_TERMS = 6`, the strict Zod `Term` schema (id `^[a-z0-9]+(-[a-z0-9]+)*$`; instruction "≤ 400 chars; no `<` or `>`"; version int ≥ 1; optional `check`, `retired`) and `TermUse`/`LexiconUses` (max 6, unique ids) in `src/shared/lexicon/types.ts`
-- [ ] T004 [P] Write the operation terms (26: summarize, distill, condense, expand, rewrite, polish, proofread, critique, compare, analyze, synthesize, extract, categorize, rank, brainstorm, draft, outline, explain, simplify, diagnose, evaluate, abstract, instantiate, invert, reframe, steelman) with meanings/examples from `specs/013-lexicon/dictionary-extract.md` in `src/shared/lexicon/data/operation.json`
-- [ ] T005 [P] Write the scope (8) and format (6) terms in `src/shared/lexicon/data/scope.json` and `src/shared/lexicon/data/format.json`
-- [ ] T006 [P] Write the tone (5) and audience (5) terms in `src/shared/lexicon/data/tone.json` and `src/shared/lexicon/data/audience.json`
-- [ ] T007 [P] Write the strength (11) and quality (8) terms in `src/shared/lexicon/data/strength.json` and `src/shared/lexicon/data/quality.json`
-- [ ] T008 Implement the registry (`allTerms`, `activeTerms`, `findTerm`, `roleOf`, `sortBySlot`, `searchTerms`, `unavailableReason`, `checkSelection`) loading and validating all data files, failing loudly on a bad file, in `src/shared/lexicon/index.ts`
-- [ ] T009 Implement `lexiconBlock()` exactly per contracts/prompt.md in `src/shared/lexicon/block.ts`
-- [ ] T010 [P] Implement code checks (`bulleted`, `numbered`, `table`, `checklist`, `tldr-first`, `pros-cons`, `max-words-one-pager`) and `runCheck` in `src/shared/lexicon/checks.ts`
-- [ ] T011 Write `scripts/lexicon-lock.ts` (rewrites `src/shared/lexicon/data/versions.lock.json`; refuses a changed instruction hash without a version increase) and add `lexicon:lock` to `package.json`; generate the lock
-- [ ] T012 [P] Unit tests: schema validity, ≥ 65 active terms, unique ids and case-insensitive names/aliases, slot matches file, neighbours exist and aren't self, conflicts exist and are symmetric, instruction form, every `check` id exists, lock matches, in `tests/unit/f13-registry.test.ts`
-- [ ] T013 [P] Unit tests for `checkSelection`/`unavailableReason` (same single slot, conflict, seventh term, unknown, retired, duplicate, multi-value slots) and `searchTerms` (alias match, prefix first) in `tests/unit/f13-selection.test.ts`
-- [ ] T014 [P] Unit tests for `lexiconBlock` (slot order then id, escaping, null for none) and `runCheck` fixtures (pass and fail per check) in `tests/unit/f13-block.test.ts`
+- [X] T003 Define `Slot`, `SLOT_ORDER`, `SINGLE_SLOTS`, `MAX_TERMS = 6`, the strict Zod `Term` schema (id `^[a-z0-9]+(-[a-z0-9]+)*$`; instruction "≤ 400 chars; no `<` or `>`"; version int ≥ 1; optional `check`, `retired`) and `TermUse`/`LexiconUses` (max 6, unique ids) in `src/shared/lexicon/types.ts`
+- [X] T004 [P] Write the operation terms (26: summarize, distill, condense, expand, rewrite, polish, proofread, critique, compare, analyze, synthesize, extract, categorize, rank, brainstorm, draft, outline, explain, simplify, diagnose, evaluate, abstract, instantiate, invert, reframe, steelman) with meanings/examples from `specs/013-lexicon/dictionary-extract.md` in `src/shared/lexicon/data/operation.json`
+- [X] T005 [P] Write the scope (8) and format (6) terms in `src/shared/lexicon/data/scope.json` and `src/shared/lexicon/data/format.json`
+- [X] T006 [P] Write the tone (5) and audience (5) terms in `src/shared/lexicon/data/tone.json` and `src/shared/lexicon/data/audience.json`
+- [X] T007 [P] Write the strength (11) and quality (8) terms in `src/shared/lexicon/data/strength.json` and `src/shared/lexicon/data/quality.json`
+- [X] T008 Implement the registry (`allTerms`, `activeTerms`, `findTerm`, `roleOf`, `sortBySlot`, `searchTerms`, `unavailableReason`, `checkSelection`) loading and validating all data files, failing loudly on a bad file, in `src/shared/lexicon/index.ts`
+- [X] T009 Implement `lexiconBlock()` exactly per contracts/prompt.md in `src/shared/lexicon/block.ts`
+- [X] T010 [P] Implement code checks (`bulleted`, `numbered`, `table`, `checklist`, `tldr-first`, `pros-cons`, `max-words-one-pager`) and `runCheck` in `src/shared/lexicon/checks.ts`
+- [X] T011 Write `scripts/lexicon-lock.ts` (rewrites `src/shared/lexicon/data/versions.lock.json`; refuses a changed instruction hash without a version increase) and add `lexicon:lock` to `package.json`; generate the lock
+- [X] T012 [P] Unit tests: schema validity, ≥ 65 active terms, unique ids and case-insensitive names/aliases, slot matches file, neighbours exist and aren't self, conflicts exist and are symmetric, instruction form, every `check` id exists, lock matches, in `tests/unit/f13-registry.test.ts`
+- [X] T013 [P] Unit tests for `checkSelection`/`unavailableReason` (same single slot, conflict, seventh term, unknown, retired, duplicate, multi-value slots) and `searchTerms` (alias match, prefix first) in `tests/unit/f13-selection.test.ts`
+- [X] T014 [P] Unit tests for `lexiconBlock` (slot order then id, escaping, null for none) and `runCheck` fixtures (pass and fail per check) in `tests/unit/f13-block.test.ts`
 
 **Checkpoint**: the registry is usable from server and client.
 

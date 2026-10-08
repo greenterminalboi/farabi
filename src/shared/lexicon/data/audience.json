@@ -1,0 +1,67 @@
+[
+  {
+    "id": "eli5",
+    "name": "ELI5",
+    "aliases": ["explain like i'm 5", "explain like im five"],
+    "slot": "audience",
+    "meaning": "Explain like I'm 5, very simple",
+    "example": "ELI5 how vaccines work",
+    "neighbours": ["layperson"],
+    "conflicts": [],
+    "version": 1,
+    "instruction": "Write for a curious child: very simple words, one idea at a time and an everyday comparison, because the person wants the core intuition with no background needed. Stay accurate while simplifying.",
+    "effect": "Very simple vocabulary and an everyday comparison"
+  },
+  {
+    "id": "layperson",
+    "name": "Layperson",
+    "aliases": ["non-expert", "general reader"],
+    "slot": "audience",
+    "meaning": "No background knowledge assumed",
+    "example": "Explain for a layperson",
+    "neighbours": ["eli5", "decision-maker"],
+    "conflicts": [],
+    "version": 1,
+    "instruction": "Write for an intelligent reader with no background in the field: define each technical term when it first appears and give the context they would be missing.",
+    "effect": "Technical terms defined on first use"
+  },
+  {
+    "id": "expert-level",
+    "name": "Expert-level",
+    "aliases": ["technical", "expert"],
+    "slot": "audience",
+    "meaning": "Assumes deep knowledge",
+    "example": "Expert-level, skip basics",
+    "neighbours": ["layperson"],
+    "conflicts": [],
+    "version": 1,
+    "instruction": "Write for an expert in the field: use precise technical vocabulary freely and skip the basics, because the person already knows them and wants depth.",
+    "effect": "Technical vocabulary without definitions; no basics"
+  },
+  {
+    "id": "decision-maker",
+    "name": "Decision-maker",
+    "aliases": ["executive", "exec"],
+    "slot": "audience",
+    "meaning": "Someone who needs the bottom line to act",
+    "example": "Written for a decision-maker with 2 minutes",
+    "neighbours": ["layperson", "skeptic"],
+    "conflicts": [],
+    "version": 1,
+    "instruction": "Write for a busy decision-maker: lead with the decision or recommendation, then the key trade-offs, costs and risks, because they need to act on it within minutes.",
+    "effect": "Opens with a recommendation, then trade-offs and risks"
+  },
+  {
+    "id": "skeptic",
+    "name": "Skeptic",
+    "aliases": ["sceptic", "skeptical reader"],
+    "slot": "audience",
+    "meaning": "A reader who needs convincing",
+    "example": "Write for a skeptical CFO",
+    "neighbours": ["decision-maker", "expert-level"],
+    "conflicts": [],
+    "version": 1,
+    "instruction": "Write for a reader who doubts the claim: lead with evidence, address the obvious objections, and name the weakest point yourself, because they will look for it.",
+    "effect": "Evidence first, objections addressed, weakest point named"
+  }
+]
