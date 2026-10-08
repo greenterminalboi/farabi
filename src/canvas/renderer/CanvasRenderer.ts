@@ -2,6 +2,9 @@
 // It draws element frames, connectors, tree regions, the path emphasis and the focus ring, and no
 // text at all (FR-031): every word, including frame labels, is in the DOM text layer above it.
 // Imperative: React mounts it once and drives it through methods.
+// Pixi's no-eval shader/uniform paths, so the desktop CSP can drop 'unsafe-eval' (src/proxy.ts).
+// It must be imported before any Application is created.
+import "pixi.js/unsafe-eval";
 import { Application, Container, Graphics, Rectangle } from "pixi.js";
 import { Viewport } from "pixi-viewport";
 import type { Display } from "@/shared/kinds";
