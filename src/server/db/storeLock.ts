@@ -1,6 +1,6 @@
 // One process per data folder: a second PGlite opener corrupts the store (PGlite issue #1106), so
 // the server and every script take this lock first (feature 11, data-model.md §1).
-import { closeSync, openSync, readFileSync, rmSync, writeSync } from "node:fs";
+import { closeSync, mkdirSync, openSync, readFileSync, rmSync, writeSync } from "node:fs";
 import path from "node:path";
 
 export type LockInfo = { pid: number; startedAt: string };
@@ -35,6 +35,8 @@ export function readLock(dataDir: string): LockInfo | null {
 /** Takes the lock, replacing a stale one (dead pid). Throws StoreLockedError if it's live. */
 export function acquireStoreLock(dataDir: string, pid = process.pid): LockInfo {
   const info: LockInfo = { pid, startedAt: new Date().toISOString() };
+  // A first run (`npm run dev:web` on a fresh checkout) has no data folder yet.
+  mkdirSync(/*turbopackIgnore: true*/ dataDir, { recursive: true });
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
       const fd = openSync(/*turbopackIgnore: true*/ lockPath(dataDir), "wx", 0o600);
