@@ -14,6 +14,7 @@ export const AppConfig = z.object({
   summary_trigger: Resolved(z.enum(["reply", "map"])),
   feedback_export_dir: Resolved(z.string().nullable()),
   claude_code_path: Resolved(z.string().nullable()),
+  lexicon_autodetect: Resolved(z.boolean()),
 });
 export type AppConfig = z.infer<typeof AppConfig>;
 
@@ -32,6 +33,7 @@ export const SaveAppSettingBody = z.discriminatedUnion("key", [
   z.object({ key: z.literal("summary_trigger"), value: z.enum(["reply", "map"]) }),
   z.object({ key: z.literal("feedback_export_dir"), value: z.string().min(1).max(4096).nullable() }),
   z.object({ key: z.literal("claude_code_path"), value: z.string().min(1).max(4096).nullable() }),
+  z.object({ key: z.literal("lexicon_autodetect"), value: z.boolean() }),
 ]);
 export type SaveAppSettingBody = z.infer<typeof SaveAppSettingBody>;
 
@@ -75,7 +77,8 @@ export const ImportRefusal = z.enum(["destination_not_empty", "already_imported"
 export type ImportRefusal = z.infer<typeof ImportRefusal>;
 export const ImportCounts = z.record(z.string(), z.number());
 export const ImportCheckResponse = z.union([
-  z.object({ ready: z.literal(true), counts: ImportCounts }),
+  // upgradeFrom: the source's schema level when it is older; its data is upgraded during the import.
+  z.object({ ready: z.literal(true), counts: ImportCounts, upgradeFrom: z.string().optional() }),
   z.object({ ready: z.literal(false), reason: ImportRefusal, detail: z.string() }),
 ]);
 export type ImportCheckResponse = z.infer<typeof ImportCheckResponse>;

@@ -76,7 +76,15 @@ fn show_fatal(app: &AppHandle, detail: &str) {
 }
 
 fn command(app: &AppHandle, port: u16, data_dir: &Path) -> Result<Command, String> {
-    let mut cmd = if cfg!(debug_assertions) {
+    let prod_dir = std::env::var_os("FARABI_SERVER_DIR").filter(|_| cfg!(debug_assertions));
+    let mut cmd = if let Some(dir) = prod_dir {
+        // Development, measuring the shipped build: a prepared standalone server (for example the
+        // test-hooks build in .desktop-test/server) with the system Node (gate G1).
+        let dir = PathBuf::from(dir);
+        let mut c = Command::new(if cfg!(windows) { "node.exe" } else { "node" });
+        c.arg(dir.join("server.js")).current_dir(&dir).env("NODE_ENV", "production");
+        c
+    } else if cfg!(debug_assertions) {
         // Development: run `next dev` from the repo with the system Node.
         let root = crate::paths::repo_root();
         let mut c = Command::new(if cfg!(windows) { "node.exe" } else { "node" });

@@ -94,7 +94,7 @@ describe("Feature 11 · US4 app settings", () => {
     const res = await call("GET", "/api/settings/app");
     expect(res.status).toBe(200);
     expect(res.body.mode).toBe("web");
-    expect(Object.keys(res.body.config).sort()).toEqual(["ai_provider", "claude_code_path", "default_model", "feedback_export_dir", "summary_trigger"]);
+    expect(Object.keys(res.body.config).sort()).toEqual(["ai_provider", "claude_code_path", "default_model", "feedback_export_dir", "lexicon_autodetect", "summary_trigger"]);
     for (const v of Object.values(res.body.config)) expect(Object.keys(v as object).sort()).toEqual(["changedAt", "source", "value"]);
   });
 });

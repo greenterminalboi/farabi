@@ -3,7 +3,7 @@
 // commit; the reply streams separately (Feature 2).
 import { sql } from "kysely";
 import { findKind } from "@/shared/kinds";
-import type { AskResponse, Element, SendResponse, StartTreeResponse } from "@/shared/schemas";
+import type { AskResponse, Element, SendResponse, StartTreeResponse, TermInput } from "@/shared/schemas";
 import { insertPendingAnswer, startGeneration } from "../answers/generation";
 import { db, type Trx } from "../db/client";
 import { ConflictError, InvalidRequestError, NotFoundError } from "../errors";
@@ -42,7 +42,7 @@ async function assertLiveProject(trx: Trx, projectId: string): Promise<void> {
  * A new tree: an origin edge with the user's text and a pending answer (FR-005, FR-014). `terms`
  * are lexicon chips (Feature 13), checked before anything is stored and recorded on the edge.
  */
-export async function startTree(projectId: string, content: string, terms?: string[]): Promise<StartTreeResponse> {
+export async function startTree(projectId: string, content: string, terms?: TermInput[]): Promise<StartTreeResponse> {
   assertId(projectId, "Project");
   assertContent(content);
   const uses = resolveTerms(terms);
@@ -134,7 +134,7 @@ export async function assertAskable(trx: Trx, el: ElementRow): Promise<void> {
  * Asking again from the same element adds a sibling edge; nothing existing changes. An exact
  * "????" from an answer is a quick branch when one is possible (FR-020).
  */
-export async function ask(elementId: string, content: string, terms?: string[]): Promise<AskResponse> {
+export async function ask(elementId: string, content: string, terms?: TermInput[]): Promise<AskResponse> {
   assertId(elementId, "Element");
   assertContent(content);
   const uses = resolveTerms(terms);
@@ -158,7 +158,7 @@ export async function ask(elementId: string, content: string, terms?: string[]):
 }
 
 /** Sends an unsent edge once (a branch or a parked tangent fired without a question). */
-export async function sendUnsent(edgeId: string, content: string, terms?: string[]): Promise<SendResponse> {
+export async function sendUnsent(edgeId: string, content: string, terms?: TermInput[]): Promise<SendResponse> {
   assertId(edgeId, "Edge");
   assertContent(content);
   const uses = resolveTerms(terms);

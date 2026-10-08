@@ -22,6 +22,10 @@ operation/scope/format/tone/audience slot, declared conflicts blocked, max 6 ter
 methods (Premortem, Steelman, SCQA) become function definitions next to analogy.ts with no runner
 change."
 
+> **Superseded in part (owner decision 2026-10-07)**: terms typed in the message are now picked
+> up automatically as "detected" chips (on by default, with a setting to turn it off), and the
+> six-term cap is gone. See Clarifications, "Owner decision 2026-10-07".
+
 Research: `farabi-coord/research/lexicon.md` and its full write-up ("Farabi Lexicon: research").
 Source vocabulary: the owner's "My AI Prompting Dictionary"; the rows used for the base set are
 copied verbatim in [dictionary-extract.md](./dictionary-extract.md).
@@ -33,7 +37,8 @@ copied verbatim in [dictionary-extract.md](./dictionary-extract.md).
 - Source of truth → the terms are versioned data files in the repository. The Claude Doc is only a
   readable view of them.
 - Activation → chip-only. A term affects a reply only when the user explicitly adds its chip in the
-  composer. Typed words are never detected or matched.
+  composer. Typed words are never detected or matched. *(Superseded by the owner decision of
+  2026-10-07 below.)*
 - Launch set → about 70 tested base terms: operations, scope, format, tone and audience modifiers,
   strength words and quality checks.
 - Prompt → the question edge's text stays exactly as typed. The terms present go into a separate
@@ -41,6 +46,27 @@ copied verbatim in [dictionary-extract.md](./dictionary-extract.md).
   recorded on the question edge as declared properties.
 - Methods → become function definitions beside the existing Analogy function, with no change to the
   runner. The first release has at most a handful.
+
+### Owner decision 2026-10-07: auto-detect
+
+"Pick up any lexicon words at the moment and have a setting to turn them down." This supersedes the
+chip-only activation above and the hard six-term cap below.
+
+- Activation → as the user types, lexicon term names and aliases found in the text (whole words,
+  any case; a typographic apostrophe counts as a straight one; no stemming, so "tables" is not
+  "table") are added as chips marked "detected". Chips added by hand still work. The message text is
+  stored and sent exactly as typed. Decided by lane: the alias "can" (May) is never detected, because
+  most questions start "can you…"; every other name and alias is.
+- Control (Article I) → detected chips look different from chips added by hand (dashed, labelled
+  "detected"). Each can be removed before sending, and a removed term isn't picked up again for that
+  draft even while its word stays in the text. The question edge records how each term arrived:
+  `lexicon: [{ id, v, via: "detected" | "chip" }]`. Older rows without `via` stay valid; answers
+  record only `{ id, v }`.
+- Setting → "Pick up lexicon words automatically" (Settings → Lexicon), on by default, stored as an
+  app setting in the append-only settings history (`lexicon_autodetect`, migration 0014), not an
+  environment variable. Off is exactly the chip-only behaviour.
+- Cap → none. Single-value slots and declared conflicts still apply, and the server still refuses
+  them. Above eight terms the composer shows a soft warning; nothing is blocked.
 
 ### Session 2026-10-07 (decided by lane, owner to confirm)
 
@@ -52,7 +78,11 @@ The owner is away; each answer below is the most conservative reasonable option.
   composer: the conflicting term can't be added until the other is removed. There is no stated
   priority path in this release (FR-006, FR-007).
 - Q: Is the six-term cap soft or hard? → A: Hard. A seventh term can't be added, and the server
-  refuses a message with more than six (FR-008).
+  refuses a message with more than six (FR-008). *(Superseded by the owner decision of 2026-10-07:
+  no cap, a soft warning above eight.)*
+- Q: What happens with two values for one slot, or a declared conflict, among detected terms? → A:
+  The first in text order is kept (a chip added by hand always beats a detected term), and the
+  other is shown as a dimmed "conflicts with X" suggestion the user can swap in or dismiss.
 - Q: Global or per project? → A: One global lexicon. Farabi is single-user; per-project overrides are
   out of scope.
 - Q: Do strength words and "Top N" take a value (a number, the X and Y of "priority")? → A: No.
@@ -83,7 +113,7 @@ The owner is away; each answer below is the most conservative reasonable option.
 
 | Article | How this feature meets it |
 |---------|---------------------------|
-| I. The User Is the Final Authority | Terms act only when the user adds a chip; nothing is detected or added for them. The message text is stored and sent exactly as typed. The user can see the exact instruction each term sends before sending. Method outputs are ai-suggested and wait for the user's review like every function output. |
+| I. The User Is the Final Authority | Terms act only when they are on the draft as chips the user can see. Since the owner decision of 2026-10-07, terms typed in the text are added automatically as chips marked "detected" (a setting turns this off); each can be dismissed before sending and stays dismissed for that draft, and the edge records whether each term was detected or added by hand. The message text is stored and sent exactly as typed. The user can see the exact instruction each term sends before sending. Method outputs are ai-suggested and wait for the user's review like every function output. |
 | II. Growth Is Additive, Never Reconciled | A message's terms are fixed when it is sent. Retries and re-asks add new attempts or edges; nothing existing is rewritten. Terms are retired, never deleted. |
 | III. Nothing Is Invented Ahead of Evidence | Term instructions shape the form of a reply the user asked for (an allowed carve-out for explicit output-form instructions). Methods read only the answer's own text, every claim about the idea must come from it, and their outputs are marked AI-suggested. |
 | IV. User-Led Exploration Takes Priority | No term or method is ever suggested by the AI. The picker opens only when the user asks, and methods run only when chosen. |
@@ -154,8 +184,8 @@ the lexicon block for that term.
 
 The user has Concise in the scope slot and tries to add Comprehensive. The picker shows
 Comprehensive as unavailable, with the reason ("Scope already set: Concise"). Verbatim and Simplify
-are declared as conflicting, so the second can't be added either. After six chips, no more can be
-added.
+are declared as conflicting, so the second can't be added either. There is no cap on the number of
+chips (owner decision 2026-10-07); above eight the composer warns that long lists blur each other.
 
 **Why this priority**: Stacked and conflicting instructions are the main way instruction following
 collapses; blocking them keeps every reply's instructions coherent.
@@ -169,8 +199,8 @@ refuse it with a clear reason.
    it is shown as unavailable with the reason and can't be added.
 2. **Given** two terms declared as conflicting, **When** one is on the draft, **Then** the other is
    unavailable with the reason.
-3. **Given** six chips, **When** the user opens the picker, **Then** no term can be added and the
-   picker says the limit is six.
+3. **Given** more than eight chips, **When** the user looks at the draft, **Then** a soft warning
+   is shown and terms can still be added (owner decision 2026-10-07).
 4. **Given** strength or quality terms, **When** several are added, **Then** they are allowed
    together (those slots take more than one value) unless a conflict is declared.
 5. **Given** a request that breaks any of these rules or names an unknown or retired term, **When**
@@ -265,12 +295,16 @@ instruction text identical to what is sent.
 
 - **FR-006**: The composer MUST let the user add and remove term chips on any draft (new tree, ask,
   send), through a searchable picker that matches names and aliases and works with the keyboard alone.
-  Terms are never added from typed text.
+  Unless the user turns it off in Settings, terms named in the typed text are also added, as chips
+  marked "detected" that the user can dismiss; a dismissed term stays off for that draft (owner
+  decision 2026-10-07). When two detected terms clash by slot or declared conflict, the first in
+  text order is kept and the other is offered as a "conflicts with X" suggestion.
 - **FR-007**: The picker MUST show a term as unavailable, with the reason, when its slot is already
   filled on the draft or it conflicts with a term on the draft. Conflicts are declared in both
   directions.
-- **FR-008**: A message MUST carry at most six terms. The picker blocks a seventh, and the server
-  refuses a message that breaks FR-002, FR-007 or FR-008, or names an unknown or retired term.
+- **FR-008**: There is no limit on the number of terms (owner decision 2026-10-07); above eight the
+  composer shows a soft warning. The server refuses a message that breaks FR-002 or FR-007, or names
+  an unknown, retired or repeated term.
 - **FR-009**: Chips MUST be kept per draft with the draft's text and cleared only when the message is
   stored.
 - **FR-010**: Hovering or focusing a chip or a picker entry MUST show a card with role, slot,
@@ -281,7 +315,8 @@ instruction text identical to what is sent.
 **Sending and replies**
 
 - **FR-011**: The message text MUST be stored and sent exactly as typed. The terms MUST be recorded on
-  the question edge as declared properties: each term's id and version.
+  the question edge as declared properties: each term's id and version, and (since auto-detect)
+  `via`, whether it was detected in the text or added as a chip.
 - **FR-012**: A reply MUST receive one lexicon block listing only the terms of the message it answers,
   ordered by slot (operation, scope, format, tone, audience, strength, quality) and then by id, so
   equal inputs give equal instructions. The block goes after the stable instructions, so the cached

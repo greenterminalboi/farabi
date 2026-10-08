@@ -148,7 +148,9 @@ export type SettingKey =
   | "default_model"
   | "summary_trigger"
   | "feedback_export_dir"
-  | "claude_code_path";
+  | "claude_code_path"
+  // Feature 13 follow-up: pick up lexicon terms from the composer's text (migration 0014).
+  | "lexicon_autodetect";
 
 /** Append-only history of global settings (Feature 6); the newest row per key is in effect. */
 export interface SettingChangesTable {

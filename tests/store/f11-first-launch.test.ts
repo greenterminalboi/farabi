@@ -8,7 +8,6 @@ import { sql } from "kysely";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 const dataDir = mkdtempSync(path.join(os.tmpdir(), "farabi-first-"));
-delete process.env.DATABASE_URL;
 delete process.env.AI_PROVIDER;
 process.env.FARABI_HOST = "tauri";
 process.env.FARABI_DATA_DIR = dataDir;

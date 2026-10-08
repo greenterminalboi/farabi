@@ -1,0 +1,129 @@
+.page {
+  flex: 1;
+  min-width: 0;
+  overflow: auto;
+  display: grid;
+  grid-template-columns: minmax(200px, 240px) minmax(0, 1fr);
+  gap: 16px;
+  padding: 16px;
+  align-items: start;
+}
+
+@media (max-width: 760px) {
+  .page {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.gallery {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.heading {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.family {
+  margin: 10px 0 4px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.item {
+  width: 100%;
+  text-align: left;
+  border: 1px solid transparent;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.9rem;
+  padding: 5px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.item:hover {
+  background: var(--accent-soft);
+}
+
+.item[aria-pressed="true"] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.main {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+.tools {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.tool {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.textarea {
+  width: 100%;
+  box-sizing: border-box;
+  resize: vertical;
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px;
+  font-size: 0.9rem;
+}
+
+.mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.8rem;
+}
+
+.row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.note {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.error {
+  margin: 0;
+  color: var(--bad);
+  font-size: 0.85rem;
+}
+
+.error ul {
+  margin: 4px 0 0;
+  padding-left: 18px;
+}

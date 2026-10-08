@@ -37,6 +37,7 @@ import {
   SettingsResponse,
   type SpanRequest,
   StartTreeResponse,
+  type TermInput,
   TermIndexResponse,
   TrashProjectResponse,
 } from "@/shared/schemas";
@@ -97,14 +98,14 @@ export const api = {
   setPosition: (elementId: string, x: number, y: number) =>
     request("PUT", `/api/nodes/${elementId}/position`, ElementResponse, { x, y }),
   // Asking
-  // `terms`: lexicon chips on the message (Feature 13); omitted when there are none.
-  startTree: (projectId: string, content: string, terms: string[] = []) =>
+  // `terms`: lexicon terms on the message, with how each arrived (Feature 13); omitted when there are none.
+  startTree: (projectId: string, content: string, terms: TermInput[] = []) =>
     request("POST", "/api/trees", StartTreeResponse, { projectId, content, ...(terms.length ? { terms } : {}) }),
-  ask: (elementId: string, content: string, terms: string[] = []) =>
+  ask: (elementId: string, content: string, terms: TermInput[] = []) =>
     request("POST", `/api/nodes/${elementId}/ask`, AskResponse, { content, ...(terms.length ? { terms } : {}) }),
   branch: (elementId: string, span: SpanRequest) =>
     request("POST", `/api/nodes/${elementId}/branches`, BranchResponse, span),
-  sendUnsent: (edgeId: string, content: string, terms: string[] = []) =>
+  sendUnsent: (edgeId: string, content: string, terms: TermInput[] = []) =>
     request("POST", `/api/edges/${edgeId}/send`, SendResponse, { content, ...(terms.length ? { terms } : {}) }),
   attempt: (edgeId: string, mode: "retry" | "regenerate") =>
     request("POST", `/api/edges/${edgeId}/attempts`, AnswerResponse, { mode }),

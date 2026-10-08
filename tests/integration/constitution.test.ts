@@ -189,8 +189,10 @@ describe("constitution guards (Feature 10)", () => {
       if (/\.complete\(/.test(src)) expect(rel).toMatch(/^src\/server\/(ai|functions)\/|^src\/server\/drill\/operations\/call\.ts$/);
       if (rel.startsWith("src/server/settings/")) expect(src, rel).not.toMatch(/functions\/runner/);
       if (/kind_setting_changes/.test(src)) expect(rel).toMatch(/^src\/server\/(settings|db)\//);
-      // Every element is created through insertElement, which takes its shape from the kind.
-      if (/insertInto\("nodes"\)/.test(src)) expect(rel).toMatch(/^src\/server\/(graph\/elements\.ts|db\/)/);
+      // Every element is created through insertElement, which takes its shape from the kind. The
+      // scale seed (src/server/testing/, test data only: npm run seed:large and the e2e test hook)
+      // writes rows directly for speed, as it did from scripts/ before the cut-over (feature 11).
+      if (/insertInto\("nodes"\)/.test(src)) expect(rel).toMatch(/^src\/server\/(graph\/elements\.ts|db\/|testing\/seedLarge\.ts$)/);
     }
   });
 

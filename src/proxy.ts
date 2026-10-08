@@ -9,8 +9,8 @@ const UNSAFE_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 const BEARER_ONLY = /^\/api\/feedback\/[^/]+\/addressed$/;
 
 // T023: 'unsafe-inline' scripts are Next's inline bootstrap; ws: only for the dev server (HMR).
-// 'unsafe-eval' stays for now: PixiJS 8 compiles its shader and uniform code with `new Function`
-// unless the canvas imports `pixi.js/unsafe-eval` (src/canvas, v0.2-owned; handed off in STATUS.md).
+// No 'unsafe-eval' in production: the canvas imports `pixi.js/unsafe-eval` (Pixi's no-eval paths) and
+// Zod runs jitless (src/instrumentation-client.ts). The dev server still evals for hot reload.
 // Checked on WebKit with the production build (`webkit-desktop` e2e, FARABI_CSP=1,
 // tests/e2e/f11-csp.spec.ts).
 function csp(): string {
@@ -20,7 +20,7 @@ function csp(): string {
     "img-src 'self' data: blob:",
     "font-src 'self' data:",
     "style-src 'self' 'unsafe-inline'",
-    "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+    `script-src 'self' 'unsafe-inline'${dev ? " 'unsafe-eval'" : ""}`,
     "worker-src 'self' blob:",
     `connect-src 'self'${dev ? " ws:" : ""}`,
     "frame-ancestors 'none'",

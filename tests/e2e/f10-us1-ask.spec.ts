@@ -37,7 +37,9 @@ test("an empty project starts a tree, and the answer streams in with Stop (scena
 
   await expect(page.getByTestId("empty-state")).toHaveCount(0);
   const question = page.locator(".element-text.question");
-  await expect(question).toHaveText("Explain Kubernetes pods");
+  // The message text exactly as typed. "Explain" is a lexicon term, so (Feature 13 auto-detect) the
+  // bubble's footer also shows it as a chip; the text itself is unchanged.
+  await expect(question.locator(".element-body")).toHaveText("Explain Kubernetes pods");
   await expect(question).toHaveAttribute("aria-label", "Your message");
   await expect(answer).toHaveAttribute("aria-label", "AI answer");
   await expect(answer.locator(".ai-tag")).toHaveText("AI");

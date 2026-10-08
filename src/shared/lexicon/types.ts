@@ -11,8 +11,11 @@ export type Slot = z.infer<typeof Slot>;
 /** Slots that take at most one term per message; strength and quality take several. */
 export const SINGLE_SLOTS: ReadonlySet<Slot> = new Set<Slot>(["operation", "scope", "format", "tone", "audience"]);
 
-/** A soft limit from the research, enforced as a hard one (spec clarification). */
-export const MAX_TERMS = 6;
+/**
+ * Above this many terms the composer warns that long lists blur each other. A warning, not a limit
+ * (owner decision 2026-10-07; it replaced the hard cap of 6).
+ */
+export const SOFT_TERM_LIMIT = 8;
 
 export const SLOT_LABEL: Record<Slot, string> = {
   operation: "Operation",
@@ -57,13 +60,19 @@ export const Term = z
   .strict();
 export type Term = z.infer<typeof Term>;
 
-/** A term as recorded on a question edge or an answer: its id and the version used. */
-export const TermUse = z.object({ id, v: z.number().int().min(1) }).strict();
+/**
+ * How a term came onto a message: picked up from the user's text ("detected") or added by hand
+ * ("chip"). Recorded on question edges since the auto-detect change; older rows have none.
+ */
+export const TermVia = z.enum(["detected", "chip"]);
+export type TermVia = z.infer<typeof TermVia>;
+
+/** A term as recorded on a question edge or an answer: its id, the version used and, on edges, how it arrived. */
+export const TermUse = z.object({ id, v: z.number().int().min(1), via: TermVia.optional() }).strict();
 export type TermUse = z.infer<typeof TermUse>;
 
 /** The declared `lexicon` property of question edges and answers. */
 export const LexiconUses = z
   .array(TermUse)
   .min(1)
-  .max(MAX_TERMS)
   .refine((uses) => new Set(uses.map((u) => u.id)).size === uses.length, "a term is recorded once");

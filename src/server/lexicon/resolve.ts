@@ -1,14 +1,25 @@
 // Server side of the lexicon (Feature 13, contracts/http-api.md): checking the chips a message was
 // sent with, and turning recorded uses back into the instructions a reply is given.
-import { checkSelection, findTerm, LexiconUses, type Term, type TermUse } from "@/shared/lexicon";
+import { checkSelection, findTerm, LexiconUses, type Term, type TermUse, type TermVia } from "@/shared/lexicon";
+import type { TermInput } from "@/shared/schemas";
 import { InvalidRequestError } from "../errors";
 
-/** Checks a message's term ids (FR-008); the uses to record, or undefined when there are none. */
-export function resolveTerms(ids: readonly string[] | undefined): TermUse[] | undefined {
-  if (!ids || ids.length === 0) return undefined;
+/**
+ * Checks a message's terms (FR-008: single-value slots and declared conflicts; no count limit) and
+ * returns the uses to record, each with how it arrived, or undefined when there are none. A bare id
+ * is a chip added by hand.
+ */
+export function resolveTerms(input: readonly TermInput[] | undefined): TermUse[] | undefined {
+  if (!input || input.length === 0) return undefined;
+  const via = new Map<string, TermVia>();
+  const ids = input.map((t) => {
+    const [id, how]: [string, TermVia] = typeof t === "string" ? [t, "chip"] : [t.id, t.via];
+    if (!via.has(id)) via.set(id, how);
+    return id;
+  });
   const res = checkSelection(ids);
   if (!res.ok) throw new InvalidRequestError(res.reason);
-  return res.terms.map((t) => ({ id: t.id, v: t.version }));
+  return res.terms.map((t) => ({ id: t.id, v: t.version, via: via.get(t.id)! }));
 }
 
 /** The `lexicon` property to store, or nothing (properties stay `{}` without terms). */
@@ -27,6 +38,7 @@ export function usesOf(properties: Record<string, unknown> | null | undefined): 
  * A term no longer in the registry can't be sent, so it is left out.
  */
 export function currentUses(edgeUses: readonly TermUse[]): TermUse[] {
+  // How a term arrived belongs to the question; the answer records only what it was sent.
   return edgeUses.flatMap((u) => {
     const term = findTerm(u.id);
     return term ? [{ id: term.id, v: term.version }] : [];

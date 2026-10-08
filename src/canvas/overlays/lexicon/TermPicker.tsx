@@ -4,7 +4,7 @@
 // alias and add terms to the draft with the keyboard alone. Unavailable terms stay listed with the
 // reason (slot already set, a conflict, the limit), so the rules are visible rather than surprising.
 import { useEffect, useId, useMemo, useRef, useState } from "react";
-import { activeTerms, MAX_TERMS, searchTerms, SLOT_LABEL, SLOT_ORDER, type Term, unavailableReason } from "@/shared/lexicon";
+import { activeTerms, searchTerms, SLOT_LABEL, SLOT_ORDER, type Term, unavailableReason } from "@/shared/lexicon";
 import { TermCard, useHoverCard } from "./TermCard";
 
 type Row = { term: Term; reason: string | null };
@@ -48,7 +48,6 @@ export function TermPicker({
     setActive(firstAvailable(rowsFor(next, selected)));
   }
 
-  const full = selected.length >= MAX_TERMS;
   const activeRow = rows[active];
   const optionId = (id: string) => `${listId}-${id}`;
 
@@ -103,7 +102,6 @@ export function TermPicker({
           }
         }}
       />
-      {full && <p className="lexicon-limit" data-testid="term-limit">{MAX_TERMS} terms at most. Remove one to add another.</p>}
       <ul ref={listRef} id={listId} role="listbox" className="lexicon-options" aria-label="Terms">
         {rows.length === 0 && <li className="lexicon-empty">No term matches “{query}”.</li>}
         {rows.map((row, i) => {

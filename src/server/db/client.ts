@@ -1,26 +1,22 @@
 import { PGlite, types as pgliteTypes } from "@electric-sql/pglite";
 import { vector } from "@electric-sql/pglite-pgvector";
-import { Kysely, PGliteDialect, PostgresDialect, type Transaction } from "kysely";
+import { Kysely, PGliteDialect, type Transaction } from "kysely";
 import path from "node:path";
-import pg from "pg";
 import type { Database } from "./schema";
 import { acquireStoreLock, releaseStoreLock } from "./storeLock";
 
 export type DB = Kysely<Database>;
 export type Trx = Transaction<Database>;
 
-// pg returns `real` as a string by default; map it to a number.
-pg.types.setTypeParser(700, (value) => Number.parseFloat(value));
-
 /**
- * Where the data lives (feature 11, data-model.md §1): Postgres for the web app until cut-over,
- * or PGlite (Postgres in WASM, in this process) in a data folder or in memory.
+ * Where the data lives (feature 11, data-model.md §1): PGlite (Postgres in WASM, in this process)
+ * in a data folder, or in memory for tests. The Postgres server is gone since the cut-over (T078).
  */
-export type StoreTarget = { kind: "pg"; url: string } | { kind: "pglite"; dataDir: string | "memory://" };
+export type StoreTarget = { kind: "pglite"; dataDir: string | "memory://" };
 
 const globalForDb = globalThis as unknown as { __farabiDb?: DB; __farabiPglite?: { pglite: PGlite; dataDir: string } };
 
-/** PGlite's parsers, set to give the same JS values as `pg` (gate G3). */
+/** PGlite's parsers, kept as they were under `pg` so values didn't change at the cut-over (gate G3). */
 const PGLITE_PARSERS = {
   // pg leaves int8 (count(*), bigint) as a string; PGlite would give a number.
   [pgliteTypes.INT8]: (value: string) => value,
@@ -36,14 +32,8 @@ function openPglite(dataDir: string | "memory://"): PGlite {
   });
 }
 
-/** A store for `target`, or a Postgres URL (scripts written before feature 11 pass a string). */
-export function createDb(target: StoreTarget | string): DB {
-  const t: StoreTarget = typeof target === "string" ? { kind: "pg", url: target } : target;
-  if (t.kind === "pg") {
-    return new Kysely<Database>({
-      dialect: new PostgresDialect({ pool: new pg.Pool({ connectionString: t.url, max: 10 }) }),
-    });
-  }
+/** A store for `target`. */
+export function createDb(t: StoreTarget): DB {
   // A second opener on the same folder corrupts it (PGlite issue #1106): lock first.
   if (t.dataDir !== "memory://") acquireStoreLock(t.dataDir);
   const pglite = openPglite(t.dataDir);
@@ -51,15 +41,11 @@ export function createDb(target: StoreTarget | string): DB {
   return new Kysely<Database>({ dialect: new PGliteDialect({ pglite }) });
 }
 
-/** The store this process uses: PGlite in the desktop app, else Postgres when DATABASE_URL is set, else PGlite in FARABI_DATA_DIR. */
+/** The store this process uses: the data folder in FARABI_DATA_DIR (`memory://` in tests). */
 export function storeTarget(): StoreTarget {
-  // The desktop app always uses its own data folder, even if a dev .env.local sets DATABASE_URL.
-  if (process.env.FARABI_HOST === "tauri" && process.env.FARABI_DATA_DIR) {
-    return { kind: "pglite", dataDir: process.env.FARABI_DATA_DIR };
-  }
-  if (process.env.DATABASE_URL) return { kind: "pg", url: process.env.DATABASE_URL };
-  if (process.env.FARABI_DATA_DIR) return { kind: "pglite", dataDir: process.env.FARABI_DATA_DIR };
-  throw new Error("DATABASE_URL is not set");
+  const dataDir = process.env.FARABI_DATA_DIR;
+  if (!dataDir) throw new Error("FARABI_DATA_DIR is not set: Farabi's data folder (the app and npm run dev:web set it)");
+  return { kind: "pglite", dataDir };
 }
 
 function getDb(): DB {

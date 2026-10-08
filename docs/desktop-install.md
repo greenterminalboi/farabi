@@ -35,8 +35,9 @@ use real AI, open **Settings → AI provider**:
   the macOS Keychain or Windows Credential Manager, never in Farabi's data or logs.
 
 To bring over your work from the web app, use **Settings → Data → Import from the web app** while
-this Farabi is still empty. The web app's Postgres must be running. The import happens once, and
-copies everything or nothing.
+this Farabi is still empty. The web app's Postgres must be running. The import happens once, copies
+everything or nothing, and upgrades data from an older version on the way in without changing the
+old database.
 
 ## Where your data lives
 
@@ -74,7 +75,7 @@ Uninstalling keeps your data, so a reinstall picks up where you left off.
 
 ## Developers
 
-`npm run desktop:dev` runs the app from source (data in `.farabi-dev/`), and `npm run
-desktop:build` makes the installer for the machine you're on. Repo scripts such as
-`npm run feedback:addressed` work with the app open or closed; see
-`specs/011-tauri-desktop-app/contracts/cli.md`.
+`npm run dev` runs the app from source (data in `.farabi-dev/`), and `npm run desktop:build`
+makes the installer for the machine you're on. Repo scripts such as `npm run feedback:addressed`
+work on the installed app's data by default, with the app open or closed; `-- --data-dir <folder>`
+picks another. See `specs/011-tauri-desktop-app/contracts/cli.md`.
