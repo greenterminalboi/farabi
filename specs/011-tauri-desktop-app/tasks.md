@@ -195,7 +195,7 @@ gates G1–G3. No user story starts until this phase is done and all three gates
 
 ### Gate G1: shell spike (quickstart V1)
 
-- [ ] T021 Run quickstart V1 on macOS with `npm run desktop:dev`, against the current Postgres
+- [X] T021 Run quickstart V1 on macOS with `npm run desktop:dev`, against the current Postgres
   backend (`DATABASE_URL` from `.env.local`; PGlite is not needed for G1):
   - check the `curl` `401` and `421` responses;
   - check that a fake reply streams token by token and that Stop keeps the partial text;
@@ -278,7 +278,7 @@ gates G1–G3. No user story starts until this phase is done and all three gates
   3. close the store;
   4. remove `runtime.json` and the lock;
   5. exit 0.
-- [ ] T030 **Gate G2** (quickstart V2): run `npm run desktop:durability -- --kills 50` on macOS
+- [X] T030 **Gate G2** (quickstart V2): run `npm run desktop:durability -- --kills 50` on macOS
   and Windows, and `--fsync-probe` on both. Run G2c in a macOS VM and a Windows VM. Record
   everything in `gates.md` and log it in STATUS.md.
   - **G2a fails**: stop. The fallback is embedded native Postgres (research R2), which needs a

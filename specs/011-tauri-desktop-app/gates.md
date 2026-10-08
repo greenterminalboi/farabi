@@ -138,3 +138,17 @@ Export folder set to a temp folder (not the repo's `feedback/`, to leave the own
 
 Until cut-over, the repo's `.env.example` sets `DATABASE_URL`, so the CLAUDE.md command targets
 Postgres unless `--data-dir` is given; after cut-over it finds the installed app's data by default.
+
+## G1 in the real WKWebView (T021), 2026-10-07, macOS arm64, 1280×792 window at 1×
+
+The probe (`scripts/desktop/g1-probe.js`) injected into the real app window by a debug shell, with
+the window kept on every Space and on top (WebKit pauses pages it can't see). Data: 5,000-element
+seed in `.farabi-dev`.
+
+| Build | Open | Pan far p95 | Pan near p95 | Zoom p95 | Verdict |
+|---|---|---|---|---|---|
+| **Production server** (`FARABI_SERVER_DIR=.desktop-test/server`, what the app ships) | **820 ms** | **14 ms** | **15 ms** | **14 ms** | **PASS** |
+| `next dev` (development React), for comparison | 1,496 ms | 264 ms | 15 ms | 14 ms | dev only |
+
+Streaming (production): token by token; Stop after 3 deltas kept the partial reply
+(status `stopped`, 52 chars). **G1 passes on macOS.** Windows (T022) is out of scope for now (owner, 2026-10-07).
