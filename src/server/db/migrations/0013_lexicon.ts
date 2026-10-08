@@ -3,7 +3,8 @@ import { type Kysely, sql } from "kysely";
 // Feature 13: Farabi Lexicon (specs/013-lexicon/research.md R3). Lexicon terms are recorded in a
 // question edge's declared properties. Branch and parked edges are created unsent, and their
 // message (with its terms) is written later by the send transition, so send may now set
-// `properties` once, from the empty object. Everything else in nodes_guard() is 0010's, unchanged.
+// `properties` once, from the empty object. The function is 0010's, byte for byte, except that
+// `properties` moves out of the never-changes tuple into its own rule (marked "Feature 13").
 export async function up(db: Kysely<unknown>): Promise<void> {
   await sql`
     CREATE OR REPLACE FUNCTION nodes_guard() RETURNS trigger LANGUAGE plpgsql AS $$
@@ -13,9 +14,6 @@ export async function up(db: Kysely<unknown>): Promise<void> {
       same_status boolean := NEW.status IS NOT DISTINCT FROM OLD.status;
       same_partial boolean := NEW.partial_text IS NOT DISTINCT FROM OLD.partial_text;
       same_place boolean := (NEW.manual_x, NEW.manual_y) IS NOT DISTINCT FROM (OLD.manual_x, OLD.manual_y);
-      same_props boolean := NEW.properties IS NOT DISTINCT FROM OLD.properties;
-      is_send boolean := OLD.kind = 'question' AND OLD.text IS NULL AND OLD.sent_at IS NULL
-         AND NEW.text IS NOT NULL AND NEW.sent_at IS NOT NULL;
     BEGIN
       IF TG_OP = 'DELETE' THEN
         RAISE EXCEPTION 'nodes cannot be deleted';
@@ -31,15 +29,20 @@ export async function up(db: Kysely<unknown>): Promise<void> {
           OLD.pressure_level, OLD.reply_model, OLD.created_at) THEN
         RAISE EXCEPTION 'nodes: structure, kind and provenance never change';
       END IF;
-      -- Declared properties never change, except that a send may set them once (Feature 13).
-      IF NOT same_props AND NOT (is_send AND OLD.properties = '{}'::jsonb) THEN
+      -- Feature 13: declared properties never change either, except that the send below may set
+      -- them once, from the empty object (a branch or parked edge's lexicon terms).
+      IF NEW.properties IS DISTINCT FROM OLD.properties
+         AND NOT (OLD.kind = 'question' AND OLD.text IS NULL AND OLD.sent_at IS NULL
+                  AND NEW.text IS NOT NULL AND NEW.sent_at IS NOT NULL AND OLD.properties = '{}'::jsonb) THEN
         RAISE EXCEPTION 'nodes: structure, kind and provenance never change';
       END IF;
       IF same_text AND same_sent AND same_status AND same_partial AND same_place THEN
         RETURN NEW;
       END IF;
       -- 1. Send: an unsent question edge gets its text and send time, once.
-      IF is_send AND same_status AND same_partial AND same_place THEN
+      IF OLD.kind = 'question' AND OLD.text IS NULL AND OLD.sent_at IS NULL
+         AND NEW.text IS NOT NULL AND NEW.sent_at IS NOT NULL
+         AND same_status AND same_partial AND same_place THEN
         RETURN NEW;
       END IF;
       -- 2. Checkpoint: a pending answer's partial text.
