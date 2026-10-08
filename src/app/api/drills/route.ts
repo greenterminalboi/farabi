@@ -1,5 +1,6 @@
 // Drills (Feature 12, contracts/http-api.md). Every change is a POST that inserts rows; there is
 // no DELETE or PATCH (Article II).
+import { providerReady } from "@/server/ai";
 import { CreateDrillBody } from "@/shared/schemas";
 import { readJson } from "@/server/http/withApi";
 import { assertId } from "@/server/ids";
@@ -19,6 +20,7 @@ export const GET = withDrillApi(async (req: Request) => {
 
 /** Creates a drill: the AI proposes a ladder first; a 503 writes nothing (Story 1 AS4). */
 export const POST = withDrillApi(async (req: Request) => {
+  await providerReady();
   const body = await readJson(req, CreateDrillBody);
   return drillResponse(await createDrill(body), {}, 201);
 });
