@@ -123,3 +123,18 @@ needs `import "pixi.js/unsafe-eval"` in `src/canvas` (v0.2-owned), handed off in
 Bundle hygiene: Turbopack had traced runtime-folder paths as globs over the repo (tests, sources,
 the repo's `feedback/FEEDBACK.md`). Fixed; `prepare-server` now fails the build on any stray
 top-level file. Clean server: 87 MB unpacked.
+
+## US5 feedback loop (T069, quickstart V9), 2026-10-07, macOS arm64, packaged app
+
+Export folder set to a temp folder (not the repo's `feedback/`, to leave the owner's real file alone).
+
+| Step | Result |
+|---|---|
+| Set the export folder in the running app | FEEDBACK.md written there at once |
+| New item with a screenshot | Item listed in FEEDBACK.md; screenshot mirrored to `<export>/attachments/<id>/` |
+| `npm run feedback:addressed -- <id> --data-dir <D>`, app open | "Marked … addressed.", exit 0, via the app (bearer route); FEEDBACK.md shows `addressed` |
+| Same again | "…is addressed; only open items…", exit 2 (unchanged CLI contract) |
+| App closed: `feedback:export`, `feedback:addressed`, `db:migrate` with `--data-dir` | Open the store directly; exit 0 / 2 / 0 ("Up to date at 0012_desktop") |
+
+Until cut-over, the repo's `.env.example` sets `DATABASE_URL`, so the CLAUDE.md command targets
+Postgres unless `--data-dir` is given; after cut-over it finds the installed app's data by default.

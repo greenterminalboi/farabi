@@ -620,7 +620,7 @@ works from the installed app.
   - `scripts/migrate.ts`, `scripts/seed-large.ts`, `scripts/v1-convert.ts` and
     `scripts/v1-verify.ts`: refuse when live, with exit 2 and the message "Quit Farabi first; it
     migrates its own data on start." `migrate.ts` picks its backup method by backend (T069).
-- [ ] T069 [US5] Run quickstart V9 with the export folder set to the repo's `feedback/`, and check
+- [X] T069 [US5] Run quickstart V9 with the export folder set to the repo's `feedback/`, and check
   the CLAUDE.md workflow end to end with the app open and with it closed. Record the result in
   `gates.md`.
 
