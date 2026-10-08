@@ -50,6 +50,7 @@ Prerequisites: Node.js 22 or newer and npm, and Rust (for the desktop shell).
 
 ```bash
 npm install
+npm run desktop:fetch-node   # once: the Node binary the desktop shell bundles
 npm run dev              # the desktop app from source; its data is in .farabi-dev/
 npm run dev:web          # the same server in a browser at http://127.0.0.1:3000 (data in .farabi-web/)
 npm run desktop:build    # the installer for this machine
