@@ -7,6 +7,7 @@ import type { ChatTurn, ReplyInput } from "../ai/provider";
 import { db, type DB, type Trx } from "../db/client";
 import type { AnswerStatus } from "../db/schema";
 import { NotFoundError } from "../errors";
+import { termsOf, usesOf } from "../lexicon/resolve";
 
 type PathRow = {
   id: string;
@@ -44,12 +45,12 @@ export function turnOf(el: Pick<PathRow, "kind" | "text" | "status">): ChatTurn 
 /**
  * Context for a pending answer: the turns of its path. The highlighted passage is the nearest
  * anchored user edge on the path: the branch this reply belongs to. The level and model come from
- * the answer's own row (Feature 6).
+ * the answer's own row (Feature 6), and so do the lexicon terms it is sent (Feature 13).
  */
 export async function buildReplyInput(answerId: string, q: DB | Trx = db): Promise<ReplyInput> {
   const answer = await q
     .selectFrom("nodes")
-    .select(["parent_id", "pressure_level", "reply_model"])
+    .select(["parent_id", "pressure_level", "reply_model", "properties"])
     .where("id", "=", answerId)
     .where("kind", "=", "answer")
     .executeTakeFirst();
@@ -64,11 +65,14 @@ export async function buildReplyInput(answerId: string, q: DB | Trx = db): Promi
     messages.push(turn);
     if (turn.role === "user" && el.anchor_text !== null) anchorText = el.anchor_text;
   }
+  // Only the answered message's terms, as recorded on this answer (Feature 13, research R6).
+  const lexicon = termsOf(usesOf(answer.properties)).map(({ id, version, slot, instruction }) => ({ id, version, slot, instruction }));
   return {
     inheritedContext: [],
     anchorText,
     messages,
     pressureLevel: answer.pressure_level,
     model: answer.reply_model,
+    ...(lexicon.length ? { lexicon } : {}),
   };
 }

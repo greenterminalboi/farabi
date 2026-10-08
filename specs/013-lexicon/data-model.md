@@ -54,4 +54,4 @@ Function edges and outputs follow Feature 010 (function_id, function_version, re
 ## nodes_guard change (migration 0013)
 
 Unchanged except: `properties` may differ from OLD only in the send transition (OLD is an unsent
-question edge with `properties = '{}'`, NEW sets text and sent_at). Down restores the 0010 function.
+question edge with `properties = '{}'`, NEW sets text and sent_at). Forward-only, like every migration here.

@@ -16,7 +16,20 @@ export interface ReplyInput {
   pressureLevel: number | null;
   /** Model id for this reply; null means the setup's configured default (Feature 6). */
   model: string | null;
+  /**
+   * Lexicon terms attached to the message being answered (Feature 13): sent as one block after
+   * the stable instructions. Absent or empty means no block.
+   */
+  lexicon?: LexiconTermText[];
   signal?: AbortSignal;
+}
+
+/** A lexicon term as a reply is given it: the exact instruction and the version sent. */
+export interface LexiconTermText {
+  id: string;
+  version: number;
+  slot: "operation" | "scope" | "format" | "tone" | "audience" | "strength" | "quality";
+  instruction: string;
 }
 
 export interface SummaryInput {

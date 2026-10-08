@@ -7,6 +7,7 @@ import type { DB, Trx } from "../db/client";
 import type { AnswerStatus, NodesTable } from "../db/schema";
 import { InvalidRequestError, NotFoundError } from "../errors";
 import { findFunction } from "../functions/definitions";
+import { usesOf } from "../lexicon/resolve";
 
 export type ElementRow = Selectable<NodesTable>;
 type Q = DB | Trx;
@@ -145,6 +146,9 @@ export function toElement(row: ElementRow, extras: ElementExtras = {}): Element 
     el.pressureLevel = row.pressure_level;
     el.replyModel = row.reply_model;
   }
+  // Feature 13: lexicon terms, on question edges (asked for) and answers (sent).
+  const lexicon = usesOf(row.properties);
+  if (lexicon.length) el.lexicon = lexicon;
   if (row.function_id !== null && row.function_version !== null) {
     el.functionId = row.function_id;
     el.functionName = findFunction(row.function_id)?.name ?? row.function_id;

@@ -8,9 +8,11 @@ import { insertPendingAnswer, startGeneration } from "../answers/generation";
 import { db, type Trx } from "../db/client";
 import { ConflictError, InvalidRequestError, NotFoundError } from "../errors";
 import { assertId } from "../ids";
+import { lexiconProperties, resolveTerms } from "../lexicon/resolve";
+import type { TermUse } from "@/shared/lexicon";
 import { toTree } from "./canvas";
 import { buildReplyInput } from "./context";
-import { type ElementRow, insertElement, lockElement, newestAttempt, toElement } from "./elements";
+import { type ElementRow, insertElement, lockElement, newestAttempt, toElement, validateProperties } from "./elements";
 import { QUICK_BRANCH, tryQuickBranch } from "./quickBranch";
 
 /** Horizontal distance between new trees' origins; the forest layout resolves any overlap. */
@@ -36,10 +38,14 @@ async function assertLiveProject(trx: Trx, projectId: string): Promise<void> {
   if (!live) throw new NotFoundError("Project not found");
 }
 
-/** A new tree: an origin edge with the user's text and a pending answer (FR-005, FR-014). */
-export async function startTree(projectId: string, content: string): Promise<StartTreeResponse> {
+/**
+ * A new tree: an origin edge with the user's text and a pending answer (FR-005, FR-014). `terms`
+ * are lexicon chips (Feature 13), checked before anything is stored and recorded on the edge.
+ */
+export async function startTree(projectId: string, content: string, terms?: string[]): Promise<StartTreeResponse> {
   assertId(projectId, "Project");
   assertContent(content);
+  const uses = resolveTerms(terms);
   const created = await db.transaction().execute(async (trx) => {
     await assertLiveProject(trx, projectId);
     // Serialize origin allocation between concurrent starts; each project's canvas starts at x = 0.
@@ -64,6 +70,7 @@ export async function startTree(projectId: string, content: string): Promise<Sta
       provenance: "user_authored",
       text: content,
       sentAt: new Date(),
+      properties: lexiconProperties(uses),
     });
     const answer = await insertPendingAnswer(trx, edge, "reply");
     return { tree, edge, answer };
@@ -81,7 +88,7 @@ export async function insertAsk(
   trx: Trx,
   parent: Pick<ElementRow, "id" | "tree_id" | "project_id">,
   content: string,
-  extra: { origin?: "ask" | "quick_branch"; requeryOf?: string } = {},
+  extra: { origin?: "ask" | "quick_branch"; requeryOf?: string; lexicon?: TermUse[] } = {},
 ): Promise<{ edge: ElementRow; answer: ElementRow }> {
   const edge = await insertElement(trx, {
     kind: "question",
@@ -93,6 +100,7 @@ export async function insertAsk(
     text: content,
     requeryOf: extra.requeryOf ?? null,
     sentAt: new Date(),
+    properties: lexiconProperties(extra.lexicon),
   });
   const answer = await insertPendingAnswer(trx, edge, "reply");
   return { edge, answer };
@@ -126,9 +134,11 @@ export async function assertAskable(trx: Trx, el: ElementRow): Promise<void> {
  * Asking again from the same element adds a sibling edge; nothing existing changes. An exact
  * "????" from an answer is a quick branch when one is possible (FR-020).
  */
-export async function ask(elementId: string, content: string): Promise<AskResponse> {
+export async function ask(elementId: string, content: string, terms?: string[]): Promise<AskResponse> {
   assertId(elementId, "Element");
   assertContent(content);
+  const uses = resolveTerms(terms);
+  // A quick branch re-asks an earlier question with that question's own terms (FR-015).
   if (content.trim() === QUICK_BRANCH) {
     const branched = await tryQuickBranch(elementId);
     if (branched) return branched;
@@ -137,7 +147,7 @@ export async function ask(elementId: string, content: string): Promise<AskRespon
     const el = await lockElement(trx, elementId);
     await assertLiveProject(trx, el.project_id);
     await assertAskable(trx, el);
-    return insertAsk(trx, el, content);
+    return insertAsk(trx, el, content, { lexicon: uses });
   });
   void generate(created.answer.id);
   return {
@@ -148,9 +158,10 @@ export async function ask(elementId: string, content: string): Promise<AskRespon
 }
 
 /** Sends an unsent edge once (a branch or a parked tangent fired without a question). */
-export async function sendUnsent(edgeId: string, content: string): Promise<SendResponse> {
+export async function sendUnsent(edgeId: string, content: string, terms?: string[]): Promise<SendResponse> {
   assertId(edgeId, "Edge");
   assertContent(content);
+  const uses = resolveTerms(terms);
   const created = await db.transaction().execute(async (trx) => {
     const edge = await lockElement(trx, edgeId);
     await assertLiveProject(trx, edge.project_id);
@@ -158,7 +169,14 @@ export async function sendUnsent(edgeId: string, content: string): Promise<SendR
     if (edge.text !== null) throw new ConflictError("already_sent", "This message was already sent");
     const sent = await trx
       .updateTable("nodes")
-      .set({ text: content, sent_at: new Date() })
+      // The send may set the terms once (migration 0013); without terms properties stay as they are.
+      .set({
+        text: content,
+        sent_at: new Date(),
+        // The column is typed read-only (properties never change after insert); the send is the
+        // one exception, which nodes_guard allows from 0013 on.
+        ...(uses ? { properties: sql<never>`${JSON.stringify(validateProperties("question", lexiconProperties(uses)))}::jsonb` } : {}),
+      })
       .where("id", "=", edgeId)
       .returningAll()
       .executeTakeFirstOrThrow();

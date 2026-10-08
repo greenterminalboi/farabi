@@ -8,7 +8,7 @@ All additive; existing clients (no `terms`) behave exactly as before.
 | `POST /api/nodes/:id/ask` | `{ content, terms?: string[] }` |
 | `POST /api/edges/:id/send` | `{ content, terms?: string[] }` |
 
-- `terms` is a list of term ids, max 6. Validation is `checkSelection`; failure → `400`
+- `terms` is a list of term ids, max 6. Validation is `checkSelection`; failure → `422`
   `{ error: { code: "invalid_request", message: <reason> } }` and nothing is stored.
 - On success the created question edge has `lexicon: [{id, v}]`, and its pending answer has the
   uses it will be sent. An empty or absent list stores nothing.

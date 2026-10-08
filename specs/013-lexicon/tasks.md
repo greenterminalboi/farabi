@@ -41,16 +41,16 @@ and e2e tests are included.
 
 **Independent test**: send a message with two chips; stored text unchanged, edge and answer record `{id, v}`, the fake provider's ReplyInput has exactly those terms and `buildReplyRequest` has the block last.
 
-- [ ] T015 [US1] Add optional strict `lexicon: LexiconUses` to the `properties` of `src/shared/kinds/question.ts` and `src/shared/kinds/answer.ts`
-- [ ] T016 [US1] Add optional `terms: z.array(z.string()).max(6)` to `StartTreeRequest`, `AskRequest`, `SendRequest`, and optional `lexicon` (array of `{id, v}`) to `Element` in `src/shared/schemas.ts`
-- [ ] T017 [US1] Write migration `src/server/db/migrations/0013_lexicon.ts` (CREATE OR REPLACE `nodes_guard()` = 0010's, except properties may change once in the send transition when `OLD.properties = '{}'`; down restores 0010's) and register `"0013_lexicon"` in `src/server/db/migrationList.ts`
-- [ ] T018 [US1] Implement `resolveTerms(ids)` (checkSelection → `TermUse[]`, 400 InvalidRequestError with the reason) and `usesToTexts(uses)` in `src/server/lexicon/resolve.ts`
-- [ ] T019 [US1] Record uses: `startTree`, `insertAsk`, `ask`, `sendUnsent` take optional term ids and store `properties.lexicon` (send sets it with text) in `src/server/graph/ask.ts`; quick-branch copies the re-asked edge's uses in `src/server/graph/quickBranch.ts`
-- [ ] T020 [US1] `insertPendingAnswer` records the edge's term ids at current versions on the answer in `src/server/answers/generation.ts`; `toElement` exposes `lexicon` in `src/server/graph/elements.ts`
-- [ ] T021 [US1] Pass `terms` from the three routes: `src/app/api/trees/route.ts`, `src/app/api/nodes/[nodeId]/ask/route.ts`, `src/app/api/edges/[edgeId]/send/route.ts`
-- [ ] T022 [US1] Add optional `ReplyInput.lexicon` in `src/server/ai/provider.ts`; `buildReplyInput` reads the answer's uses into it in `src/server/graph/context.ts`; `buildReplyRequest` appends `lexiconBlock` as the last system block in `src/server/ai/claudePrompts.ts`
-- [ ] T023 [P] [US1] Unit test: `buildReplyRequest` without lexicon is byte-identical to before; with lexicon the block is last and the messages are unchanged; headless form contains it, in `tests/unit/f13-prompt.test.ts`
-- [ ] T024 [P] [US1] Integration tests (start/ask/send with terms, verbatim text, edge + answer uses, fake ReplyInput.lexicon, retry/regenerate records current versions, quick-branch copies uses, 400 on invalid selections with nothing stored, no terms → no property) in `tests/integration/f13-lexicon.test.ts`
+- [X] T015 [US1] Add optional strict `lexicon: LexiconUses` to the `properties` of `src/shared/kinds/question.ts` and `src/shared/kinds/answer.ts`
+- [X] T016 [US1] Add optional `terms: z.array(z.string()).max(6)` to `StartTreeRequest`, `AskRequest`, `SendRequest`, and optional `lexicon` (array of `{id, v}`) to `Element` in `src/shared/schemas.ts`
+- [X] T017 [US1] Write migration `src/server/db/migrations/0013_lexicon.ts` (CREATE OR REPLACE `nodes_guard()` = 0010's, except properties may change once in the send transition when `OLD.properties = '{}'`; down restores 0010's) and register `"0013_lexicon"` in `src/server/db/migrationList.ts`
+- [X] T018 [US1] Implement `resolveTerms(ids)` (checkSelection → `TermUse[]`, 422 InvalidRequestError with the reason) and `usesToTexts(uses)` in `src/server/lexicon/resolve.ts`
+- [X] T019 [US1] Record uses: `startTree`, `insertAsk`, `ask`, `sendUnsent` take optional term ids and store `properties.lexicon` (send sets it with text) in `src/server/graph/ask.ts`; quick-branch copies the re-asked edge's uses in `src/server/graph/quickBranch.ts`
+- [X] T020 [US1] `insertPendingAnswer` records the edge's term ids at current versions on the answer in `src/server/answers/generation.ts`; `toElement` exposes `lexicon` in `src/server/graph/elements.ts`
+- [X] T021 [US1] Pass `terms` from the three routes: `src/app/api/trees/route.ts`, `src/app/api/nodes/[nodeId]/ask/route.ts`, `src/app/api/edges/[edgeId]/send/route.ts`
+- [X] T022 [US1] Add optional `ReplyInput.lexicon` in `src/server/ai/provider.ts`; `buildReplyInput` reads the answer's uses into it in `src/server/graph/context.ts`; `buildReplyRequest` appends `lexiconBlock` as the last system block in `src/server/ai/claudePrompts.ts`
+- [X] T023 [P] [US1] Unit test: `buildReplyRequest` without lexicon is byte-identical to before; with lexicon the block is last and the messages are unchanged; headless form contains it, in `tests/unit/f13-prompt.test.ts`
+- [X] T024 [P] [US1] Integration tests (start/ask/send with terms, verbatim text, edge + answer uses, fake ReplyInput.lexicon, retry/regenerate records current versions, quick-branch copies uses, 400 on invalid selections with nothing stored, no terms → no property) in `tests/integration/f13-lexicon.test.ts`
 - [ ] T025 [US1] Client: `draftTerms` per target persisted with drafts, `setDraftTerms`, in `src/canvas/store.ts`; optional `terms` on `api.startTree/ask/sendUnsent` in `src/lib/api.ts`
 - [ ] T026 [US1] Picker: searchable, grouped listbox, keyboard (arrows, Enter, Escape), unavailable entries with reasons, in `src/canvas/overlays/lexicon/TermPicker.tsx`
 - [ ] T027 [US1] Chip row with remove buttons in `src/canvas/overlays/lexicon/TermChips.tsx`; wire chips + "Terms" button into `src/canvas/overlays/Composer.tsx` (send passes ids; chips clear with the draft)

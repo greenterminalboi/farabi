@@ -12,6 +12,7 @@ import * as m0008 from "./migrations/0008_drop_span_suggestions";
 import * as m0009 from "./migrations/0009_node_functions";
 import * as m0010 from "./migrations/0010_message_graph";
 import * as m0011 from "./migrations/0011_drill";
+import * as m0013 from "./migrations/0013_lexicon";
 
 export const MIGRATIONS: Record<string, Migration> = {
   "0001_initial": m0001,
@@ -25,6 +26,7 @@ export const MIGRATIONS: Record<string, Migration> = {
   "0009_node_functions": m0009,
   "0010_message_graph": m0010,
   "0011_drill": m0011,
+  "0013_lexicon": m0013,
 };
 
 export const migrationProvider: MigrationProvider = { getMigrations: async () => MIGRATIONS };
