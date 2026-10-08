@@ -505,10 +505,10 @@ one → a new drill under that node with the parent drill linked; dismiss → ne
 - [X] T081 [P] Check every drill AI call path against FR-027 with a test in
   `tests/integration/f12-drill.test.ts`: GET routes, ladder edits, events, attachments, overrides
   and settings saves make zero fake `complete` calls.
-- [ ] T082 *(load measured: 5–7 ms, see quickstart.md; the real-provider verdict latency is still open)* Measure drill screen load for a 30-round seeded drill (target < 500 ms, plan Performance
+- [X] T082 *(load 5–7 ms; real-provider verdict p95 7.6 s over 22 attempts, see quickstart.md)* Measure drill screen load for a 30-round seeded drill (target < 500 ms, plan Performance
   Goals) and the verdict latency with a real provider (SC-004, ≤ 15 s p95 over 20 attempts). Record
   both in `specs/012-drill-kaizen/quickstart.md`.
-- [ ] T083 *(open: needs a real provider and the owner)* Run quickstart §2–§4 with `AI_PROVIDER=claude-code` on the "Python dictionaries" drill and
+- [X] T083 *(run 2026-10-08 with claude-code, see quickstart.md; SC-006 is left to the owner, and its first half can't be met with the default open_level)* Run quickstart §2–§4 with `AI_PROVIDER=claude-code` on the "Python dictionaries" drill and
   note the SC-006 owner check.
 - [X] T084 Run the full suite (`npx vitest run`, `npx playwright test`) on the rebased branch, then
   log the hand-off in STATUS.md: the commit hash, C1–C6 done, and the C7 reminder for the coordinator
