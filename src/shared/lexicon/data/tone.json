@@ -1,0 +1,67 @@
+[
+  {
+    "id": "formal",
+    "name": "Formal",
+    "aliases": ["formally"],
+    "slot": "tone",
+    "meaning": "Polished, no slang",
+    "example": "Legal, official letters",
+    "neighbours": ["neutral", "conversational"],
+    "conflicts": [],
+    "version": 1,
+    "instruction": "Use a formal tone: polished, complete sentences with no slang, contractions or jokes, because the text is for an official or professional setting.",
+    "effect": "No slang or contractions; polished register"
+  },
+  {
+    "id": "conversational",
+    "name": "Conversational",
+    "aliases": ["casual", "informal"],
+    "slot": "tone",
+    "meaning": "Like talking to a friend",
+    "example": "Blogs, social posts",
+    "neighbours": ["formal", "plain-language"],
+    "conflicts": [],
+    "version": 1,
+    "instruction": "Use a conversational tone, as if talking to a friend: natural phrasing, contractions and \"you\", because the person wants it to feel human and easy.",
+    "effect": "Second person, contractions, natural phrasing"
+  },
+  {
+    "id": "direct",
+    "name": "Direct",
+    "aliases": ["blunt", "straight"],
+    "slot": "tone",
+    "meaning": "Straight to the point",
+    "example": "Instructions, honest critique",
+    "neighbours": ["neutral", "formal"],
+    "conflicts": [],
+    "version": 1,
+    "instruction": "Be direct: state things plainly and get straight to the point without hedging or softening, because the person prefers clarity over politeness.",
+    "effect": "Plain statements, few hedges or softeners"
+  },
+  {
+    "id": "plain-language",
+    "name": "Plain language",
+    "aliases": ["plain english", "plain words"],
+    "slot": "tone",
+    "meaning": "Short words, short sentences",
+    "example": "Anyone, any topic",
+    "neighbours": ["conversational", "direct"],
+    "conflicts": ["verbatim"],
+    "version": 1,
+    "instruction": "Use plain language: short, common words and short sentences, and explain any necessary technical term in passing, because anyone should be able to read it.",
+    "effect": "Short sentences and common words"
+  },
+  {
+    "id": "neutral",
+    "name": "Neutral",
+    "aliases": ["objective", "impartial"],
+    "slot": "tone",
+    "meaning": "No opinion or emotion",
+    "example": "Reports, summaries",
+    "neighbours": ["formal", "direct"],
+    "conflicts": [],
+    "version": 1,
+    "instruction": "Keep a neutral, objective tone: report facts and positions without opinion, emotion or persuasion, and attribute claims to their sources, because the person wants an impartial account.",
+    "effect": "No opinions or evaluative adjectives; claims attributed"
+  }
+]

@@ -10,6 +10,6 @@ type Ctx = { params: Promise<{ edgeId: string }> };
 export const POST = withApi(async (req: Request, { params }: Ctx) => {
   await providerReady();
   const { edgeId } = await params;
-  const { content } = await readJson(req, SendRequest);
-  return Response.json(await maybeWait(req, await sendUnsent(edgeId, content)), { status: 201 });
+  const { content, terms } = await readJson(req, SendRequest);
+  return Response.json(await maybeWait(req, await sendUnsent(edgeId, content, terms)), { status: 201 });
 });

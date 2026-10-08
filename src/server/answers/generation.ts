@@ -8,6 +8,7 @@ import { AIPartialReplyError, AIUnavailableError, isAbortError, type ReplyInput 
 import { db, type Trx } from "../db/client";
 import type { AnswerStatus } from "../db/schema";
 import { type ElementRow, insertElement, toElement } from "../graph/elements";
+import { currentUses, lexiconProperties, usesOf } from "../lexicon/resolve";
 import { getSettings } from "../settings/settings";
 
 const CHECKPOINT_MS = 1000;
@@ -28,15 +29,17 @@ const live = g.__farabiGenerations;
 
 /**
  * Inserts a pending answer under a sent question edge. It records the level and model in effect
- * right now, so the reply keeps them whatever changes later (Feature 6). The only place answers
- * are created.
+ * right now, so the reply keeps them whatever changes later (Feature 6), and the lexicon terms it
+ * is sent (Feature 13). The only place answers are created.
  */
 export async function insertPendingAnswer(
   trx: Trx,
-  edge: Pick<ElementRow, "id" | "tree_id" | "project_id">,
+  edge: Pick<ElementRow, "id" | "tree_id" | "project_id" | "properties">,
   origin: Extract<ElementOrigin, "reply" | "retry" | "regenerate">,
 ): Promise<ElementRow> {
   const settings = await getSettings(trx);
+  // The lexicon terms this reply will be sent: the edge's, at their current versions (FR-014).
+  const lexicon = currentUses(usesOf(edge.properties));
   return insertElement(trx, {
     kind: "answer",
     parentId: edge.id,
@@ -48,6 +51,7 @@ export async function insertPendingAnswer(
     status: "pending",
     pressureLevel: settings.informationPressure,
     replyModel: resolveReplyModel(settings.replyModel),
+    properties: lexiconProperties(lexicon),
   });
 }
 

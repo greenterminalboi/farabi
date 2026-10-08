@@ -24,6 +24,8 @@ export const FAILED_HEIGHT = 74;
 export const MIN_BUBBLE = 46;
 /** The shortest an answer or output frame gets. */
 export const MIN_CARD = 84;
+/** Feature 13: the row of lexicon chips at the foot of a question bubble that has terms. */
+export const LEXICON_ROW = 26;
 /** A function connector's label chip ("Analogy →"), the only part of it with a box. */
 export const CHIP = { w: 168, h: 28 };
 
@@ -56,21 +58,22 @@ export function hasBox(el: Pick<Element, "kind">): boolean {
 export type Box = { x: number; y: number; w: number; h: number };
 
 /** Frame parts above and below an element's text. */
-export function chrome(el: Pick<Element, "kind" | "status">): { top: number; bottom: number } {
+export function chrome(el: Pick<Element, "kind" | "status" | "lexicon">): { top: number; bottom: number } {
   const display = displayOf(el);
-  if (display === "question" || display === "function_connector") return { top: 0, bottom: 0 };
+  if (display === "question") return { top: 0, bottom: el.lexicon?.length ? LEXICON_ROW : 0 };
+  if (display === "function_connector") return { top: 0, bottom: 0 };
   const footer = el.status === "incomplete" || el.status === "stopped" ? FOOTER : 0;
   return { top: HEADER, bottom: footer };
 }
 
 /** Where an element's text sits inside its frame, in world units. */
-export function textRect(el: Pick<Element, "kind" | "status">, box: Box): Box {
+export function textRect(el: Pick<Element, "kind" | "status" | "lexicon">, box: Box): Box {
   const { top, bottom } = chrome(el);
   return { x: box.x, y: box.y + top, w: box.w, h: Math.max(0, box.h - top - bottom) };
 }
 
 /** The frame height for a given text height (the text's own padding included). */
-export function frameHeight(el: Pick<Element, "kind" | "status">, textHeight: number): number {
+export function frameHeight(el: Pick<Element, "kind" | "status" | "lexicon">, textHeight: number): number {
   const display = displayOf(el);
   if (display === "function_connector") return CHIP.h;
   if (display === "answer" && el.status === "failed") return FAILED_HEIGHT;

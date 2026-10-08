@@ -1,7 +1,7 @@
 import { expect, type Page } from "@playwright/test";
 import pg from "pg";
 
-const TEST_DATABASE_URL =
+export const TEST_DATABASE_URL =
   process.env.TEST_DATABASE_URL ?? "postgres://farabi:farabi@127.0.0.1:5432/farabi_test";
 
 /** Every table the app or a test writes, including the frozen v1 tables (Feature 10). */

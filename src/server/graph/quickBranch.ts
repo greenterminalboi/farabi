@@ -3,6 +3,7 @@
 // new reply's context excludes it.
 import type { AskResponse } from "@/shared/schemas";
 import { db } from "../db/client";
+import { usesOf } from "../lexicon/resolve";
 import { generate, insertAsk } from "./ask";
 import { toElement } from "./elements";
 
@@ -28,7 +29,9 @@ export async function tryQuickBranch(answerId: string): Promise<Extract<AskRespo
     const used = await trx.selectFrom("nodes").select("id").where("requery_of", "=", edge.id).executeTakeFirst();
     if (used) return null;
     const source = await trx.selectFrom("nodes").selectAll().where("id", "=", edge.parent_id).executeTakeFirstOrThrow();
-    return insertAsk(trx, source, edge.text, { origin: "quick_branch", requeryOf: edge.id });
+    // The same question with the same terms (Feature 13, FR-015).
+    const lexicon = usesOf(edge.properties);
+    return insertAsk(trx, source, edge.text, { origin: "quick_branch", requeryOf: edge.id, lexicon: lexicon.length ? lexicon : undefined });
   });
   if (!created) return null;
   void generate(created.answer.id);

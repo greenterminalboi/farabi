@@ -8,6 +8,18 @@ import { ApiError, api } from "@/lib/api";
 import type { Element } from "@/shared/schemas";
 import { type CanvasEngine, useEngine, useFrame } from "../engine";
 import { NEW_TREE, newestAnswer, useCanvasStore } from "../store";
+import { TermChips } from "./lexicon/TermChips";
+import { TermPicker } from "./lexicon/TermPicker";
+import { findTerm } from "@/shared/lexicon";
+
+/** Persisted chip ids that still name a term that can be sent (Feature 13). */
+function liveTerms(ids: string[] | undefined): string[] {
+  return (ids ?? []).filter((id) => {
+    const t = findTerm(id);
+    return t && !t.retired;
+  });
+}
+const NO_TERMS: string[] = [];
 
 const QUICK_BRANCH = "????";
 const WIDTH = 440;
@@ -101,6 +113,10 @@ export function Composer() {
   const key = target?.key ?? "";
   const draft = useCanvasStore((s) => (key ? (s.drafts[key] ?? "") : ""));
   const setDraft = useCanvasStore((s) => s.setDraft);
+  // Lexicon chips on this draft (Feature 13); kept and cleared with the draft's text.
+  const storedTerms = useCanvasStore((s) => (key ? (s.draftTerms[key] ?? NO_TERMS) : NO_TERMS));
+  const setDraftTerms = useCanvasStore((s) => s.setDraftTerms);
+  const [picking, setPicking] = useState(false);
   const [sending, setSending] = useState(false);
   // An error belongs to the target it happened on; switching target hides it.
   const [failure, setError] = useState<{ key: string; message: string; content: string } | null>(null);
@@ -120,7 +136,7 @@ export function Composer() {
     box.style.height = `${Math.min(box.scrollHeight + 2, max)}px`;
     box.classList.toggle("overflowing", box.scrollHeight + 2 > max);
     setHeight(formRef.current?.offsetHeight ?? 56);
-  }, [draft, failure]);
+  }, [draft, failure, storedTerms]);
 
   // A composer with text keeps its element mounted wherever the camera goes (FR-034, SC-007).
   const pinId = target && target.kind !== "new-tree" ? (target.kind === "ask" ? target.from.id : target.edge.id) : null;
@@ -141,6 +157,8 @@ export function Composer() {
   if (!target) return null;
   const error = failure?.key === target.key ? failure : null;
 
+  const terms = liveTerms(storedTerms);
+
   async function send(content: string): Promise<boolean> {
     if (!target || !content.trim() || sending) return false;
     setSending(true);
@@ -150,18 +168,20 @@ export function Composer() {
       let created: { edge: Element; answer: Element };
       if (target.kind === "new-tree") {
         if (!projectId) return false;
-        const res = await api.startTree(projectId, content);
+        const res = await api.startTree(projectId, content, terms);
         store.merge([res.edge, res.answer], [res.tree]);
         created = res;
       } else if (target.kind === "send") {
-        created = await api.sendUnsent(target.edge.id, content);
+        created = await api.sendUnsent(target.edge.id, content, terms);
         store.merge([created.edge, created.answer]);
       } else {
-        created = await api.ask(target.from.id, content);
+        created = await api.ask(target.from.id, content, terms);
         store.merge([created.edge, created.answer]);
       }
       // Cleared only once the server stored the message (FR-015).
       store.setDraft(target.key, "");
+      store.setDraftTerms(target.key, []);
+      setPicking(false);
       store.setComposingNewTree(false);
       engine?.walkTo(created.answer.id);
       return true;
@@ -194,6 +214,18 @@ export function Composer() {
           </button>
         </div>
       )}
+      {picking && (
+        <TermPicker
+          selected={terms}
+          placement={pos.top > 360 ? "above" : "below"}
+          onAdd={(id) => setDraftTerms(target.key, [...terms, id])}
+          onClose={() => {
+            setPicking(false);
+            boxRef.current?.focus();
+          }}
+        />
+      )}
+      <TermChips ids={terms} onChange={(ids) => setDraftTerms(target.key, ids)} />
       <form
         className="composer"
         onSubmit={(e) => {
@@ -219,6 +251,21 @@ export function Composer() {
             }
           }}
         />
+        {/* Feature 13: lexicon terms are added only from here, never detected in the text. */}
+        <button
+          type="button"
+          className={`composer-icon-btn composer-terms${picking ? " active" : ""}`}
+          aria-label="Add a term"
+          aria-expanded={picking}
+          title="Add a lexicon term"
+          data-testid="term-picker-open"
+          onClick={() => setPicking((p) => !p)}
+        >
+          <svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true">
+            <path d="M2.5 3.5h6l5 5-5 5-6-6v-4z" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+            <circle cx="5.5" cy="6.5" r="1.1" fill="currentColor" />
+          </svg>
+        </button>
         {/* Icon-only, inside the box; the aria-labels keep them named "Stop" and "Send" (Feature 7). */}
         {streaming ? (
           <button

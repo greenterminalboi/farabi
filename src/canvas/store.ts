@@ -20,6 +20,8 @@ type CanvasStore = {
   composingNewTree: boolean;
   selection: Selection;
   drafts: Record<string, string>;
+  /** Lexicon term ids attached to each draft as chips (Feature 13), kept with the draft's text. */
+  draftTerms: Record<string, string[]>;
 
   load: (projectId: string, canvas: Pick<CanvasResponse, "trees" | "elements">) => void;
   /** Adds or replaces elements (and trees) returned by an action. Returns the trees touched. */
@@ -28,6 +30,7 @@ type CanvasStore = {
   setComposingNewTree: (on: boolean) => void;
   select: (selection: Selection) => void;
   setDraft: (targetId: string, text: string) => void;
+  setDraftTerms: (targetId: string, ids: string[]) => void;
 };
 
 /**
@@ -53,6 +56,7 @@ export const useCanvasStore = create<CanvasStore>()(
       composingNewTree: false,
       selection: null,
       drafts: {},
+      draftTerms: {},
 
       load: (projectId, canvas) => {
         const switched = get().projectId !== projectId;
@@ -92,13 +96,20 @@ export const useCanvasStore = create<CanvasStore>()(
           else delete drafts[targetId];
           return { drafts };
         }),
+      setDraftTerms: (targetId, ids) =>
+        set((s) => {
+          const draftTerms = { ...s.draftTerms };
+          if (ids.length) draftTerms[targetId] = ids;
+          else delete draftTerms[targetId];
+          return { draftTerms };
+        }),
     }),
     {
       // Drafts survive reloads (FR-028); data always comes from the server. Display settings
       // (show rejected, minimap) live in the settings store under farabi.settings.
       name: "farabi.drafts",
       storage: createJSONStorage(() => localStorage),
-      partialize: (s) => ({ drafts: s.drafts }),
+      partialize: (s) => ({ drafts: s.drafts, draftTerms: s.draftTerms }),
       skipHydration: true,
     },
   ),

@@ -204,4 +204,45 @@ describe("constitution guards (Feature 10)", () => {
       if (/insertInto\("drill_/.test(src)) expect(rel).toMatch(/^src\/server\/drill\//);
     }
   });
+
+  it("Feature 13: properties change only on the unsent→sent transition, only from {}, and only once", async () => {
+    const projectId = await newProject();
+    const t = await startTree(projectId, "Pods");
+    const terms = JSON.stringify({ lexicon: [{ id: "distill", v: 1 }] });
+    const newBranch = async () =>
+      (await call("POST", `/api/nodes/${t.answer.id}/branches`, spanOf(t.answer.text, "Containers"))).body.edge.id as string;
+    const props = async (id: string) =>
+      (await db.selectFrom("nodes").select("properties").where("id", "=", id).executeTakeFirstOrThrow()).properties;
+
+    // Allowed: the send of an unsent edge sets them, from {}.
+    const branch = await newBranch();
+    await sql`UPDATE nodes SET text = 'Why?', sent_at = now(), properties = ${terms}::jsonb WHERE id = ${branch}`.execute(db);
+    expect(await props(branch)).toEqual({ lexicon: [{ id: "distill", v: 1 }] });
+    // Never a second time, alone or with any other change.
+    await expect(sql`UPDATE nodes SET properties = '{}'::jsonb WHERE id = ${branch}`.execute(db)).rejects.toThrow(/never change/);
+    await expect(sql`UPDATE nodes SET manual_x = 1, manual_y = 1, properties = '{}'::jsonb WHERE id = ${branch}`.execute(db)).rejects.toThrow(/never change/);
+    // Not without the send: an unsent edge's properties alone, or text without sent_at.
+    const unsent = await newBranch();
+    await expect(sql`UPDATE nodes SET properties = ${terms}::jsonb WHERE id = ${unsent}`.execute(db)).rejects.toThrow(/never change/);
+    await expect(sql`UPDATE nodes SET text = 'x', properties = ${terms}::jsonb WHERE id = ${unsent}`.execute(db)).rejects.toThrow();
+    // Not from anything but {}: an unsent edge that already has properties keeps them at send.
+    const preset = (
+      await db
+        .insertInto("nodes")
+        .values({
+          project_id: projectId, tree_id: t.tree.id, parent_id: t.answer.id, kind: "question", shape: "edge",
+          origin: "branch", provenance: "user_authored", properties: terms,
+        })
+        .returning("id")
+        .executeTakeFirstOrThrow()
+    ).id;
+    await expect(
+      sql`UPDATE nodes SET text = 'y', sent_at = now(), properties = ${JSON.stringify({ lexicon: [{ id: "table", v: 1 }] })}::jsonb WHERE id = ${preset}`.execute(db),
+    ).rejects.toThrow(/never change/);
+    // Never on any other element: a sent edge, an answer, a function edge or an output.
+    const run = (await call("POST", `/api/nodes/${t.answer.id}/functions/analogy/run`)).body;
+    for (const id of [t.edge.id, t.answer.id, run.edge.id, run.output.id]) {
+      await expect(sql`UPDATE nodes SET properties = ${terms}::jsonb WHERE id = ${id}`.execute(db), id).rejects.toThrow(/never change/);
+    }
+  });
 });

@@ -26,7 +26,7 @@ test("the menu lists what accepts the element, and a run adds an AI-suggested ed
   await focusElement(page, answer.id);
   const camera = await cameraState(page);
   await page.locator(`[data-node-id="${answer.id}"]`).getByRole("button", { name: "ƒ" }).click();
-  await expect(page.getByTestId("function-menu").getByRole("menuitem")).toHaveText(["Analogy"]);
+  await expect(page.getByTestId("function-menu").getByRole("menuitem")).toHaveText(["Analogy", "Premortem", "Steelman", "SCQA"]);
   await page.getByTestId("function-item-analogy").click();
   await expect(outputs(page)).toHaveCount(1);
   const output = outputs(page).first();

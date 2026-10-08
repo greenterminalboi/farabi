@@ -88,6 +88,8 @@ export const Element = z.object({
   drawnFrom: z.string().optional(),
   /** Canvas only: what a card display (Feature 12's drill) shows, and where Open goes. */
   card: z.object({ title: z.string(), lines: z.array(z.string()), href: z.string() }).optional(),
+  /** Feature 13: lexicon terms on a question edge (asked for) or an answer (sent), as id and version. */
+  lexicon: z.array(z.object({ id: z.string(), v: z.number().int() })).optional(),
 });
 export type Element = z.infer<typeof Element>;
 
@@ -122,11 +124,14 @@ export const ElementResponse = z.object({ element: Element });
 
 // Asking
 
-export const StartTreeRequest = z.object({ projectId: z.string().uuid(), content: z.string() });
+/** Feature 13: lexicon term ids attached as chips; the server checks them (FR-008). */
+const Terms = z.array(z.string()).max(6).optional();
+
+export const StartTreeRequest = z.object({ projectId: z.string().uuid(), content: z.string(), terms: Terms });
 export const StartTreeResponse = z.object({ tree: Tree, edge: Element, answer: Element });
 export type StartTreeResponse = z.infer<typeof StartTreeResponse>;
 
-export const AskRequest = z.object({ content: z.string() });
+export const AskRequest = z.object({ content: z.string(), terms: Terms });
 export const AskResponse = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("message"), edge: Element, answer: Element }),
   z.object({ kind: z.literal("quick_branch"), edge: Element, answer: Element }),
@@ -137,7 +142,7 @@ export const BranchRequest = SpanRequest;
 export const BranchResponse = z.object({ edge: Element });
 export type BranchResponse = z.infer<typeof BranchResponse>;
 
-export const SendRequest = z.object({ content: z.string() });
+export const SendRequest = z.object({ content: z.string(), terms: Terms });
 export const SendResponse = z.object({ edge: Element, answer: Element });
 export type SendResponse = z.infer<typeof SendResponse>;
 

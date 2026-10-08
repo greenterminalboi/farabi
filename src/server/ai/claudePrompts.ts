@@ -1,4 +1,5 @@
 import type Anthropic from "@anthropic-ai/sdk";
+import { lexiconBlock } from "@/shared/lexicon/block";
 import {
   AIUnavailableError,
   type ChatTurn,
@@ -63,6 +64,10 @@ export function buildReplyRequest(input: ReplyInput): { system: TextBlock[]; mes
   if (context) system.push({ type: "text", text: context });
   // Last, after the stable prefix, so a level change doesn't invalidate the cached system prompt.
   if (input.pressureLevel !== null) system.push({ type: "text", text: lengthGuidance(input.pressureLevel) });
+  // The lexicon terms on the answered message come last of all (Feature 13, contracts/prompt.md):
+  // they change per message, so everything before them stays a stable prefix.
+  const lexicon = lexiconBlock(input.lexicon ?? []);
+  if (lexicon) system.push({ type: "text", text: lexicon });
 
   const messages: MessageParam[] = input.messages.map((m) => ({
     role: m.role === "user" ? "user" : "assistant",

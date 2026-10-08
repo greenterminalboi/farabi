@@ -2,7 +2,10 @@ import { analogyKind } from "./analogy";
 import { DRILL_KINDS } from "./drill";
 import { answerKind } from "./answer";
 import { functionKind } from "./function";
+import { premortemKind } from "./premortem";
 import { questionKind } from "./question";
+import { scqaKind } from "./scqa";
+import { steelmanKind } from "./steelman";
 import { DISPLAY_SHAPE, type NodeKindDeclaration } from "./types";
 
 export type { Display, NodeKindDeclaration, SettingDeclaration, Shape } from "./types";
@@ -28,7 +31,10 @@ export function registerKind(decl: NodeKindDeclaration): void {
   registry.set(decl.id, decl);
 }
 
-for (const kind of [questionKind, answerKind, functionKind, analogyKind, ...DRILL_KINDS]) registerKind(kind);
+// Feature 13: the lexicon's methods are output kinds made by functions (research R7).
+const METHOD_KINDS = [premortemKind, steelmanKind, scqaKind];
+
+for (const kind of [questionKind, answerKind, functionKind, analogyKind, ...DRILL_KINDS, ...METHOD_KINDS]) registerKind(kind);
 
 export function findKind(id: string): NodeKindDeclaration | undefined {
   return registry.get(id);

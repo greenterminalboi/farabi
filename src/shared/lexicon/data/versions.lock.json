@@ -1,0 +1,278 @@
+{
+  "summarize": {
+    "v": 1,
+    "sha": "00cb393c0044599c"
+  },
+  "distill": {
+    "v": 1,
+    "sha": "2bb981e68beedb4d"
+  },
+  "condense": {
+    "v": 1,
+    "sha": "464046fce53c3473"
+  },
+  "expand": {
+    "v": 1,
+    "sha": "357f2768f2780cb9"
+  },
+  "rewrite": {
+    "v": 1,
+    "sha": "0609df1f5cbfff74"
+  },
+  "polish": {
+    "v": 1,
+    "sha": "c7517bb88ba4ffc9"
+  },
+  "proofread": {
+    "v": 1,
+    "sha": "eadb85e7d60c09f1"
+  },
+  "critique": {
+    "v": 1,
+    "sha": "30be90c89e06595a"
+  },
+  "compare": {
+    "v": 1,
+    "sha": "c45481bf36a5b410"
+  },
+  "analyze": {
+    "v": 1,
+    "sha": "0a14ec7200b773ae"
+  },
+  "synthesize": {
+    "v": 1,
+    "sha": "599d296b7dab648e"
+  },
+  "extract": {
+    "v": 1,
+    "sha": "21fbc3850f3f8342"
+  },
+  "categorize": {
+    "v": 1,
+    "sha": "74eea5705ee759b0"
+  },
+  "rank": {
+    "v": 1,
+    "sha": "2d5ef0ba582f46cd"
+  },
+  "brainstorm": {
+    "v": 1,
+    "sha": "b8af47856551da04"
+  },
+  "draft": {
+    "v": 1,
+    "sha": "a9e8b684a9cf6a46"
+  },
+  "outline": {
+    "v": 1,
+    "sha": "87996a133d255854"
+  },
+  "explain": {
+    "v": 1,
+    "sha": "abab765d1a9ba62d"
+  },
+  "simplify": {
+    "v": 1,
+    "sha": "55e862daa40b875c"
+  },
+  "diagnose": {
+    "v": 1,
+    "sha": "5b2bec9fd39ed1c2"
+  },
+  "evaluate": {
+    "v": 1,
+    "sha": "f612639329137485"
+  },
+  "abstract": {
+    "v": 1,
+    "sha": "2e48d7f83c41dcb1"
+  },
+  "instantiate": {
+    "v": 1,
+    "sha": "a82ff59c9cbf2998"
+  },
+  "invert": {
+    "v": 1,
+    "sha": "e0184a2c073fe891"
+  },
+  "reframe": {
+    "v": 1,
+    "sha": "25c4680db584c1fb"
+  },
+  "steelman": {
+    "v": 1,
+    "sha": "364293d6cf88e166"
+  },
+  "concise": {
+    "v": 1,
+    "sha": "4676506448073fd4"
+  },
+  "comprehensive": {
+    "v": 1,
+    "sha": "e77cc8caa377924c"
+  },
+  "high-level": {
+    "v": 1,
+    "sha": "6f770ac7c800b797"
+  },
+  "granular": {
+    "v": 1,
+    "sha": "ea8b95b2b980f0fa"
+  },
+  "bluf": {
+    "v": 1,
+    "sha": "da703fba84652d49"
+  },
+  "tldr": {
+    "v": 1,
+    "sha": "a1a04b5803c88164"
+  },
+  "top-n": {
+    "v": 1,
+    "sha": "a442be61168be52f"
+  },
+  "verbatim": {
+    "v": 1,
+    "sha": "79d974a811944617"
+  },
+  "bulleted-list": {
+    "v": 1,
+    "sha": "c14ac0b1b2947496"
+  },
+  "numbered-list": {
+    "v": 1,
+    "sha": "e586e87d767170dd"
+  },
+  "table": {
+    "v": 1,
+    "sha": "44f1233639923f52"
+  },
+  "checklist": {
+    "v": 1,
+    "sha": "b4286bd266704e70"
+  },
+  "pros-and-cons": {
+    "v": 1,
+    "sha": "04a4e52df86e5567"
+  },
+  "one-pager": {
+    "v": 1,
+    "sha": "dbd86039bddf1e68"
+  },
+  "formal": {
+    "v": 1,
+    "sha": "17217b5fc96ced0d"
+  },
+  "conversational": {
+    "v": 1,
+    "sha": "ebe215e8e1d7b04d"
+  },
+  "direct": {
+    "v": 1,
+    "sha": "b47c9d12df18f5a5"
+  },
+  "plain-language": {
+    "v": 1,
+    "sha": "11f8f31c02681d8b"
+  },
+  "neutral": {
+    "v": 1,
+    "sha": "a2ea29ad84fb59a2"
+  },
+  "eli5": {
+    "v": 1,
+    "sha": "51e458888f7ca22f"
+  },
+  "layperson": {
+    "v": 1,
+    "sha": "5280bc3b3481be35"
+  },
+  "expert-level": {
+    "v": 1,
+    "sha": "fe3ec2a9b5ded2eb"
+  },
+  "decision-maker": {
+    "v": 1,
+    "sha": "bbed4d6d05df6c61"
+  },
+  "skeptic": {
+    "v": 1,
+    "sha": "d494e42643bec8e1"
+  },
+  "must": {
+    "v": 1,
+    "sha": "36b0d0c84fd663f0"
+  },
+  "never": {
+    "v": 1,
+    "sha": "d0b4883a63be808b"
+  },
+  "only": {
+    "v": 1,
+    "sha": "1996b9483a8a8297"
+  },
+  "always": {
+    "v": 1,
+    "sha": "d3d9e86b53d21978"
+  },
+  "should": {
+    "v": 1,
+    "sha": "8d39556764cea828"
+  },
+  "prefer": {
+    "v": 1,
+    "sha": "67080b9000427416"
+  },
+  "avoid": {
+    "v": 1,
+    "sha": "e616937e9de91502"
+  },
+  "may": {
+    "v": 1,
+    "sha": "d03bddf955dff3a6"
+  },
+  "unless": {
+    "v": 1,
+    "sha": "535f4eff8be4543e"
+  },
+  "priority-over": {
+    "v": 1,
+    "sha": "994dead940210357"
+  },
+  "exact-bounds": {
+    "v": 1,
+    "sha": "98808f90c3c5820a"
+  },
+  "think-first": {
+    "v": 1,
+    "sha": "fbd289127820bdc3"
+  },
+  "show-your-work": {
+    "v": 1,
+    "sha": "cc3f85eb4f9ce68d"
+  },
+  "label-assumptions": {
+    "v": 1,
+    "sha": "ef8d02cdbfb13942"
+  },
+  "honest-if-unsure": {
+    "v": 1,
+    "sha": "bbf51afbc685248f"
+  },
+  "push-back": {
+    "v": 1,
+    "sha": "0d5b6e78faaae8d3"
+  },
+  "edge-cases": {
+    "v": 1,
+    "sha": "73307d9dd75b8909"
+  },
+  "confidence-level": {
+    "v": 1,
+    "sha": "7963a91bc953af1f"
+  },
+  "self-critique": {
+    "v": 1,
+    "sha": "d1295e7efa499d38"
+  }
+}
