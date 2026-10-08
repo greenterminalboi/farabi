@@ -28,14 +28,14 @@ export class StartupBlocked extends Error {
   }
 }
 
-export const runtimeFilePath = (dataDir: string) => path.join(dataDir, "runtime.json");
+export const runtimeFilePath = (dataDir: string) => path.join(/*turbopackIgnore: true*/ dataDir, "runtime.json");
 /** The migrations a store holds, kept beside it so a newer store is refused without opening it. */
-export const schemaFilePath = (dataDir: string) => path.join(dataDir, "store-schema.json");
+export const schemaFilePath = (dataDir: string) => path.join(/*turbopackIgnore: true*/ dataDir, "store-schema.json");
 
 /** Even a read-only open rewrites PGlite's control files, so this check reads only the marker. */
 function markedMigrations(dataDir: string): string[] {
   try {
-    const marker = JSON.parse(readFileSync(schemaFilePath(dataDir), "utf8")) as { migrations?: unknown };
+    const marker = JSON.parse(readFileSync(/*turbopackIgnore: true*/ schemaFilePath(dataDir), "utf8")) as { migrations?: unknown };
     return Array.isArray(marker.migrations) ? marker.migrations.filter((m): m is string => typeof m === "string") : [];
   } catch {
     return [];
@@ -109,7 +109,7 @@ export async function prepareStore(opts: { migrations?: Record<string, Migration
     }
     if (disk) prunePreMigrationBackups(disk.dataDir);
   }
-  if (dataDir) writeFileSync(schemaFilePath(dataDir), JSON.stringify({ migrations: names, writtenAt: new Date().toISOString() }, null, 2));
+  if (dataDir) writeFileSync(/*turbopackIgnore: true*/ schemaFilePath(dataDir), JSON.stringify({ migrations: names, writtenAt: new Date().toISOString() }, null, 2));
   return names.at(-1) ?? "";
 }
 
@@ -132,7 +132,7 @@ export function shutdown(dataDir: string): Promise<void> {
     try {
       await closeDb();
     } finally {
-      rmSync(runtimeFilePath(dataDir), { force: true });
+      rmSync(/*turbopackIgnore: true*/ runtimeFilePath(dataDir), { force: true });
     }
   })();
   return shuttingDown;
@@ -200,7 +200,7 @@ export async function desktopStartup(
       schemaLevel,
       store: getPglite() ? "pglite" : "pg",
     };
-    writeFileSync(runtimeFilePath(dataDir), JSON.stringify(runtime, null, 2), { mode: 0o600 });
+    writeFileSync(/*turbopackIgnore: true*/ runtimeFilePath(dataDir), JSON.stringify(runtime, null, 2), { mode: 0o600 });
     setHostInfo(hello, schemaLevel);
     bridge.emit("ready", { port: hello.port, schemaLevel });
   } catch (err) {

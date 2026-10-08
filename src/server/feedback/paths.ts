@@ -13,7 +13,7 @@ export const REPO_ROOT = process.cwd();
  * desktop app, else FEEDBACK_DIR (or the repo's feedback/). Relative values resolve from the repo root.
  */
 export function feedbackDir(): string {
-  if (isDesktop() && process.env.FARABI_DATA_DIR) return path.join(process.env.FARABI_DATA_DIR, "feedback");
+  if (isDesktop() && process.env.FARABI_DATA_DIR) return path.join(/*turbopackIgnore: true*/ process.env.FARABI_DATA_DIR, "feedback");
   // Runtime data, not part of the build: keep Turbopack from tracing the whole project.
   return path.resolve(/*turbopackIgnore: true*/ REPO_ROOT, process.env.FEEDBACK_DIR || "feedback");
 }
@@ -33,7 +33,7 @@ export function exportDirChosen(): boolean {
 }
 
 export function feedbackFilePath(): string {
-  return path.join(exportDir() ?? feedbackDir(), "FEEDBACK.md");
+  return path.join(/*turbopackIgnore: true*/ exportDir() ?? feedbackDir(), "FEEDBACK.md");
 }
 
 /** Absolute path for a stored attachment path (stored relative to the feedback folder). */

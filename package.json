@@ -27,7 +27,8 @@
     "test:desktop": "wdio run tests/desktop/wdio.conf.ts",
     "tauri": "tauri",
     "postinstall": "tsx scripts/desktop/patch-pglite.ts",
-    "test:e2e:webkit": "E2E_WEBKIT=1 playwright test --project=webkit"
+    "test:e2e:webkit": "E2E_WEBKIT=1 playwright test --project=webkit",
+    "test:e2e:desktop": "E2E_DESKTOP=1 playwright test --project=webkit-desktop"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.128.0",

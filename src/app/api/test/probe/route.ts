@@ -17,6 +17,6 @@ export const POST = withApi(async (req: Request) => {
   const { name, data } = await readJson(req, Body);
   const dir = path.join(/*turbopackIgnore: true*/ process.env.FARABI_DATA_DIR!, "probe");
   mkdirSync(dir, { recursive: true });
-  writeFileSync(path.join(dir, `${name}.json`), JSON.stringify({ at: new Date().toISOString(), data }, null, 2));
+  writeFileSync(path.join(/*turbopackIgnore: true*/ dir, `${name}.json`), JSON.stringify({ at: new Date().toISOString(), data }, null, 2));
   return Response.json({ ok: true });
 });

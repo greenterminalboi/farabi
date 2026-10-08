@@ -6,8 +6,8 @@ import { vector } from "@electric-sql/pglite-pgvector";
 import { cpSync, existsSync, mkdirSync, readdirSync, renameSync, rmSync } from "node:fs";
 import path from "node:path";
 
-export const storeDir = (dataDir: string) => path.join(dataDir, "store");
-export const backupsDir = (dataDir: string) => path.join(dataDir, "backups");
+export const storeDir = (dataDir: string) => path.join(/*turbopackIgnore: true*/ dataDir, "store");
+export const backupsDir = (dataDir: string) => path.join(/*turbopackIgnore: true*/ dataDir, "backups");
 
 /** How many pre-migration backups are kept. */
 export const KEEP_PRE_MIGRATION = 5;
@@ -32,19 +32,19 @@ export async function verifyStoreCopy(dir: string): Promise<void> {
  * caller must have closed the store and still hold its lock. Returns the backup's path.
  */
 export async function backupBeforeMigration(dataDir: string, firstPending: string, at = new Date()): Promise<string> {
-  mkdirSync(backupsDir(dataDir), { recursive: true });
-  const base = path.join(backupsDir(dataDir), `${backupStamp(at)}-pre-${firstPending}`);
+  mkdirSync(/*turbopackIgnore: true*/ backupsDir(dataDir), { recursive: true });
+  const base = path.join(/*turbopackIgnore: true*/ backupsDir(dataDir), `${backupStamp(at)}-pre-${firstPending}`);
   let dest = base;
-  for (let n = 2; existsSync(dest); n++) dest = `${base}-${n}`;
+  for (let n = 2; existsSync(/*turbopackIgnore: true*/ dest); n++) dest = `${base}-${n}`;
   // Copy under a temporary name first, so a half-written copy never looks like a backup.
   const partial = `${dest}.partial`;
-  rmSync(partial, { recursive: true, force: true });
+  rmSync(/*turbopackIgnore: true*/ partial, { recursive: true, force: true });
   try {
-    cpSync(storeDir(dataDir), partial, { recursive: true, errorOnExist: true });
+    cpSync(/*turbopackIgnore: true*/ storeDir(dataDir), partial, { recursive: true, errorOnExist: true });
     await verifyStoreCopy(partial);
-    renameSync(partial, dest);
+    renameSync(/*turbopackIgnore: true*/ partial, dest);
   } catch (err) {
-    rmSync(partial, { recursive: true, force: true });
+    rmSync(/*turbopackIgnore: true*/ partial, { recursive: true, force: true });
     throw err;
   }
   return dest;
@@ -54,22 +54,22 @@ export async function backupBeforeMigration(dataDir: string, firstPending: strin
 export function restoreStore(dataDir: string, backup: string): void {
   const store = storeDir(dataDir);
   const failed = `${store}.failed`;
-  rmSync(failed, { recursive: true, force: true });
+  rmSync(/*turbopackIgnore: true*/ failed, { recursive: true, force: true });
   // Keep the failed store until the restore is in place, then drop it.
-  if (existsSync(store)) renameSync(store, failed);
-  cpSync(backup, store, { recursive: true });
-  rmSync(failed, { recursive: true, force: true });
+  if (existsSync(/*turbopackIgnore: true*/ store)) renameSync(/*turbopackIgnore: true*/ store, failed);
+  cpSync(/*turbopackIgnore: true*/ backup, store, { recursive: true });
+  rmSync(/*turbopackIgnore: true*/ failed, { recursive: true, force: true });
 }
 
 /** Removes all but the newest `keep` pre-migration backups. */
 export function prunePreMigrationBackups(dataDir: string, keep = KEEP_PRE_MIGRATION): string[] {
   const dir = backupsDir(dataDir);
-  if (!existsSync(dir)) return [];
-  const backups = readdirSync(dir)
+  if (!existsSync(/*turbopackIgnore: true*/ dir)) return [];
+  const backups = readdirSync(/*turbopackIgnore: true*/ dir)
     .filter((name) => /^\d{8}T\d{6}Z-pre-/.test(name) && !name.endsWith(".partial"))
     .sort()
     .reverse();
   const removed = backups.slice(keep);
-  for (const name of removed) rmSync(path.join(dir, name), { recursive: true, force: true });
+  for (const name of removed) rmSync(/*turbopackIgnore: true*/ path.join(/*turbopackIgnore: true*/ dir, name), { recursive: true, force: true });
   return removed;
 }

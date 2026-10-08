@@ -29,7 +29,8 @@ const PGLITE_PARSERS = {
 function openPglite(dataDir: string | "memory://"): PGlite {
   // `relaxedDurability` stays off (research R2). With no dataDir, PGlite runs in memory.
   return new PGlite({
-    ...(dataDir === "memory://" ? {} : { dataDir: path.join(dataDir, "store") }),
+    // Runtime paths: without turbopackIgnore, Turbopack globs `**/store*` across the project into the bundle.
+    ...(dataDir === "memory://" ? {} : { dataDir: path.join(/*turbopackIgnore: true*/ dataDir, "store") }),
     extensions: { vector },
     parsers: PGLITE_PARSERS,
   });

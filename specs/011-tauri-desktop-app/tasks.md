@@ -207,7 +207,7 @@ gates G1–G3. No user story starts until this phase is done and all three gates
   decision (research R6).
 - [ ] T022 Run quickstart V1 on Windows (WebView2), on a Windows machine or VM with GPU
   acceleration. Record the results in `gates.md` and log them.
-- [ ] T023 Tune the CSP in `src/proxy.ts` to the narrowest policy that the production build
+- [X] T023 Tune the CSP in `src/proxy.ts` to the narrowest policy that the production build
   (`desktop:build`) runs under with no console CSP violations, on both engines. Record the final
   policy in contracts/launch-session.md, replacing the draft line.
 
@@ -327,16 +327,16 @@ and a fake reply streams with nothing else installed.
   `src/server/ai/index.ts`, resolve the provider through the config resolver (T055) when it
   exists. Until then, use `isDesktop() ? "fake" : process.env.AI_PROVIDER`. Note the dependency
   on T055 in the code comment.
-- [ ] T035 [US1] Finish packaging in `src-tauri/tauri.conf.json` and `scripts/desktop/`:
+- [X] T035 [US1] Finish packaging in `src-tauri/tauri.conf.json` and `scripts/desktop/`:
   - `desktop:build` produces `Farabi_<version>_aarch64.dmg` or `_x64.dmg` on macOS, and
     `Farabi_<version>_x64-setup.exe` on Windows;
   - the server runs from `<resources>/server/server.js` with the bundled `node` sidecar.
 
   Verify on a machine with **no system Node on PATH** (`env -i` launch on macOS) that the app
   still starts.
-- [ ] T036 [US1] Add a size check to `scripts/desktop/prepare-server.ts` and the `desktop:build`
+- [X] T036 [US1] Add a size check to `scripts/desktop/prepare-server.ts` and the `desktop:build`
   script. After `tauri build`, print each installer's size, and fail if one is ≥ 100 MB (SC-002).
-- [ ] T037 [P] [US1] Write `docs/desktop-install.md`. It covers:
+- [X] T037 [P] [US1] Write `docs/desktop-install.md`. It covers:
   - download and install on each platform;
   - the first-launch steps for an unsigned app: on macOS, right-click → Open, or
     `xattr -dr com.apple.quarantine /Applications/Farabi.app`; on Windows, SmartScreen → More info
@@ -360,7 +360,7 @@ and a fake reply streams with nothing else installed.
 
 ### Tests (write first)
 
-- [ ] T039 [P] [US2] Add Playwright projects to `playwright.config.ts`:
+- [X] T039 [P] [US2] Add Playwright projects to `playwright.config.ts`:
   - **`webkit-desktop`**: `webServer` runs the packaged standalone server
     (`node .desktop/server/server.js`) with `FARABI_HOST` unset, `FARABI_DATA_DIR=.farabi-e2e`
     (wiped before each run) and the existing test env (`AI_PROVIDER=fake`, test hooks). Browser:
@@ -386,7 +386,7 @@ and a fake reply streams with nothing else installed.
   `get { reveal }` returns `{ present, value? }`; `set` and `delete` are idempotent. Register it in
   the `bridge.rs` dispatch. Unit tests go in the Rust `#[cfg(test)]` block, using a mock keyring
   backend.
-- [ ] T042 [US2] Run `--project=webkit-desktop` and fix the failures. Work through the "WebKit
+- [X] T042 [US2] Run `--project=webkit-desktop` and fix the failures. Work through the "WebKit
   parity backlog" in `gates.md` (T031):
   - **WebKit engine differences** in files this lane owns: fix them here.
   - **Differences in `src/canvas/*` or the text layer** (v0.2-owned): log a precise repro in
@@ -664,7 +664,7 @@ newer data, and an uninstall that keeps data.
 
   Make `scripts/migrate.ts` (closed store) use the same function. This covers 010 R3's backup rule
   on PGlite.
-- [ ] T073 [US6] Configure the NSIS uninstaller in `src-tauri/tauri.conf.json` and an NSIS
+- [X] T073 [US6] Configure the NSIS uninstaller in `src-tauri/tauri.conf.json` and an NSIS
   template hook (`src-tauri/windows/hooks.nsh`): add an unchecked "Also delete my Farabi data"
   checkbox. If it is ticked, remove `%APPDATA%\app.farabi`. Otherwise keep it (FR-023). On macOS,
   document in `docs/desktop-install.md` that dragging to the Trash keeps the data.
@@ -683,7 +683,7 @@ newer data, and an uninstall that keeps data.
 
 ## Phase 9: Polish, CI and cut-over
 
-- [ ] T076 [P] Write `.github/workflows/desktop.yml`. Jobs on `macos-latest` and `windows-latest`:
+- [X] T076 [P] Write `.github/workflows/desktop.yml`. Jobs on `macos-latest` and `windows-latest`:
   1. `npm ci`;
   2. `npm run test:pglite`;
   3. `npm run test:pg` (macOS only, with the Postgres service);
@@ -724,6 +724,15 @@ newer data, and an uninstall that keeps data.
   the server's message, which now says what to fix. Linking it to `/settings#provider` is handed to v0.2.
 - T072: newer-data is detected from `store-schema.json` beside the store, before opening it, because
   even a read-only PGlite open rewrites its control files; the in-store check stays as a fallback.
+- T073: Tauri's own NSIS uninstaller already has an unchecked "Delete the application data" box
+  that removes `%APPDATA%\\app.farabi` and `%LOCALAPPDATA%\\app.farabi` (skipped on updates), so no
+  hook file was needed. To be confirmed on Windows in T075.
+- T039: `webkit-desktop` runs the packaged standalone server against the Postgres test database
+  (the e2e resets go through Postgres); the PGlite store has its own parity gate (G3). The
+  `desktop-windows` project is still to do, with T043 on a Windows machine.
+- T023: `'unsafe-eval'` stays until v0.2 adds `import "pixi.js/unsafe-eval"` to the canvas.
+- T076: Postgres and e2e jobs run on Ubuntu (macOS/Windows runners have no service containers);
+  the WebdriverIO smoke step is left out until T032/T040/T071 exist.
 - T059: removing the key is `PUT { value: null }` (Article II guard: no DELETE handlers).
 
 ## Dependencies and execution order

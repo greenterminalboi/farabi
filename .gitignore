@@ -34,3 +34,5 @@ playwright-report/
 /.farabi-dev/
 /.farabi-e2e/
 /.next-desktop/
+/.next-desktop-test/
+/.desktop-test/

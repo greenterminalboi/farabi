@@ -186,8 +186,8 @@ async function copyAttachments(client: pg.Client, from: string, to: string, writ
     "SELECT file_path, thumb_path, byte_size FROM feedback_attachments ORDER BY id",
   );
   const inside = (root: string, rel: string) => {
-    const abs = path.resolve(root, rel);
-    if (!abs.startsWith(path.resolve(root) + path.sep)) throw new Error(`Attachment path outside the feedback folder: ${rel}`);
+    const abs = path.resolve(/*turbopackIgnore: true*/ root, rel);
+    if (!abs.startsWith(path.resolve(/*turbopackIgnore: true*/ root) + path.sep)) throw new Error(`Attachment path outside the feedback folder: ${rel}`);
     return abs;
   };
   let copied = 0;
@@ -196,10 +196,10 @@ async function copyAttachments(client: pg.Client, from: string, to: string, writ
       if (!rel) continue;
       const src = inside(from, rel);
       const dest = inside(to, rel);
-      await fs.mkdir(path.dirname(dest), { recursive: true });
-      await fs.copyFile(src, dest);
+      await fs.mkdir(/*turbopackIgnore: true*/ path.dirname(dest), { recursive: true });
+      await fs.copyFile(/*turbopackIgnore: true*/ src, dest);
       written.push(dest);
-      const size = (await fs.stat(dest)).size;
+      const size = (await fs.stat(/*turbopackIgnore: true*/ dest)).size;
       if (rel === r.file_path && size !== r.byte_size) throw new Error(`${rel} is ${size} bytes, expected ${r.byte_size}`);
       copied++;
     }

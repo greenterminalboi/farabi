@@ -31,11 +31,11 @@ function stampToIso(stamp: string): string {
 /** Snapshots in `backups/`, newest first. */
 export function listSnapshots(dataDir: string): Snapshot[] {
   const dir = backupsDir(dataDir);
-  if (!existsSync(dir)) return [];
-  return readdirSync(dir)
+  if (!existsSync(/*turbopackIgnore: true*/ dir)) return [];
+  return readdirSync(/*turbopackIgnore: true*/ dir)
     .map((name) => ({ name, m: SNAPSHOT_RE.exec(name) }))
     .filter((e): e is { name: string; m: RegExpExecArray } => e.m !== null)
-    .map(({ name, m }) => ({ name, takenAt: stampToIso(m[1]), bytes: statSync(path.join(dir, name)).size }))
+    .map(({ name, m }) => ({ name, takenAt: stampToIso(m[1]), bytes: statSync(/*turbopackIgnore: true*/ path.join(/*turbopackIgnore: true*/ dir, name)).size }))
     .sort((a, b) => b.name.localeCompare(a.name));
 }
 
@@ -54,11 +54,11 @@ export async function takeSnapshot({ force = false, at = new Date() }: { force?:
     if (!force && lsn === s.lastLsn) return null;
     const dump = await disk.pglite.dumpDataDir("gzip");
     const dir = backupsDir(disk.dataDir);
-    mkdirSync(dir, { recursive: true });
+    mkdirSync(/*turbopackIgnore: true*/ dir, { recursive: true });
     const name = `auto-${backupStamp(at)}.tar.gz`;
-    const tmp = path.join(dir, `${name}.partial`);
-    writeFileSync(tmp, Buffer.from(await dump.arrayBuffer()));
-    renameSync(tmp, path.join(dir, name));
+    const tmp = path.join(/*turbopackIgnore: true*/ dir, `${name}.partial`);
+    writeFileSync(/*turbopackIgnore: true*/ tmp, Buffer.from(await dump.arrayBuffer()));
+    renameSync(/*turbopackIgnore: true*/ tmp, path.join(/*turbopackIgnore: true*/ dir, name));
     s.lastLsn = lsn;
     pruneSnapshots(disk.dataDir);
     return { name, takenAt: stampToIso(backupStamp(at)), bytes: dump.size };
@@ -73,7 +73,7 @@ export async function takeSnapshot({ force = false, at = new Date() }: { force?:
 
 export function pruneSnapshots(dataDir: string, keep = KEEP_SNAPSHOTS): string[] {
   const removed = listSnapshots(dataDir).slice(keep).map((s) => s.name);
-  for (const name of removed) rmSync(path.join(backupsDir(dataDir), name), { force: true });
+  for (const name of removed) rmSync(/*turbopackIgnore: true*/ path.join(/*turbopackIgnore: true*/ backupsDir(dataDir), name), { force: true });
   return removed;
 }
 
@@ -101,14 +101,14 @@ export async function stopSnapshots({ final = true }: { final?: boolean } = {}):
 
 // ── Restore ─────────────────────────────────────────────────────────────────────────────────────
 
-const restoreFile = (dataDir: string) => path.join(dataDir, "restore-pending.json");
+const restoreFile = (dataDir: string) => path.join(/*turbopackIgnore: true*/ dataDir, "restore-pending.json");
 
 /** Stages a restore; it is applied on the next start, before the store opens. */
 export function requestRestore(dataDir: string, name: string): void {
-  if (!SNAPSHOT_RE.test(name) || !existsSync(path.join(backupsDir(dataDir), name))) {
+  if (!SNAPSHOT_RE.test(name) || !existsSync(/*turbopackIgnore: true*/ path.join(/*turbopackIgnore: true*/ backupsDir(dataDir), name))) {
     throw new Error(`No snapshot named ${name}`);
   }
-  writeFileSync(restoreFile(dataDir), JSON.stringify({ snapshot: name, requestedAt: new Date().toISOString() }));
+  writeFileSync(/*turbopackIgnore: true*/ restoreFile(dataDir), JSON.stringify({ snapshot: name, requestedAt: new Date().toISOString() }));
 }
 
 /**
@@ -118,15 +118,15 @@ export function requestRestore(dataDir: string, name: string): void {
  */
 export async function applyPendingRestore(dataDir: string, at = new Date()): Promise<string | null> {
   const file = restoreFile(dataDir);
-  if (!existsSync(file)) return null;
-  const { snapshot } = JSON.parse(readFileSync(file, "utf8")) as { snapshot: string };
+  if (!existsSync(/*turbopackIgnore: true*/ file)) return null;
+  const { snapshot } = JSON.parse(readFileSync(/*turbopackIgnore: true*/ file, "utf8")) as { snapshot: string };
   // Remove the request first: a restore that fails must not be retried on every launch.
-  rmSync(file, { force: true });
+  rmSync(/*turbopackIgnore: true*/ file, { force: true });
   if (!SNAPSHOT_RE.test(snapshot)) throw new Error(`Bad snapshot name ${snapshot}`);
-  const blob = new Blob([readFileSync(path.join(backupsDir(dataDir), snapshot))]);
+  const blob = new Blob([readFileSync(/*turbopackIgnore: true*/ path.join(/*turbopackIgnore: true*/ backupsDir(dataDir), snapshot))]);
   const store = storeDir(dataDir);
   const incoming = `${store}.restoring`;
-  rmSync(incoming, { recursive: true, force: true });
+  rmSync(/*turbopackIgnore: true*/ incoming, { recursive: true, force: true });
   // Load into a side folder first; the live store is only swapped once the load has worked.
   const pg = new PGlite({ dataDir: incoming, loadDataDir: blob, extensions: { vector } });
   try {
@@ -134,10 +134,10 @@ export async function applyPendingRestore(dataDir: string, at = new Date()): Pro
   } finally {
     await pg.close();
   }
-  if (existsSync(store)) renameSync(store, path.join(backupsDir(dataDir), `replaced-${backupStamp(at)}`));
-  renameSync(incoming, store);
+  if (existsSync(/*turbopackIgnore: true*/ store)) renameSync(/*turbopackIgnore: true*/ store, path.join(/*turbopackIgnore: true*/ backupsDir(dataDir), `replaced-${backupStamp(at)}`));
+  renameSync(/*turbopackIgnore: true*/ incoming, store);
   // Keep the two newest replaced stores.
-  const replaced = readdirSync(backupsDir(dataDir)).filter((n) => n.startsWith("replaced-")).sort().reverse();
-  for (const name of replaced.slice(2)) rmSync(path.join(backupsDir(dataDir), name), { recursive: true, force: true });
+  const replaced = readdirSync(/*turbopackIgnore: true*/ backupsDir(dataDir)).filter((n) => n.startsWith("replaced-")).sort().reverse();
+  for (const name of replaced.slice(2)) rmSync(/*turbopackIgnore: true*/ path.join(/*turbopackIgnore: true*/ backupsDir(dataDir), name), { recursive: true, force: true });
   return snapshot;
 }

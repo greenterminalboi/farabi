@@ -8,7 +8,11 @@ const UNSAFE_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 /** Routes for the CLI only (research R9): the window's cookie isn't enough. */
 const BEARER_ONLY = /^\/api\/feedback\/[^/]+\/addressed$/;
 
-// Draft policy; T023 narrows it once the production build is checked on both engines.
+// T023: 'unsafe-inline' scripts are Next's inline bootstrap; ws: only for the dev server (HMR).
+// 'unsafe-eval' stays for now: PixiJS 8 compiles its shader and uniform code with `new Function`
+// unless the canvas imports `pixi.js/unsafe-eval` (src/canvas, v0.2-owned; handed off in STATUS.md).
+// Checked on WebKit with the production build (`webkit-desktop` e2e, FARABI_CSP=1,
+// tests/e2e/f11-csp.spec.ts).
 function csp(): string {
   const dev = process.env.NODE_ENV !== "production";
   return [
@@ -16,7 +20,7 @@ function csp(): string {
     "img-src 'self' data: blob:",
     "font-src 'self' data:",
     "style-src 'self' 'unsafe-inline'",
-    `script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval'`,
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
     "worker-src 'self' blob:",
     `connect-src 'self'${dev ? " ws:" : ""}`,
     "frame-ancestors 'none'",
@@ -27,8 +31,18 @@ function csp(): string {
 
 const deny = (status: number) => new NextResponse(null, { status });
 
+function withSecurityHeaders(res: NextResponse): NextResponse {
+  res.headers.set("Content-Security-Policy", csp());
+  res.headers.set("X-Content-Type-Options", "nosniff");
+  res.headers.set("Referrer-Policy", "no-referrer");
+  return res;
+}
+
 export function proxy(request: NextRequest): NextResponse {
-  if (process.env.FARABI_HOST !== "tauri") return NextResponse.next();
+  if (process.env.FARABI_HOST !== "tauri") {
+    // FARABI_CSP=1 applies the desktop policy in the web build, so e2e can check it (T023).
+    return process.env.FARABI_CSP === "1" ? withSecurityHeaders(NextResponse.next()) : NextResponse.next();
+  }
 
   const session = getSession();
   if (!session) return deny(503);
@@ -57,11 +71,7 @@ export function proxy(request: NextRequest): NextResponse {
     }
   }
 
-  const res = NextResponse.next();
-  res.headers.set("Content-Security-Policy", csp());
-  res.headers.set("X-Content-Type-Options", "nosniff");
-  res.headers.set("Referrer-Policy", "no-referrer");
-  return res;
+  return withSecurityHeaders(NextResponse.next());
 }
 
 export const config = {

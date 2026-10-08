@@ -93,22 +93,23 @@ export function lastExportStatus(): ExportStatus | null {
  */
 async function mirrorAttachments(items: FeedbackItem[], out: string): Promise<FeedbackItem[]> {
   const store = feedbackDir();
-  if (path.resolve(out) === path.resolve(store)) return items;
+  if (path.resolve(/*turbopackIgnore: true*/ out) === path.resolve(/*turbopackIgnore: true*/ store)) return items;
   const mirrored: FeedbackItem[] = [];
   for (const item of items) {
     const attachments = [];
     for (const a of item.attachments) {
-      const source = path.resolve(REPO_ROOT, a.path);
+      // Runtime data, not part of the build: keep Turbopack from tracing the whole project.
+      const source = path.resolve(/*turbopackIgnore: true*/ REPO_ROOT, a.path);
       const rel = path.relative(store, source);
       if (rel.startsWith("..") || path.isAbsolute(rel)) {
         attachments.push(a);
         continue;
       }
-      const dest = path.join(out, rel);
-      const [from, to] = await Promise.all([fs.stat(source).catch(() => null), fs.stat(dest).catch(() => null)]);
+      const dest = path.join(/*turbopackIgnore: true*/ out, rel);
+      const [from, to] = await Promise.all([fs.stat(/*turbopackIgnore: true*/ source).catch(() => null), fs.stat(/*turbopackIgnore: true*/ dest).catch(() => null)]);
       if (from && (!to || to.size !== from.size || to.mtimeMs < from.mtimeMs)) {
-        await fs.mkdir(path.dirname(dest), { recursive: true });
-        await fs.copyFile(source, dest);
+        await fs.mkdir(/*turbopackIgnore: true*/ path.dirname(dest), { recursive: true });
+        await fs.copyFile(/*turbopackIgnore: true*/ source, dest);
       }
       attachments.push({ ...a, path: repoRelative(dest) });
     }
@@ -129,22 +130,22 @@ export async function regenerateFeedbackFile(db: DB = defaultDb): Promise<string
     g.__farabiExportStatus = { ok: true, at: new Date().toISOString(), dir: null, error: null };
     return null;
   }
-  const target = path.join(out, "FEEDBACK.md");
+  const target = path.join(/*turbopackIgnore: true*/ out, "FEEDBACK.md");
   try {
     await db.transaction().execute(async (trx) => {
       await sql`SELECT pg_advisory_xact_lock(hashtext('farabi_feedback_file'))`.execute(trx);
       // A chosen folder must exist (it may be on a drive that's gone); the default one is created.
       if (exportDirChosen()) {
-        const stat = await fs.stat(out).catch(() => null);
+        const stat = await fs.stat(/*turbopackIgnore: true*/ out).catch(() => null);
         if (!stat?.isDirectory()) throw new Error(`The feedback export folder ${out} doesn't exist.`);
       } else {
-        await fs.mkdir(out, { recursive: true });
+        await fs.mkdir(/*turbopackIgnore: true*/ out, { recursive: true });
       }
       const items = await mirrorAttachments(await listFeedback(trx), out);
       const text = renderFeedbackFile(items, new Date());
       const tmp = `${target}.tmp`;
-      await fs.writeFile(tmp, text);
-      await fs.rename(tmp, target);
+      await fs.writeFile(/*turbopackIgnore: true*/ tmp, text);
+      await fs.rename(/*turbopackIgnore: true*/ tmp, target);
     });
   } catch (err) {
     g.__farabiExportStatus = { ok: false, at: new Date().toISOString(), dir: out, error: err instanceof Error ? err.message : String(err) };
