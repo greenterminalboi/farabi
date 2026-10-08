@@ -129,14 +129,19 @@ A lexicon of about 70 prompting terms (Distill, Table, Skeptic, Must, Show your 
 attach to a message to shape its reply.
 
 - **Add terms**: the tag button in the composer opens the picker. Type a few letters and press Enter;
-  each term becomes a chip above the box. Terms are only ever added this way, never picked up from
-  what you type, and your message is sent exactly as written.
+  each term becomes a chip above the box. Your message is always sent exactly as written.
+- **Picked up as you type**: term names you type ("summarize", "as a table", "be blunt") are added as
+  dashed chips marked "detected". Remove any you don't mean; a removed term stays off for that
+  message. If two clash (say "formal" and "casual"), the first is kept and the other is offered as
+  "conflicts with Formal", which you can swap in. Turn this off in Settings → Lexicon ("Pick up
+  lexicon words automatically").
 - **See what a term does**: hover or focus a chip (or a picker entry). The card shows its meaning,
   an example, its neighbours (click one to swap) and the exact instruction sent to the model, with
   its version.
 - **Rules**: one term each for operation, scope, format, tone and audience; strength and quality
-  words combine. Some pairs conflict (Distill and Comprehensive, Verbatim and Simplify). Six terms at
-  most. A term that would break a rule is listed as unavailable, with the reason.
+  words combine. Some pairs conflict (Distill and Comprehensive, Verbatim and Simplify). There is no
+  limit on the number of terms, but above eight you get a gentle warning. A term that would break a
+  rule is listed as unavailable, with the reason.
 - **On the canvas**: a sent message shows its terms as chips; hover one for the version it was sent
   with. Only the answered message's terms are sent, in a separate block after the reply's other
   instructions; retries resend them.

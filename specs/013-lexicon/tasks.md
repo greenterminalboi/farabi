@@ -73,7 +73,7 @@ and e2e tests are included.
 
 **Independent test**: Concise then Comprehensive → unavailable; six chips → all unavailable; direct API call → 400.
 
-- [X] T031 [US3] Six-term notice and disabled state in the picker; swap respects `unavailableReason` in `src/canvas/overlays/lexicon/TermPicker.tsx` (server half covered by T018/T024)
+- [X] T031 [US3] *(cap removed by T040)* Six-term notice and disabled state in the picker; swap respects `unavailableReason` in `src/canvas/overlays/lexicon/TermPicker.tsx` (server half covered by T018/T024)
 
 ## Phase 6: User Story 4 - Run a method on an answer (P2)
 
@@ -95,6 +95,18 @@ and e2e tests are included.
 - [X] T037 [P] README: a short "Lexicon" section (chips, adding a term, lock, doc export) in `README.md`
 - [X] T038 Full `npx vitest run`, `npx tsc --noEmit`, `npx eslint .`, Playwright on a private port (3123: 3113 was taken by the drill lane); commit in logical chunks
 - [X] T039 Hand-off line in `/Users/halda/Projects/farabi-coord/STATUS.md` (commits, test counts, shared-file edits, owner questions)
+
+## Phase 9: Auto-detect (owner decision 2026-10-07)
+
+"Pick up any lexicon words at the moment and have a setting to turn them down." Supersedes the
+chip-only activation and the hard six-term cap (spec Clarifications).
+
+- [X] T040 Remove the hard cap: `MAX_TERMS` → `SOFT_TERM_LIMIT = 8` (warning only); `LexiconUses` and the request schema lose their maximum; `unavailableReason` no longer counts, in `src/shared/lexicon/{types,index}.ts`, `src/shared/schemas.ts`, `TermPicker.tsx`
+- [X] T041 `TermUse` gains optional `via: "detected" | "chip"`; requests take `string | { id, via }`; `resolveTerms` records via on the edge (bare id = chip), answers keep `{ id, v }`, in `src/shared/lexicon/types.ts`, `src/shared/schemas.ts`, `src/server/lexicon/resolve.ts`, `src/server/graph/ask.ts`, `src/lib/api.ts`
+- [X] T042 Detection and composition in `src/lib/lexiconDetect.ts` (reuses `buildMatcher`): whole words, any case, curly apostrophes, no stemming, "can" excluded; manual chips first, then detected in text order; clashes become suggestions; dismissed and swapped-in ids per draft
+- [X] T043 App setting `lexicon_autodetect` (default on, no env) in `src/server/settings/config.ts`, `src/shared/desktop.ts`, `src/server/db/schema.ts`, migration `0014_lexicon_autodetect`; Settings → Lexicon checkbox in `AppSettingsSections.tsx`; passed from `src/app/page.tsx` through `CanvasHost` to the composer
+- [X] T044 Composer: detected chips (dashed, "detected"), dismiss that sticks for the draft, "conflicts with X" suggestions with swap/dismiss, soft warning above 8, `draftLexicon` persisted in `src/canvas/store.ts`; `TermChips.tsx`, `Composer.tsx`, `globals.css`
+- [X] T045 Tests: unit `tests/unit/f13-detect.test.ts` (boundaries, aliases, punctuation, plurals, apostrophes, longest match, composition) and the updated cap test; integration `via` recording on trees/ask/send, old rows, no cap, slot/conflict refusals, the setting (default, history, boolean-only, DB check) in `tests/integration/f13-lexicon.test.ts`; e2e detect → swap → dismiss → send, and setting off, in `tests/e2e/f13-lexicon.spec.ts`
 
 ## Dependencies
 

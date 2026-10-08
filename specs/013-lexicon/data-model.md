@@ -29,8 +29,11 @@ lock and refuses entries whose hash changed without a version increase.
 
 ## Term use (stored in `nodes.properties.lexicon`)
 
-`Array<{ id: string; v: number }>`, at most 6, no duplicate ids. Declared (strict Zod) on the
-`question` and `answer` kinds; absent when empty.
+`Array<{ id: string; v: number; via?: "detected" | "chip" }>`, no duplicate ids, no maximum (the
+cap of 6 was removed by the owner decision of 2026-10-07). Declared (strict Zod) on the `question`
+and `answer` kinds; absent when empty. `via` (additive) is recorded on question edges sent since
+auto-detect: whether the composer detected the term in the text or the user added it as a chip.
+Rows without it stay valid; answers never carry it.
 
 - Question edge: set at insert (new tree, ask, quick-branch copy) or at send of an unsent edge
   (migration 0013). Records what the user asked for.
@@ -39,7 +42,14 @@ lock and refuses entries whose hash changed without a version increase.
 
 ## Element (API)
 
-`Element.lexicon?: Array<{ id; v }>` on question edges and answers, copied from properties.
+`Element.lexicon?: Array<{ id; v; via? }>` on question edges and answers, copied from properties.
+
+## Setting `lexicon_autodetect` (owner decision 2026-10-07)
+
+An app setting (feature 11's resolver, `src/server/settings/config.ts`) in the append-only
+`setting_changes` history: a JSON boolean, default `true`, no environment fallback. Migration
+`0014_lexicon_autodetect` adds the key to `setting_changes_key_check` and a check that its value is a
+boolean.
 
 ## Method output kinds
 
