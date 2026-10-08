@@ -62,7 +62,7 @@ function PlayerInner({ scene, autoPlay = false, initialFrame = 0, onFrameChange,
   const last = useRef<number | null>(null);
   const tween = useRef<{ from: number; to: number; start: number } | null>(null);
 
-  const frame = Math.floor(t + 1e-6);
+  const frame = Math.min(n, Math.max(0, Math.floor(t + 1e-6)));
   const states = statesOf(scene);
   const caption = captionAt(scene, frame);
 
@@ -104,7 +104,8 @@ function PlayerInner({ scene, autoPlay = false, initialFrame = 0, onFrameChange,
       last.current = now;
       if (tween.current) {
         const { from, to, start } = tween.current;
-        const p = Math.min(1, (now - start) / STEP_TWEEN_MS);
+        // rAF timestamps can be slightly earlier than the performance.now() the tween started at.
+        const p = Math.max(0, Math.min(1, (now - start) / STEP_TWEEN_MS));
         const v = from + (to - from) * p;
         head.current = { t: v, hold: 0 };
         setT(v);
@@ -150,7 +151,8 @@ function PlayerInner({ scene, autoPlay = false, initialFrame = 0, onFrameChange,
     [pause, scene, setPosition, startLoop],
   );
 
-  const current = () => head.current.t;
+  // While a step tween runs, Next/Previous count from where it is heading, so quick presses add up.
+  const current = () => tween.current?.to ?? head.current.t;
   const next = () => goTo(Math.floor(current() + 1e-6) + 1);
   const prev = () => {
     const c = current();

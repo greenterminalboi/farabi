@@ -6,7 +6,17 @@ export const easeInOut = (p: number) => (p < 0.5 ? 4 * p * p * p : 1 - Math.pow(
 
 const lerp = (a: number, b: number, p: number) => a + (b - a) * p;
 
+export function sameItem(a: DrawItem, b: DrawItem): boolean {
+  if (a === b) return true;
+  if (a.kind !== b.kind) return false;
+  const ra = a as unknown as Record<string, unknown>;
+  for (const [k, v] of Object.entries(b)) if (ra[k] !== v) return false;
+  return true;
+}
+
 function blendItem(a: DrawItem, b: DrawItem, p: number): DrawItem {
+  // Unchanged items keep their identity, so the React frame can skip them (SC-002).
+  if (sameItem(a, b)) return b;
   if (a.kind !== b.kind) return p < 0.5 ? a : b;
   const out: Record<string, unknown> = {};
   const ra = a as unknown as Record<string, unknown>;

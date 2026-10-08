@@ -59,6 +59,6 @@ export default defineConfig({
         url: `http://127.0.0.1:${PORT}`,
         reuseExistingServer: false,
         timeout: 300_000,
-        env: { ...SERVER_ENV, NEXT_DIST_DIR: ".next-test" },
+        env: { ...SERVER_ENV, NEXT_DIST_DIR: process.env.NEXT_DIST_DIR ?? ".next-test" },
       },
 });
