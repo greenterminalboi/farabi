@@ -1,6 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
-import pg from "pg";
-import { elementsOf, focusElement, openCanvas, resetDb, setAiMode, startTree, TEST_DATABASE_URL, waitForReplyEnd } from "./helpers";
+import { elementsOf, focusElement, openCanvas, resetDb, setAiMode, startTree, storedNode, waitForReplyEnd } from "./helpers";
 
 // Feature 13: lexicon chips in the composer, the card, the slot rules, and methods (quickstart).
 
@@ -11,20 +10,17 @@ test.beforeEach(async ({ page }) => {
   await setAiMode(page, "ok");
 });
 
-// resetDb truncates setting_changes behind the server's settings cache, so put the default back.
+// resetDb clears setting_changes behind the server's settings cache, so put the default back.
 test.afterEach(async ({ page }) => {
   expect((await setAutodetect(page, true)).ok()).toBeTruthy();
 });
 
-async function storedText(id: string): Promise<{ text: string | null; properties: unknown }> {
-  const client = new pg.Client({ connectionString: TEST_DATABASE_URL });
-  await client.connect();
-  const { rows } = await client.query("SELECT text, properties FROM nodes WHERE id = $1", [id]);
-  await client.end();
-  return rows[0];
-}
+const storedText = storedNode;
 
 test("add terms by keyboard, see what they send, and send them with the text unchanged (stories 1–3)", async ({ page }) => {
+  // WebKit (the macOS app's engine) doesn't focus a button on click, so the chip's blur has no
+  // relatedTarget and TermCard closes before "Swap for …" receives the click. Handed to v0.2
+  // (STATUS.md, 2026-10-07 23:40); remove this line once TermCard is fixed.
   await openCanvas(page);
   await startTree(page, "Pods");
   const [answer] = await elementsOf(page, "answer");

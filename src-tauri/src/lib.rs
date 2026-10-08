@@ -74,6 +74,13 @@ pub fn run() {
                 .min_inner_size(720.0, 480.0)
                 .on_navigation(move |url| allow_navigation(&nav, url));
             // Debug builds only: gate G1 injects its probe into the real window (quickstart V1).
+            // WebKit pauses pages it can't see, so the probe's window stays on every Space, on top.
+            #[cfg(debug_assertions)]
+            let builder = if std::env::var_os("FARABI_PROBE_JS").is_some() {
+                builder.visible_on_all_workspaces(true).always_on_top(true).focused(true)
+            } else {
+                builder
+            };
             #[cfg(debug_assertions)]
             let builder = builder.on_page_load(|window, payload| {
                 if payload.event() != tauri::webview::PageLoadEvent::Finished {

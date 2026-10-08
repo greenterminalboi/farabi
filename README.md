@@ -37,38 +37,28 @@ conversations read as columns, and every tangent fans out beside them.
 Specs, plan and tasks live in `specs/`; v0.2 is `specs/010-v02-message-graph-canvas/`. Project
 rules are in `.specify/memory/constitution.md`.
 
-## Desktop app
+## Install
 
-Farabi is becoming a desktop app for macOS and Windows (feature 011). The installer brings
-everything it needs: no Postgres, Node or anything else. See
-[docs/desktop-install.md](docs/desktop-install.md) for installing, first steps, and where data and
-logs live (`~/Library/Application Support/app.farabi/` and `~/Library/Logs/app.farabi/` on macOS,
-`%APPDATA%\app.farabi\` and `%LOCALAPPDATA%\app.farabi\logs\` on Windows).
+Farabi is a desktop app for macOS (and Windows). The installer brings everything it needs: no
+database, Node or anything else. See [docs/desktop-install.md](docs/desktop-install.md) for
+installing, first steps, importing from the old web app, and where data and logs live
+(`~/Library/Application Support/app.farabi/` and `~/Library/Logs/app.farabi/` on macOS).
 
-For development: `npm run desktop:dev` runs the app from source with its data in `.farabi-dev/`
-(needs Rust), and `npm run desktop:build` makes the installer for this machine. Until the switch-over,
-the web app below and the repo scripts keep using Postgres; pass `--data-dir <folder>` to point a
-script (`feedback:addressed`, `feedback:export`, `db:migrate`, `desktop:import`) at a desktop data
-folder instead. With the app open, the scripts go through it.
+## Develop
 
-## Prerequisites
-
-- Node.js 22 or newer and npm
-- Docker (local Postgres 17 with pgvector)
-
-## Run
+Prerequisites: Node.js 22 or newer and npm, and Rust (for the desktop shell).
 
 ```bash
 npm install
-cp .env.example .env.local   # DATABASE_URL, TEST_DATABASE_URL, AI_PROVIDER=fake
-docker compose up -d         # Postgres on 127.0.0.1:5432 (also creates farabi_test)
-npm run db:migrate           # add `-- --test` for the test database
-npm run dev                  # http://127.0.0.1:3000
+npm run dev              # the desktop app from source; its data is in .farabi-dev/
+npm run dev:web          # the same server in a browser at http://127.0.0.1:3000 (data in .farabi-web/)
+npm run desktop:build    # the installer for this machine
 ```
 
 ### Claude
 
-Set `AI_PROVIDER` in `.env.local`, then restart `npm run dev`:
+In the app, choose the provider in **Settings → AI provider** (and save an API key there for the
+Claude API). For `npm run dev:web`, `AI_PROVIDER` in `.env.local` works as before:
 
 - `claude-code`: uses your local Claude Code login, so replies count against your Claude
   subscription rather than API billing. For personal, local use only. Each reply runs
@@ -165,37 +155,35 @@ The **Feedback** button in the top bar opens a drawer over any view. Type a note
 or drop screenshots, and submit; the open project and the focused element are recorded.
 Drag items to reorder them, filter by tag, and resolve or reopen them. Nothing is ever deleted.
 
-Everything is exported to `feedback/FEEDBACK.md` after each change, with screenshots under
-`feedback/attachments/`. The folder is git-ignored; set `FEEDBACK_DIR` to move it. Claude Code
-reads that file and, after doing the work for an item, marks it addressed:
+Choose an export folder in **Settings → Feedback export** (for development, this checkout's
+`feedback/`, which is git-ignored). After each change, everything is exported there as `FEEDBACK.md`,
+with screenshots under `attachments/`. Claude Code reads that file and, after doing the work for an
+item, marks it addressed:
 
 ```bash
 npm run feedback:addressed -- <item id>   # open → addressed; you confirm or reopen it in the app
-npm run feedback:export                   # rewrite FEEDBACK.md from the database
+npm run feedback:export                   # rewrite FEEDBACK.md now
 ```
+
+These work whether the app is open (they go through it) or closed (they open its data folder);
+add `-- --data-dir <folder>` for another data folder, such as `.farabi-dev`.
 
 ## Test
 
 ```bash
 npm run lint && npm run typecheck
-npm test                     # unit + integration (needs Docker Postgres, migrated test DB)
-npm run test:e2e             # Playwright against a production build on port 3100
-npm run seed:large           # a "Scale seed" project of 5,000 elements in 20 trees
-                             # (`-- --elements N`, `-- --feedback 200`, `-- --outputs 20`)
+npm test                     # unit, integration (in-memory store) and on-disk store tests
+npm run test:e2e             # Playwright, WebKit and Chromium, against the packaged server in
+                             # desktop mode (E2E_PORT picks the port, default 3100)
+npm run seed:large           # a "Scale seed" project of 5,000 elements in 20 trees, into a closed
+                             # data folder (`-- --data-dir .farabi-dev --elements N --feedback 200`)
 ```
 
-## Upgrading from v0.1
+## Upgrading from the web app
 
-v0.2 replaces conversations with a graph of questions and answers. `npm run db:migrate` converts
-everything in one transaction:
+Use **Settings → Data → Import from the web app** in a new, empty Farabi while the old Postgres
+still runs (`postgres://farabi:farabi@127.0.0.1:5432/farabi` by default), or `npm run desktop:import`.
+It copies everything once, all or nothing, and checks every table. A database from an older
+version is upgraded on the way in; the old database itself is only read. Data folders are migrated
+on start, after a backup.
 
-```bash
-npm run db:migrate   # backs up first (db/backups/<time>-pre-0010.dump), then migrates and converts
-npm run v1:verify    # checks text, reply context, counts and that the originals are unchanged
-npm run v1:convert   # safe to rerun: reports 0 new rows
-```
-
-The original tables move, untouched and read-only, into the `v1` schema. The backup uses
-`pg_dump` through `docker compose`, a local `pg_dump`, or the Postgres image; if none works the
-migration stops without changing anything (`-- --no-backup` skips it). Old `/n/<id>` links still
-open the right place on the canvas.

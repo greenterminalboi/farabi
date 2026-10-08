@@ -8,14 +8,23 @@ export async function register() {
     await desktopStartup();
     return;
   }
-  // Web app: settings stored in the app take precedence over .env.local (feature 11).
+  // In a browser (`npm run dev:web`): the same data folder, brought up to date (with a backup)
+  // before anything reads it, as the app does on start.
+  try {
+    const { prepareStore } = await import("@/server/db/startup");
+    await prepareStore();
+  } catch (err) {
+    console.error("Could not open the data folder (FARABI_DATA_DIR).", err);
+    return;
+  }
+  // Settings stored in the app take precedence over .env.local (feature 11).
   try {
     const { loadConfig } = await import("@/server/settings/config");
     await loadConfig();
   } catch (err) {
     console.error("Could not load stored settings; environment variables apply.", err);
   }
-  // Make sure FEEDBACK.md reflects the database (research R6).
+  // Make sure FEEDBACK.md reflects the data (research R6).
   try {
     const { regenerateFeedbackFile } = await import("@/server/feedback/exportFile");
     await regenerateFeedbackFile();

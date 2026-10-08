@@ -1,11 +1,10 @@
 // `npm run v1:verify` (contracts/migration.md): checks the five invariants of the v1 → v2
-// conversion and exits 1 if any fails. `--test` targets the test database. Refuses while the
+// conversion and exits 1 if any fails. Refuses while the
 // desktop app is running on the data (feature 11).
-import { loadEnv, QUIT_FIRST, scriptTarget, withTarget } from "./env";
+import { loadEnv, QUIT_FIRST, withTarget } from "./env";
 
 loadEnv();
 const code = await withTarget({
-  target: scriptTarget(process.argv.includes("--test")),
   refuseWhenLive: QUIT_FIRST,
   store: async () => {
     const { db } = await import("../src/server/db/client");

@@ -5,7 +5,6 @@ import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 const dataDir = mkdtempSync(path.join(os.tmpdir(), "farabi-snapshots-"));
-delete process.env.DATABASE_URL;
 process.env.FARABI_DATA_DIR = dataDir;
 
 const { db, closeDb } = await import("@/server/db/client");

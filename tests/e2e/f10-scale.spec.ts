@@ -1,8 +1,7 @@
 // Scale on real data shapes (SC-005, SC-012, research R17): 5,000 elements seeded on the v2 model,
 // measured on the production build with GPU Chromium. Replaces the M0 spike's synthetic page.
-import { execFileSync } from "node:child_process";
 import { expect, type Page, test } from "@playwright/test";
-import { resetDb } from "./helpers";
+import { resetDb, seedLarge } from "./helpers";
 
 test.use({ trace: "off" });
 test.describe.configure({ mode: "serial" });
@@ -12,11 +11,7 @@ const results: Record<string, unknown> = {};
 
 test.beforeAll(async () => {
   await resetDb();
-  execFileSync("npx", ["tsx", "scripts/seed-large.ts", "--test", "--elements", "5000"], {
-    cwd: process.cwd(),
-    env: { ...process.env, TEST_DATABASE_URL: process.env.TEST_DATABASE_URL ?? "postgres://farabi:farabi@127.0.0.1:5432/farabi_test" },
-    stdio: "ignore",
-  });
+  await seedLarge({ elements: 5000 });
 });
 
 test.afterAll(() => console.log("Scale results", JSON.stringify(results, null, 2)));

@@ -17,8 +17,8 @@ function deps(over: Partial<ResolveDeps> & { files?: Record<string, string> } = 
 }
 
 describe("resolveTarget", () => {
-  it("uses Postgres when DATABASE_URL is set", () => {
-    expect(resolveTarget(deps({ env: { DATABASE_URL: "postgres://x/y", FARABI_DATA_DIR: DIR } }))).toEqual({ kind: "pg", url: "postgres://x/y" });
+  it("ignores DATABASE_URL: there is no Postgres store since the cut-over", () => {
+    expect(resolveTarget(deps({ env: { DATABASE_URL: "postgres://x/y", FARABI_DATA_DIR: DIR } }))).toEqual({ kind: "closed", dataDir: DIR });
   });
 
   it("uses the running app when runtime.json names a live process", () => {
@@ -32,7 +32,7 @@ describe("resolveTarget", () => {
     expect(resolveTarget(deps())).toEqual({ kind: "closed", dataDir: DIR });
   });
 
-  it("lets --data-dir override FARABI_DATA_DIR and DATABASE_URL", () => {
+  it("lets --data-dir override FARABI_DATA_DIR", () => {
     const other = path.resolve("/tmp/other");
     expect(resolveTarget(deps({ argv: ["x", "--data-dir", other], env: { DATABASE_URL: "postgres://x/y", FARABI_DATA_DIR: DIR } }))).toEqual({ kind: "closed", dataDir: other });
     expect(scriptArgs(["--data-dir", other, "abc"])).toEqual(["abc"]);
