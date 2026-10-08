@@ -1,6 +1,9 @@
 import { findKind } from "@/shared/kinds";
 import { NotFoundError } from "../../errors";
 import { analogy } from "./analogy";
+import { premortem } from "./premortem";
+import { scqa } from "./scqa";
+import { steelman } from "./steelman";
 import type { FunctionDefinition } from "./types";
 
 export type { FunctionDefinition } from "./types";
@@ -22,6 +25,8 @@ export function registerFunction(def: FunctionDefinition): void {
 }
 
 registerFunction(analogy);
+// Feature 13: the lexicon's methods; the runner is unchanged (FR-017).
+for (const method of [premortem, steelman, scqa]) registerFunction(method);
 
 export function getFunction(id: string): FunctionDefinition {
   const def = registry.get(id);

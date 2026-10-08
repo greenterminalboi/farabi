@@ -81,13 +81,13 @@ and e2e tests are included.
 
 **Independent test**: run each on an answer with the fake provider; output of that kind under a function edge, proposed, version 1.
 
-- [ ] T032 [P] [US4] Output kinds `premortem`, `steelman`, `scqa` (shape node, display output, `acceptsInputKinds: ["answer"]`, settings `[]`, strict empty properties) in `src/shared/kinds/premortem.ts`, `src/shared/kinds/steelman.ts`, `src/shared/kinds/scqa.ts`; register in `src/shared/kinds/index.ts`
-- [ ] T033 [P] [US4] Function definitions (version 1, procedure propose, grounded in the answer text, parse trims and refuses empty) in `src/server/functions/definitions/premortem.ts`, `steelman.ts`, `scqa.ts`; register in `src/server/functions/definitions/index.ts` (runner untouched)
-- [ ] T034 [P] [US4] Unit tests for the method prompts (text escaped, grounding sentence present, parse) in `tests/unit/f13-methods.test.ts`; integration test (listed for answers only, run creates function edge + proposed output, failure stores nothing) in `tests/integration/f13-methods.test.ts`
+- [X] T032 [P] [US4] Output kinds `premortem`, `steelman`, `scqa` (shape node, display output, `acceptsInputKinds: ["answer"]`, settings `[]`, strict empty properties) in `src/shared/kinds/premortem.ts`, `src/shared/kinds/steelman.ts`, `src/shared/kinds/scqa.ts`; register in `src/shared/kinds/index.ts`
+- [X] T033 [P] [US4] Function definitions (version 1, procedure propose, grounded in the answer text, parse trims and refuses empty) in `src/server/functions/definitions/premortem.ts`, `steelman.ts`, `scqa.ts`; register in `src/server/functions/definitions/index.ts` (runner untouched)
+- [X] T034 [P] [US4] Unit tests for the method prompts (text escaped, grounding sentence present, parse) in `tests/unit/f13-methods.test.ts`; integration test (listed for answers only, run creates function edge + proposed output, failure stores nothing) in `tests/integration/f13-methods.test.ts`
 
 ## Phase 7: User Story 5 - The lexicon as a readable document (P3)
 
-- [ ] T035 [US5] `scripts/lexicon-doc.ts` printing markdown grouped by slot (all fields, retired marked) and `lexicon:doc` in `package.json`; a unit test that every active term appears once in `tests/unit/f13-doc.test.ts`
+- [X] T035 [US5] `scripts/lexicon-doc.ts` printing markdown grouped by slot (all fields, retired marked) and `lexicon:doc` in `package.json`; a unit test that every active term appears once in `tests/unit/f13-doc.test.ts`
 
 ## Phase 8: Polish & cross-cutting
 
