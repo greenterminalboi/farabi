@@ -13,7 +13,6 @@ export function loadEnv(): void {
 // ── Which data a script works on (feature 11, contracts/cli.md) ─────────────────────────────────
 
 export type Target =
-  | { kind: "pg"; url: string }
   | { kind: "live"; dataDir: string; baseUrl: string; secret: string; pid: number }
   | { kind: "closed"; dataDir: string };
 
@@ -43,16 +42,14 @@ const defaultDeps = (): ResolveDeps => ({
 });
 
 /**
- * Resolution order: `--data-dir <path>` (a desktop data folder, even when DATABASE_URL is set),
- * then DATABASE_URL (Postgres, until cut-over), then FARABI_DATA_DIR or the platform default. A
- * data folder whose runtime.json names a live process is the running app (HTTP with its bearer
- * secret); otherwise the store is opened directly.
+ * The data folder is `--data-dir <path>`, else FARABI_DATA_DIR, else the installed app's (the
+ * platform default). If its runtime.json names a live process, that is the running app (HTTP with
+ * its bearer secret); otherwise the store is opened directly.
  */
 export function resolveTarget(deps: ResolveDeps = defaultDeps()): Target {
   const i = deps.argv.indexOf("--data-dir");
   const explicit = i >= 0 ? deps.argv[i + 1] : undefined;
   if (i >= 0 && !explicit) throw new Error("--data-dir needs a folder");
-  if (!explicit && deps.env.DATABASE_URL) return { kind: "pg", url: deps.env.DATABASE_URL };
   const dataDir = path.resolve(explicit || deps.env.FARABI_DATA_DIR || defaultDataDir(undefined, deps.env));
   const raw = deps.readFile(path.join(dataDir, "runtime.json"));
   if (raw) {
@@ -66,15 +63,6 @@ export function resolveTarget(deps: ResolveDeps = defaultDeps()): Target {
     }
   }
   return { kind: "closed", dataDir };
-}
-
-/** `--test` keeps targeting the test database; otherwise resolveTarget(). */
-export function scriptTarget(useTest: boolean): Target {
-  if (!useTest) return resolveTarget();
-  const url = process.env.TEST_DATABASE_URL;
-  if (!url) throw new Error("TEST_DATABASE_URL is not set");
-  process.env.DATABASE_URL = url;
-  return { kind: "pg", url };
 }
 
 /** Arguments without `--data-dir <path>`, for scripts that read positional arguments. */
@@ -95,14 +83,14 @@ export async function callLive(target: Extract<Target, { kind: "live" }>, method
 }
 
 /**
- * Points this process's `db` at the target and runs the matching branch. A closed desktop store is
+ * Points this process's `db` at the target and runs the matching branch. A closed store is
  * opened as the app would (FARABI_HOST=tauri: attachments in the data folder, no env settings),
  * under its lock. `refuseWhenLive` makes a running app exit 2 with that message. Returns the exit code.
  */
 export async function withTarget(opts: {
   refuseWhenLive?: string;
   live?: (target: Extract<Target, { kind: "live" }>) => Promise<number>;
-  store: (target: Exclude<Target, { kind: "live" }>) => Promise<number>;
+  store: (target: Extract<Target, { kind: "closed" }>) => Promise<number>;
   target?: Target;
 }): Promise<number> {
   const target = opts.target ?? resolveTarget();
@@ -113,19 +101,14 @@ export async function withTarget(opts: {
     }
     return opts.live(target);
   }
-  if (target.kind === "closed") {
-    delete process.env.DATABASE_URL;
-    process.env.FARABI_DATA_DIR = target.dataDir;
-    process.env.FARABI_HOST = "tauri";
-  }
+  process.env.FARABI_DATA_DIR = target.dataDir;
+  process.env.FARABI_HOST = "tauri";
   const { closeDb } = await import("../src/server/db/client");
   const { StoreLockedError } = await import("../src/server/db/storeLock");
   try {
-    if (target.kind === "closed") {
-      const { loadConfig } = await import("../src/server/settings/config");
-      // A store that was never opened has no settings table yet; the defaults apply.
-      await loadConfig().catch(() => undefined);
-    }
+    const { loadConfig } = await import("../src/server/settings/config");
+    // A store that was never opened has no settings table yet; the defaults apply.
+    await loadConfig().catch(() => undefined);
     return await opts.store(target);
   } catch (err) {
     if (err instanceof StoreLockedError) {

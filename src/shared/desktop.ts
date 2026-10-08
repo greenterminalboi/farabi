@@ -75,7 +75,8 @@ export const ImportRefusal = z.enum(["destination_not_empty", "already_imported"
 export type ImportRefusal = z.infer<typeof ImportRefusal>;
 export const ImportCounts = z.record(z.string(), z.number());
 export const ImportCheckResponse = z.union([
-  z.object({ ready: z.literal(true), counts: ImportCounts }),
+  // upgradeFrom: the source's schema level when it is older; its data is upgraded during the import.
+  z.object({ ready: z.literal(true), counts: ImportCounts, upgradeFrom: z.string().optional() }),
   z.object({ ready: z.literal(false), reason: ImportRefusal, detail: z.string() }),
 ]);
 export type ImportCheckResponse = z.infer<typeof ImportCheckResponse>;

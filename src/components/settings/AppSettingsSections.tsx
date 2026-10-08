@@ -19,7 +19,7 @@ const REFUSALS: Record<string, string> = {
   destination_not_empty: "This Farabi already has projects or feedback, so nothing can be imported into it.",
   already_imported: "That database was already imported.",
   source_unreachable: "Farabi couldn't connect to that database. Is the web app's Postgres running?",
-  schema_behind: "That database is older than this Farabi. Run its migrations first (npm run db:migrate).",
+  schema_behind: "That doesn't look like a Farabi database.",
   schema_ahead: "That database is newer than this Farabi. Update Farabi first.",
 };
 
@@ -433,7 +433,12 @@ function ImportSection({ onImported }: { onImported: () => void }) {
           {busy === "import" ? "Importing… keep Farabi open" : "Import"}
         </button>
       </div>
-      {check?.ready && <p className="settings-status">Ready: {total(check.counts).toLocaleString()} rows to copy.</p>}
+      {check?.ready && (
+        <p className="settings-status">
+          Ready: {total(check.counts).toLocaleString()} rows to copy.
+          {check.upgradeFrom && ` It's from an older Farabi (${check.upgradeFrom}); the copy is updated on the way in, and the web app's database isn't changed.`}
+        </p>
+      )}
       {check && !check.ready && <p className="composer-error">{REFUSALS[check.reason] ?? check.detail}</p>}
       {result && (
         <p className="settings-status" role="status">

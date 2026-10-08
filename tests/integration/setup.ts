@@ -7,14 +7,8 @@ import { afterAll, beforeAll, beforeEach } from "vitest";
 import { loadEnv } from "../../scripts/env";
 
 loadEnv();
-// STORE=pglite runs the suite on an in-memory PGlite per test file, with no Postgres needed;
-// STORE=pg (the default until cut-over) uses TEST_DATABASE_URL (feature 11, gate G3).
-if (process.env.STORE === "pglite") {
-  delete process.env.DATABASE_URL;
-  process.env.FARABI_DATA_DIR = "memory://";
-} else {
-  process.env.DATABASE_URL = process.env.TEST_DATABASE_URL;
-}
+// Each test file gets its own in-memory PGlite store (feature 11).
+process.env.FARABI_DATA_DIR = "memory://";
 process.env.AI_PROVIDER = "fake";
 // Feedback files go to a throwaway folder, never the real feedback/ (research R11).
 process.env.FEEDBACK_DIR = mkdtempSync(path.join(os.tmpdir(), "farabi-feedback-"));

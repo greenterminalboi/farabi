@@ -1,7 +1,6 @@
-# Feature 11 (T076): the desktop app's checks. GitHub's macOS and Windows runners can't run service
-# containers, so the Postgres suite and the e2e run (which resets data through Postgres) are on
-# Ubuntu; macOS and Windows run the PGlite suite and build the installers. GPU frame timing is
-# manual (T044), and the native WebdriverIO smoke tests (T032/T040/T071) aren't written yet.
+# Feature 11 (T076): the desktop app's checks. Everything runs on PGlite inside the app, so no
+# database service is needed. GPU frame timing is manual (gates.md, G1), and native WebdriverIO
+# smoke tests (T032/T040/T071) aren't written yet.
 name: desktop
 
 on:
@@ -10,22 +9,9 @@ on:
   pull_request:
   workflow_dispatch:
 
-env:
-  TEST_DATABASE_URL: postgres://farabi:farabi@127.0.0.1:5432/farabi_test
-
 jobs:
-  postgres-and-e2e:
-    runs-on: ubuntu-latest
-    services:
-      db:
-        image: pgvector/pgvector:pg17
-        env:
-          POSTGRES_USER: farabi
-          POSTGRES_PASSWORD: farabi
-          POSTGRES_DB: farabi_test
-        ports: ["5432:5432"]
-        options: >-
-          --health-cmd "pg_isready -U farabi" --health-interval 5s --health-timeout 5s --health-retries 10
+  test:
+    runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -33,10 +19,10 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npm run typecheck
-      - run: npm run test:pg
-      - run: npx playwright install --with-deps webkit
-      # The packaged standalone server, in WebKit, with the desktop content security policy.
-      - run: npm run test:e2e:desktop
+      - run: npm test
+      - run: npx playwright install webkit chromium
+      # The packaged server in desktop mode, WebKit (macOS) and Chromium (Windows' WebView2).
+      - run: npm run test:e2e
       - uses: actions/upload-artifact@v4
         if: failure()
         with: { name: playwright-traces, path: test-results/ }
@@ -55,7 +41,6 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with: { workspaces: src-tauri }
       - run: npm ci
-      - run: npm run test:pglite
       - run: cargo test --manifest-path src-tauri/Cargo.toml
       # Fetches Node, builds the standalone server, refuses stray traced files, bundles, and fails
       # if an installer is 100 MB or more (SC-002).

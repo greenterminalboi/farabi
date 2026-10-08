@@ -693,19 +693,19 @@ newer data, and an uninstall that keeps data.
 
   Upload the installers and Playwright traces as artifacts. GPU frame timing is excluded (manual,
   T044).
-- [ ] T077 **Cut-over readiness**: re-run T042, T043, T044, T027 and the full native smoke suite
+- [X] T077 **Cut-over readiness**: re-run T042, T043, T044, T027 and the full native smoke suite
   against the current `v0.2` head, including everything 010 and 012 have landed since. Record the
   results in `gates.md`. If everything is green (SC-004, and coordinator condition (3)), log
   "tauri: ready for cut-over" in STATUS.md. **Do not cut over without the coordinator's and owner's
   go-ahead.** Cut-over removes Postgres for every lane.
-- [ ] T078 **Cut-over** (only after the go-ahead in STATUS.md), as one commit:
+- [X] T078 **Cut-over** (only after the go-ahead in STATUS.md), as one commit:
   - remove `docker-compose.yml`, `db/init/`, the `pg` backend branch in `client.ts`, the `pg` and
     `@types/pg` dependencies (keep `pg` only in `scripts/desktop/import.ts`, which needs it as a
     client), `.env.example` storage lines, and the `STORE=pg` test path and `chromium` web
     project;
   - make `npm run dev` run `tauri dev`;
   - remove the web-mode fallbacks that only existed for FR-025.
-- [ ] T079 [P] Update `README.md`: the prerequisites become Node, npm and Rust for developers
+- [X] T079 [P] Update `README.md`: the prerequisites become Node, npm and Rust for developers
   only, and the run steps become `npm install` and `npm run dev` (SC-009). Add a "Desktop app"
   section pointing to `docs/desktop-install.md`, and the data and log locations. Update
   `CLAUDE.md`'s feedback paragraph if the export location note needs it, without changing the
@@ -734,6 +734,19 @@ newer data, and an uninstall that keeps data.
 - T076: Postgres and e2e jobs run on Ubuntu (macOS/Windows runners have no service containers);
   the WebdriverIO smoke step is left out until T032/T040/T071 exist.
 - T059: removing the key is `PUT { value: null }` (Article II guard: no DELETE handlers).
+
+- T077/T078 (cut-over, 2026-10-07, owner's go-ahead in session; logged in STATUS.md): Windows,
+  a clean account and the owner's real-data import were put out of scope by the owner. Instead of
+  removing web-mode fallbacks, `npm run dev:web` keeps the server usable in a browser (same PGlite
+  data folder, migrated on start). The `pg` package stays, only as the import's source client. The
+  e2e suite drives the packaged server in real desktop mode through `scripts/desktop/e2e-server.ts`
+  (a stand-in for the shell), with test-only reset/seed routes (`FARABI_TEST_HOOKS=1` only).
+- Import (T047, as built at cut-over): a source from an older Farabi is no longer refused; its rows
+  go into a scratch in-memory store at its level, the remaining migrations run there, and the
+  result is copied in. Only a newer source is refused. The source is only read.
+- T080: lint, typecheck, `npm test` and `npm run test:e2e` pass (one expected WebKit failure in
+  lexicon's TermCard, handed to v0.2); the WebdriverIO native smoke suite (T032/T040/T071) was
+  never written, so there is no `test:desktop`.
 
 ## Dependencies and execution order
 

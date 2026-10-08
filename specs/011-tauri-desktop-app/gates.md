@@ -152,3 +152,13 @@ seed in `.farabi-dev`.
 
 Streaming (production): token by token; Stop after 3 deltas kept the partial reply
 (status `stopped`, 52 chars). **G1 passes on macOS.** Windows (T022) is out of scope for now (owner, 2026-10-07).
+
+## Cut-over (T077, T078), 2026-10-07, macOS arm64
+
+| Check | Result |
+|---|---|
+| `npm test` (unit, integration on in-memory PGlite, on-disk store tests) | 423 passed, 5 skipped; 1 failure: f10-layout timing (2.06 s vs 1 s under load average ~7; v0.2's test, no layout change here) |
+| Import round trip (`IMPORT_SOURCE_URL` scratch Postgres) incl. a source one migration behind, upgraded on the way in | 5/5 |
+| `npm run test:e2e`: packaged server in desktop mode, WebKit + Chromium | 115/116; the one failure is WebKit-only in lexicon's TermCard (handed to v0.2, marked test.fail) |
+| Installer | `Farabi_0.2.0_aarch64.dmg` 61.4 MB |
+| Launch with no system Node | cold 3.79 s, warm 1.06 / 0.84 s, quit ≤ 0.96 s, no orphans |
