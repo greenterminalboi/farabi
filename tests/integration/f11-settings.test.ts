@@ -48,6 +48,8 @@ describe("Feature 11 · US4 app settings", () => {
   });
 
   it("appends a user-authored row per change, and none for an unchanged value", async () => {
+    // "Unchanged" compares with the value in effect, so a developer's SUMMARY_TRIGGER=map would hide the first row.
+    vi.stubEnv("SUMMARY_TRIGGER", "");
     await put("summary_trigger", "map");
     await put("summary_trigger", "map");
     await put("summary_trigger", "reply");
