@@ -1,5 +1,6 @@
 // From canvas data to what the two layers draw: the renderer's frames and connectors, and the text
 // layer's items (with their frame labels and buttons). Pure, so the host only orchestrates.
+import { findTerm, SLOT_LABEL } from "@/shared/lexicon";
 import { modelLabel } from "@/shared/models";
 import { bandOf } from "@/shared/pressure";
 import type { EdgeState, Element } from "@/shared/schemas";
@@ -70,7 +71,9 @@ export function chromeOf(el: Element, state: EdgeState | null, attempt: { n: num
     case "question": {
       const label = `Your message${state && state !== "answered" ? `, ${state}` : ""}`;
       if (el.text === null) return { label, placeholder: "Unsent: ask about the highlighted text below" };
-      return { label };
+      // Feature 13: the lexicon terms the message was sent with, as a row of chips.
+      const footer = lexiconChips(el.lexicon);
+      return footer.length ? { label, footer } : { label };
     }
     case "answer": {
       const header: ChromePart[] = [{ text: "AI", className: "ai-tag" }];
@@ -136,6 +139,17 @@ export function chromeOf(el: Element, state: EdgeState | null, attempt: { n: num
         ],
       };
   }
+}
+
+/** Chips for a sent message's lexicon terms, each with the version it recorded (FR-016). */
+export function lexiconChips(uses: Element["lexicon"]): ChromePart[] {
+  return (uses ?? []).map((u) => {
+    const term = findTerm(u.id);
+    if (!term) return { text: u.id, className: "lexicon-chip", title: `${u.id} · v${u.v} (no longer in the lexicon)` };
+    const head = `${term.name} · ${SLOT_LABEL[term.slot]} · v${u.v}${term.retired ? " · retired" : ""}`;
+    const sent = term.version === u.v ? `Sent to the model: ${term.instruction}` : `The instruction has changed since (now v${term.version}).`;
+    return { text: term.name, className: `lexicon-chip slot-${term.slot}`, testid: `edge-term-${term.id}`, title: `${head}\n${sent}` };
+  });
 }
 
 const versions = new Map<string, { key: string; version: number }>();

@@ -109,6 +109,31 @@ then look values up safely, then iterate, then merge…).
 Everything is kept: attempts are never edited, and levels, verdicts and overrides are history. Drill
 specs are in `specs/012-drill-kaizen/`.
 
+## Lexicon
+
+A lexicon of about 70 prompting terms (Distill, Table, Skeptic, Must, Show your work…) that you
+attach to a message to shape its reply.
+
+- **Add terms**: the tag button in the composer opens the picker. Type a few letters and press Enter;
+  each term becomes a chip above the box. Terms are only ever added this way, never picked up from
+  what you type, and your message is sent exactly as written.
+- **See what a term does**: hover or focus a chip (or a picker entry). The card shows its meaning,
+  an example, its neighbours (click one to swap) and the exact instruction sent to the model, with
+  its version.
+- **Rules**: one term each for operation, scope, format, tone and audience; strength and quality
+  words combine. Some pairs conflict (Distill and Comprehensive, Verbatim and Simplify). Six terms at
+  most. A term that would break a rule is listed as unavailable, with the reason.
+- **On the canvas**: a sent message shows its terms as chips; hover one for the version it was sent
+  with. Only the answered message's terms are sent, in a separate block after the reply's other
+  instructions; retries resend them.
+- **Methods**: Premortem, Steelman (steelman, critique, synthesize) and SCQA are in an answer's ƒ
+  menu, next to Analogy. Their outputs are AI suggestions you confirm or reject.
+
+The terms are data in `src/shared/lexicon/data/` (one file per slot). To change an instruction, bump
+the term's `version` and run `npm run lexicon:lock`; a test fails otherwise. Terms are retired,
+never deleted. `npm run lexicon:doc` prints the lexicon as a document for the Claude Doc view.
+Specs are in `specs/013-lexicon/`.
+
 ## Projects
 
 Each project is its own canvas, with its own trees and definitions. Use the 🗂 menu at the

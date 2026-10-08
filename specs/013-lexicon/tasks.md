@@ -51,10 +51,10 @@ and e2e tests are included.
 - [X] T022 [US1] Add optional `ReplyInput.lexicon` in `src/server/ai/provider.ts`; `buildReplyInput` reads the answer's uses into it in `src/server/graph/context.ts`; `buildReplyRequest` appends `lexiconBlock` as the last system block in `src/server/ai/claudePrompts.ts`
 - [X] T023 [P] [US1] Unit test: `buildReplyRequest` without lexicon is byte-identical to before; with lexicon the block is last and the messages are unchanged; headless form contains it, in `tests/unit/f13-prompt.test.ts`
 - [X] T024 [P] [US1] Integration tests (start/ask/send with terms, verbatim text, edge + answer uses, fake ReplyInput.lexicon, retry/regenerate records current versions, quick-branch copies uses, 400 on invalid selections with nothing stored, no terms → no property) in `tests/integration/f13-lexicon.test.ts`
-- [ ] T025 [US1] Client: `draftTerms` per target persisted with drafts, `setDraftTerms`, in `src/canvas/store.ts`; optional `terms` on `api.startTree/ask/sendUnsent` in `src/lib/api.ts`
-- [ ] T026 [US1] Picker: searchable, grouped listbox, keyboard (arrows, Enter, Escape), unavailable entries with reasons, in `src/canvas/overlays/lexicon/TermPicker.tsx`
-- [ ] T027 [US1] Chip row with remove buttons in `src/canvas/overlays/lexicon/TermChips.tsx`; wire chips + "Terms" button into `src/canvas/overlays/Composer.tsx` (send passes ids; chips clear with the draft)
-- [ ] T028 [US1] Canvas: a footer row of `.lexicon-chip` parts on sent question bubbles with uses (tooltip with slot, version, instruction) in `src/canvas/scene.ts`; bubble height accounts for it in `src/canvas/geometry.ts`; styles appended to `src/app/globals.css`
+- [X] T025 [US1] Client: `draftTerms` per target persisted with drafts, `setDraftTerms`, in `src/canvas/store.ts`; optional `terms` on `api.startTree/ask/sendUnsent` in `src/lib/api.ts`
+- [X] T026 [US1] Picker: searchable, grouped listbox, keyboard (arrows, Enter, Escape), unavailable entries with reasons, in `src/canvas/overlays/lexicon/TermPicker.tsx`
+- [X] T027 [US1] Chip row with remove buttons in `src/canvas/overlays/lexicon/TermChips.tsx`; wire chips + "Terms" button into `src/canvas/overlays/Composer.tsx` (send passes ids; chips clear with the draft)
+- [X] T028 [US1] Canvas: a footer row of `.lexicon-chip` parts on sent question bubbles with uses (tooltip with slot, version, instruction) in `src/canvas/scene.ts`; bubble height accounts for it in `src/canvas/geometry.ts`; styles appended to `src/app/globals.css`
 
 **Checkpoint**: MVP: terms work end to end.
 
@@ -64,8 +64,8 @@ and e2e tests are included.
 
 **Independent test**: hover a chip; the card's instruction equals the term's instruction in the block.
 
-- [ ] T029 [US2] Card (role="tooltip", ~300 ms hover delay, stays while hovered, Escape closes, opens on focus) with neighbour swap buttons and their unavailable reasons in `src/canvas/overlays/lexicon/TermCard.tsx`
-- [ ] T030 [US2] Show the card from chips (with Swap/Remove) and from picker options (read-only) in `src/canvas/overlays/lexicon/TermChips.tsx` and `src/canvas/overlays/lexicon/TermPicker.tsx`
+- [X] T029 [US2] Card (role="tooltip", ~300 ms hover delay, stays while hovered, Escape closes, opens on focus) with neighbour swap buttons and their unavailable reasons in `src/canvas/overlays/lexicon/TermCard.tsx`
+- [X] T030 [US2] Show the card from chips (with Swap/Remove) and from picker options (read-only) in `src/canvas/overlays/lexicon/TermChips.tsx` and `src/canvas/overlays/lexicon/TermPicker.tsx`
 
 ## Phase 5: User Story 3 - Slot rule and conflicts (P2)
 
@@ -73,7 +73,7 @@ and e2e tests are included.
 
 **Independent test**: Concise then Comprehensive → unavailable; six chips → all unavailable; direct API call → 400.
 
-- [ ] T031 [US3] Six-term notice and disabled state in the picker; swap respects `unavailableReason` in `src/canvas/overlays/lexicon/TermPicker.tsx` (server half covered by T018/T024)
+- [X] T031 [US3] Six-term notice and disabled state in the picker; swap respects `unavailableReason` in `src/canvas/overlays/lexicon/TermPicker.tsx` (server half covered by T018/T024)
 
 ## Phase 6: User Story 4 - Run a method on an answer (P2)
 
@@ -91,8 +91,8 @@ and e2e tests are included.
 
 ## Phase 8: Polish & cross-cutting
 
-- [ ] T036 E2E on port 3113 with the lane DB: add a chip by keyboard, see the card's sent text, blocked conflict, send → bubble shows the chip and stored text is unchanged, run Premortem, in `tests/e2e/f13-lexicon.spec.ts`
-- [ ] T037 [P] README: a short "Lexicon" section (chips, adding a term, lock, doc export) in `README.md`
+- [X] T036 E2E on port 3113 with the lane DB: add a chip by keyboard, see the card's sent text, blocked conflict, send → bubble shows the chip and stored text is unchanged, run Premortem, in `tests/e2e/f13-lexicon.spec.ts`
+- [X] T037 [P] README: a short "Lexicon" section (chips, adding a term, lock, doc export) in `README.md`
 - [ ] T038 Full `npx vitest run`, `npx tsc --noEmit`, `npx eslint .`, Playwright on port 3113; commit in logical chunks
 - [ ] T039 Hand-off line in `/Users/halda/Projects/farabi-coord/STATUS.md` (commits, test counts, shared-file edits, owner questions)
 

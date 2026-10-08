@@ -565,3 +565,67 @@ body { display: flex; flex-direction: column; }
   position: absolute; top: 12px; left: 50%; transform: translateX(-50%); z-index: 30; display: flex; align-items: center; gap: 10px;
   background: var(--surface); border: 1px solid var(--accent); border-radius: 10px; padding: 8px 12px; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
 }
+
+/* Feature 13: the lexicon. Chips in the composer and on sent messages, the picker and the card. */
+.lexicon-chips { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 8px 6px; }
+.lexicon-chip {
+  display: inline-flex; align-items: center; gap: 2px; padding: 1px 4px 1px 9px; border-radius: 11px;
+  font-size: 12px; line-height: 18px; background: var(--accent-soft); color: var(--accent);
+  border: 1px solid transparent; white-space: nowrap; cursor: help;
+}
+.lexicon-chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.lexicon-chip.slot-strength, .lexicon-chip.slot-quality { background: transparent; border-color: var(--accent); }
+.lexicon-chip-remove {
+  font: inherit; font-size: 14px; line-height: 1; border: 0; background: transparent; color: inherit;
+  width: 18px; height: 18px; border-radius: 50%; cursor: pointer; padding: 0;
+}
+.lexicon-chip-remove:hover, .lexicon-chip-remove:focus-visible { background: rgba(127, 127, 127, 0.2); outline: none; }
+.composer-terms { background: transparent; color: var(--muted); }
+.composer-terms:hover, .composer-terms.active { color: var(--accent); background: var(--accent-soft); }
+
+.lexicon-picker {
+  position: absolute; left: 0; right: 0; z-index: 30; display: flex; flex-direction: column;
+  max-height: 340px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+  box-shadow: 0 8px 26px rgba(0, 0, 0, 0.16); overflow: hidden;
+}
+.lexicon-picker.placement-above { bottom: calc(100% + 8px); }
+.lexicon-picker.placement-below { top: calc(100% + 8px); }
+.lexicon-search {
+  font: inherit; font-size: 0.95em; padding: 10px 12px; border: 0; border-bottom: 1px solid var(--border);
+  background: transparent; color: var(--text); outline: none;
+}
+.lexicon-limit { margin: 0; padding: 6px 12px; font-size: 12px; color: var(--danger); }
+.lexicon-options { list-style: none; margin: 0; padding: 4px 0; overflow-y: auto; }
+.lexicon-group { padding: 8px 12px 2px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
+.lexicon-option { display: flex; gap: 10px; align-items: baseline; padding: 5px 12px; cursor: pointer; }
+.lexicon-option.active { background: var(--accent-soft); }
+.lexicon-option.unavailable { cursor: default; }
+.lexicon-option.unavailable .lexicon-option-name { color: var(--muted); }
+.lexicon-option-name { flex: none; font-weight: 500; }
+.lexicon-option-meta { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lexicon-option.unavailable .lexicon-option-meta { font-style: italic; }
+.lexicon-empty { padding: 8px 12px; color: var(--muted); }
+
+.lexicon-card { z-index: 45; }
+.lexicon-card p { margin: 4px 0; }
+.lexicon-card-head { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+.lexicon-role { font-size: 11px; color: var(--accent); }
+.lexicon-retired { font-size: 11px; color: var(--danger); }
+.lexicon-meaning { font-weight: 500; }
+.lexicon-example { color: var(--muted); font-style: italic; }
+.lexicon-label { display: block; font-size: 11px; color: var(--muted); margin-top: 6px; }
+.lexicon-neighbours { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.lexicon-neighbours .lexicon-label { width: 100%; }
+.lexicon-neighbour {
+  font: inherit; font-size: 12px; padding: 1px 8px; border-radius: 10px; border: 1px solid var(--border);
+  background: var(--surface); color: var(--text);
+}
+button.lexicon-neighbour:not(:disabled) { cursor: pointer; }
+button.lexicon-neighbour:not(:disabled):hover { border-color: var(--accent); color: var(--accent); }
+button.lexicon-neighbour:disabled { color: var(--muted); }
+.lexicon-sent p { font-size: 12.5px; padding: 6px 8px; border-left: 2px solid var(--accent); background: var(--accent-soft); border-radius: 4px; }
+
+/* On the canvas: a sent message's terms sit in a footer row inside its bubble (sizes in geometry.ts). */
+.element-text.question.with-footer { padding-bottom: calc(26px + 11px); }
+.element-text.question .element-footer { height: 26px; border-top: 0; color: var(--muted); gap: 4px; padding: 0 12px 4px; }
+.element-text.question .element-footer .lexicon-chip { padding: 0 8px; font-size: 11px; line-height: 16px; border-color: var(--accent); background: var(--surface); }
